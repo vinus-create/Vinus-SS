@@ -3,7 +3,7 @@
 // Must be on any shopee.com.my tab when running
 // ============================================================
 
-const VERCEL_URL = 'https://YOUR-PROJECT.vercel.app'; // ← change this
+const VERCEL_URL = 'https://vinus-ss.vercel.app'; // ← change this
 const SHOP_USERNAMES = [
   'competitor_shop_1.my',   // ← add your competitor usernames
   'competitor_shop_2.my',
