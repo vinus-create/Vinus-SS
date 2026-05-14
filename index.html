@@ -7,27 +7,9 @@
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
 <style>
-:root {
-  --bg:#f5f6fa;--surface:#ffffff;--surface2:#f0f1f6;
-  --border:#e2e4ec;--border2:#d0d3de;
-  --text:#1a1d2e;--text2:#3d4166;--muted:#7b7f9e;--muted2:#a0a4be;
-  --orange:#f97316;--orange-l:#fff4ed;--orange-b:#fed7aa;
-  --green:#10b981;--green-l:#ecfdf5;--green-b:#a7f3d0;
-  --blue:#3b82f6;--blue-l:#eff6ff;--blue-b:#bfdbfe;
-  --purple:#8b5cf6;--purple-l:#f5f3ff;--purple-b:#ddd6fe;
-  --red:#ef4444;--red-l:#fef2f2;--red-b:#fecaca;
-  --yellow:#f59e0b;--yellow-l:#fffbeb;--yellow-b:#fde68a;
-  --radius:10px;
-  --shadow:0 1px 3px rgba(0,0,0,.08),0 1px 2px rgba(0,0,0,.05);
-  --shadow2:0 4px 14px rgba(0,0,0,.1);
-}
-*{box-sizing:border-box;margin:0;padding:0}
-html{scroll-behavior:smooth}
-body{background:var(--bg);color:var(--text);font-family:'Inter',sans-serif;min-height:100vh;font-size:14px;line-height:1.5}
-::-webkit-scrollbar{width:5px;height:5px}
-::-webkit-scrollbar-track{background:var(--bg)}
-::-webkit-scrollbar-thumb{background:var(--border2);border-radius:3px}
-
+:root{--bg:#f5f6fa;--surface:#fff;--surface2:#f0f1f6;--border:#e2e4ec;--border2:#d0d3de;--text:#1a1d2e;--text2:#3d4166;--muted:#7b7f9e;--muted2:#a0a4be;--orange:#f97316;--orange-l:#fff4ed;--orange-b:#fed7aa;--green:#10b981;--green-l:#ecfdf5;--green-b:#a7f3d0;--blue:#3b82f6;--blue-l:#eff6ff;--blue-b:#bfdbfe;--purple:#8b5cf6;--purple-l:#f5f3ff;--purple-b:#ddd6fe;--red:#ef4444;--red-l:#fef2f2;--red-b:#fecaca;--yellow:#f59e0b;--yellow-l:#fffbeb;--yellow-b:#fde68a;--radius:10px;--shadow:0 1px 3px rgba(0,0,0,.08),0 1px 2px rgba(0,0,0,.05);--shadow2:0 4px 14px rgba(0,0,0,.1)}
+*{box-sizing:border-box;margin:0;padding:0}body{background:var(--bg);color:var(--text);font-family:'Inter',sans-serif;min-height:100vh;font-size:14px;line-height:1.5}
+::-webkit-scrollbar{width:5px;height:5px}::-webkit-scrollbar-track{background:var(--bg)}::-webkit-scrollbar-thumb{background:var(--border2);border-radius:3px}
 .hdr{position:sticky;top:0;z-index:200;background:var(--surface);border-bottom:1px solid var(--border);padding:0 24px;height:58px;display:flex;align-items:center;justify-content:space-between;box-shadow:var(--shadow)}
 .logo{font-size:17px;font-weight:800;color:var(--text);letter-spacing:-.4px;display:flex;align-items:center;gap:9px}
 .logo-icon{width:30px;height:30px;background:var(--orange);border-radius:8px;display:flex;align-items:center;justify-content:center;color:#fff;font-size:15px}
@@ -35,31 +17,23 @@ body{background:var(--bg);color:var(--text);font-family:'Inter',sans-serif;min-h
 .live-badge{display:flex;align-items:center;gap:5px;background:var(--green-l);color:var(--green);border:1px solid var(--green-b);padding:4px 10px;border-radius:20px;font-size:11px;font-weight:600}
 .live-dot{width:6px;height:6px;border-radius:50%;background:var(--green);animation:blink 2s infinite}
 @keyframes blink{0%,100%{opacity:1}50%{opacity:.3}}
-
 .toolbar{background:var(--surface);border-bottom:1px solid var(--border);padding:12px 24px;display:flex;gap:10px;flex-wrap:wrap;align-items:center}
 .shop-select{background:var(--surface);border:1.5px solid var(--border2);color:var(--text);padding:8px 12px;border-radius:8px;font-family:'Inter',sans-serif;font-size:13px;font-weight:500;outline:none;cursor:pointer;transition:.2s;min-width:200px}
 .shop-select:focus{border-color:var(--orange);box-shadow:0 0 0 3px rgba(249,115,22,.1)}
 .btn{padding:8px 16px;border:none;border-radius:8px;font-family:'Inter',sans-serif;font-weight:600;font-size:13px;cursor:pointer;transition:all .15s;white-space:nowrap}
-.btn-primary{background:var(--orange);color:#fff;box-shadow:0 1px 3px rgba(249,115,22,.3)}
-.btn-primary:hover{background:#ea6c0a;transform:translateY(-1px)}
-.btn-ghost{background:var(--surface);border:1.5px solid var(--border2);color:var(--text2)}
-.btn-ghost:hover{border-color:var(--orange);color:var(--orange)}
+.btn-primary{background:var(--orange);color:#fff;box-shadow:0 1px 3px rgba(249,115,22,.3)}.btn-primary:hover{background:#ea6c0a;transform:translateY(-1px)}
+.btn-ghost{background:var(--surface);border:1.5px solid var(--border2);color:var(--text2)}.btn-ghost:hover{border-color:var(--orange);color:var(--orange)}
 .tb-status{font-family:'DM Mono',monospace;font-size:11px;color:var(--muted);background:var(--blue-l);padding:6px 12px;border-radius:6px;border-left:3px solid var(--blue);flex:1;min-width:200px;max-width:440px}
-
 .tabs{background:var(--surface);border-bottom:1px solid var(--border);padding:0 24px;display:flex;overflow-x:auto;scrollbar-width:none}
 .tabs::-webkit-scrollbar{display:none}
 .tab{padding:14px 16px;font-size:13px;font-weight:600;color:var(--muted);cursor:pointer;border-bottom:2.5px solid transparent;white-space:nowrap;transition:.2s;user-select:none}
-.tab:hover{color:var(--text2)}
-.tab.on{color:var(--orange);border-bottom-color:var(--orange)}
-
+.tab:hover{color:var(--text2)}.tab.on{color:var(--orange);border-bottom-color:var(--orange)}
 .wrap{padding:22px 24px;max-width:1400px;margin:0 auto}
 .sec{display:none}.sec.on{display:block}
-
 .prog-bar{height:3px;background:var(--border);border-radius:2px;overflow:hidden;margin-bottom:18px;display:none}
 .prog-bar.show{display:block}
 .prog-fill{height:100%;background:linear-gradient(90deg,var(--orange),var(--yellow),var(--green));background-size:200%;animation:shimmer 1.5s infinite;transition:width .3s}
 @keyframes shimmer{0%{background-position:100%}100%{background-position:-100%}}
-
 .kpi-row{display:grid;grid-template-columns:repeat(auto-fit,minmax(155px,1fr));gap:14px;margin-bottom:22px}
 .kpi{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:18px;box-shadow:var(--shadow);transition:.2s;position:relative;overflow:hidden}
 .kpi:hover{transform:translateY(-2px);box-shadow:var(--shadow2)}
@@ -68,29 +42,21 @@ body{background:var(--bg);color:var(--text);font-family:'Inter',sans-serif;min-h
 .kpi-val{font-size:24px;font-weight:800;color:var(--text);line-height:1.1}
 .kpi-sub{font-size:11px;color:var(--muted);margin-top:4px}
 .kpi-bar{position:absolute;bottom:0;left:0;height:3px}
-
 .g2{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px}
 .g3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px;margin-bottom:16px}
-
 .card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);overflow:hidden;margin-bottom:16px;box-shadow:var(--shadow)}
 .card-hdr{padding:14px 18px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px}
-.card-title{font-size:13px;font-weight:700;color:var(--text)}
-.card-sub{font-size:11px;color:var(--muted);margin-top:2px}
-.card-body{padding:18px}
-.chart-box{position:relative;height:210px}
-.chart-box.tall{height:260px}
-
+.card-title{font-size:13px;font-weight:700;color:var(--text)}.card-sub{font-size:11px;color:var(--muted);margin-top:2px}
+.card-body{padding:18px}.chart-box{position:relative;height:210px}.chart-box.tall{height:260px}
 .tbl-wrap{overflow-x:auto}
 table{width:100%;border-collapse:collapse}
 th{text-align:left;padding:10px 16px;font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;background:var(--surface2);border-bottom:1px solid var(--border);cursor:pointer;user-select:none;white-space:nowrap}
 th:hover{color:var(--text2)}
 td{padding:11px 16px;font-size:13px;border-bottom:1px solid var(--border);vertical-align:middle;color:var(--text)}
-tr:last-child td{border-bottom:none}
-tr:hover td{background:#fafbff}
+tr:last-child td{border-bottom:none}tr:hover td{background:#fafbff}
 .sort-btns{display:flex;gap:6px;flex-wrap:wrap}
 .sort-btn{padding:4px 12px;background:var(--surface2);border:1.5px solid var(--border);border-radius:20px;font-size:11px;font-weight:600;color:var(--muted);cursor:pointer;transition:.15s}
 .sort-btn.on,.sort-btn:hover{border-color:var(--orange);color:var(--orange);background:var(--orange-l)}
-
 .rank{display:inline-flex;align-items:center;justify-content:center;width:24px;height:24px;border-radius:50%;font-size:11px;font-weight:700;background:var(--surface2);color:var(--muted)}
 .rank.g{background:var(--yellow-l);color:#b45309;border:1px solid var(--yellow-b)}
 .rank.s{background:#f1f5f9;color:#64748b;border:1px solid #cbd5e1}
@@ -102,27 +68,22 @@ tr:hover td{background:#fafbff}
 .stars{color:var(--yellow);font-size:12px;letter-spacing:-1px}
 .stock-mini{width:52px;height:4px;background:var(--border);border-radius:2px;overflow:hidden;margin-top:4px}
 .stock-fill{height:100%;border-radius:2px}
-
 .kwcloud{display:flex;flex-wrap:wrap;gap:8px;padding:4px 0}
 .kw{padding:5px 13px;border-radius:20px;font-size:12px;font-weight:600;cursor:default;transition:transform .15s}
 .kw:hover{transform:scale(1.05)}
 .kw.h{background:var(--orange-l);color:var(--orange);border:1.5px solid var(--orange-b)}
 .kw.m{background:var(--green-l);color:var(--green);border:1.5px solid var(--green-b)}
 .kw.l{background:var(--purple-l);color:var(--purple);border:1.5px solid var(--purple-b)}
-
 .ilist{list-style:none}
 .iitem{display:flex;gap:12px;padding:12px 0;border-bottom:1px solid var(--border);align-items:flex-start}
 .iitem:last-child{border-bottom:none}
-.iico{font-size:16px;flex-shrink:0;margin-top:1px}
-.itxt{color:var(--text);font-weight:600;font-size:13px;line-height:1.4}
+.iico{font-size:16px;flex-shrink:0;margin-top:1px}.itxt{color:var(--text);font-weight:600;font-size:13px;line-height:1.4}
 .isub{font-size:11px;color:var(--muted);margin-top:3px;font-family:'DM Mono',monospace}
-
 .pbucket{display:flex;align-items:center;gap:10px;margin-bottom:6px}
 .pb-lbl{font-family:'DM Mono',monospace;font-size:11px;min-width:80px;color:var(--text2);font-weight:500}
 .pb-track{flex:1;height:6px;background:var(--surface2);border-radius:3px;overflow:hidden;border:1px solid var(--border)}
 .pb-fill{height:100%;border-radius:3px;transition:width .6s}
 .pb-num{font-family:'DM Mono',monospace;font-size:11px;color:var(--muted);min-width:24px;text-align:right}
-
 .comp-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:14px;margin-bottom:16px}
 .comp-card{background:var(--surface);border:1.5px solid var(--border);border-radius:var(--radius);padding:18px;cursor:pointer;transition:.2s;box-shadow:var(--shadow)}
 .comp-card:hover{border-color:var(--orange);box-shadow:var(--shadow2);transform:translateY(-2px)}
@@ -132,40 +93,57 @@ tr:hover td{background:#fafbff}
 .cstat{display:flex;justify-content:space-between;font-size:12px;margin-bottom:6px}
 .csl{color:var(--muted)}.csv{font-weight:700;color:var(--text)}
 .rpill{display:inline-flex;align-items:center;gap:4px;padding:3px 9px;background:var(--yellow-l);border:1px solid var(--yellow-b);border-radius:12px;font-size:11px;font-weight:700;color:#b45309;margin-top:8px}
-
 .log-item{display:flex;align-items:center;gap:14px;padding:12px 18px;border-bottom:1px solid var(--border);font-size:12px}
 .log-item:last-child{border-bottom:none}
 .log-ok{color:var(--green);font-weight:700}.log-err{color:var(--red);font-weight:700}
 .log-shop{font-weight:700;min-width:140px;color:var(--text)}
 .log-meta{color:var(--muted);font-family:'DM Mono',monospace;font-size:11px}
-
 .flow{display:grid;grid-template-columns:repeat(5,1fr);gap:0;margin-bottom:22px}
 .fstep{background:var(--surface);border:1px solid var(--border);padding:18px 14px;text-align:center;position:relative;transition:.2s}
 .fstep:not(:last-child)::after{content:'→';position:absolute;right:-13px;top:50%;transform:translateY(-50%);color:var(--orange);font-size:18px;font-weight:700;z-index:2}
-.fstep:first-child{border-radius:var(--radius) 0 0 var(--radius)}
-.fstep:last-child{border-radius:0 var(--radius) var(--radius) 0}
+.fstep:first-child{border-radius:var(--radius) 0 0 var(--radius)}.fstep:last-child{border-radius:0 var(--radius) var(--radius) 0}
 .fstep:hover{border-color:var(--orange);background:var(--orange-l);z-index:1}
 .fnum{display:inline-flex;align-items:center;justify-content:center;width:28px;height:28px;border-radius:50%;background:var(--orange);color:#fff;font-size:12px;font-weight:800;margin-bottom:8px}
-.ftit{font-size:12px;font-weight:700;margin-bottom:4px;color:var(--text)}
-.fdesc{font-size:10px;color:var(--muted);line-height:1.5}
+.ftit{font-size:12px;font-weight:700;margin-bottom:4px;color:var(--text)}.fdesc{font-size:10px;color:var(--muted);line-height:1.5}
+.sec-hdr{margin-bottom:18px}.sec-hdr h2{font-size:19px;font-weight:800;color:var(--text)}.sec-hdr p{font-size:13px;color:var(--muted);margin-top:3px}
+.empty{text-align:center;padding:52px 20px}.empty-ico{font-size:44px;margin-bottom:12px;opacity:.4}
+.empty-h{font-size:16px;font-weight:700;color:var(--text2);margin-bottom:6px}.empty-t{font-size:13px;line-height:1.6;color:var(--muted)}
 
-.sec-hdr{margin-bottom:18px}
-.sec-hdr h2{font-size:19px;font-weight:800;color:var(--text)}
-.sec-hdr p{font-size:13px;color:var(--muted);margin-top:3px}
-
-.empty{text-align:center;padding:52px 20px}
-.empty-ico{font-size:44px;margin-bottom:12px;opacity:.4}
-.empty-h{font-size:16px;font-weight:700;color:var(--text2);margin-bottom:6px}
-.empty-t{font-size:13px;line-height:1.6;color:var(--muted)}
+/* VARIANT-SPECIFIC */
+.var-product-group{margin-bottom:20px}
+.var-product-header{background:var(--surface2);border:1px solid var(--border);border-radius:8px 8px 0 0;padding:12px 16px;display:flex;align-items:center;justify-content:space-between;cursor:pointer}
+.var-product-header:hover{background:#e8eaf2}
+.var-product-name{font-weight:700;font-size:13px;color:var(--text);flex:1;margin-right:12px}
+.var-product-meta{display:flex;gap:12px;align-items:center;flex-shrink:0}
+.var-badge{padding:2px 8px;border-radius:4px;font-size:10px;font-weight:700;font-family:'DM Mono',monospace}
+.var-badge-blue{background:var(--blue-l);color:var(--blue);border:1px solid var(--blue-b)}
+.var-badge-green{background:var(--green-l);color:var(--green);border:1px solid var(--green-b)}
+.var-badge-orange{background:var(--orange-l);color:var(--orange);border:1px solid var(--orange-b)}
+.var-rows{border:1px solid var(--border);border-top:none;border-radius:0 0 8px 8px;overflow:hidden}
+.var-row{display:grid;grid-template-columns:2fr 1fr 1fr 1fr 80px;gap:0;padding:10px 16px;border-bottom:1px solid var(--border);align-items:center;transition:.15s}
+.var-row:last-child{border-bottom:none}.var-row:hover{background:#fafbff}
+.var-row-header{display:grid;grid-template-columns:2fr 1fr 1fr 1fr 80px;gap:0;padding:8px 16px;background:var(--surface2);border-bottom:1px solid var(--border)}
+.var-col-label{font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.5px}
+.var-name{font-weight:600;font-size:12px;color:var(--text)}
+.var-type{font-size:10px;color:var(--muted);margin-top:2px;font-family:'DM Mono',monospace}
+.var-sold-bar{height:4px;background:var(--border);border-radius:2px;overflow:hidden;margin-top:4px;width:100%}
+.var-sold-fill{height:100%;background:var(--green);border-radius:2px;transition:width .5s}
+.var-kpi-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:12px;margin-bottom:20px}
+.var-kpi{background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:14px;text-align:center}
+.var-kpi-val{font-size:20px;font-weight:800;color:var(--text)}
+.var-kpi-lbl{font-size:10px;color:var(--muted);margin-top:3px;text-transform:uppercase;letter-spacing:.5px}
+.var-filter-row{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:16px}
+.var-search{background:var(--surface);border:1.5px solid var(--border2);color:var(--text);padding:7px 12px;border-radius:8px;font-family:'Inter',sans-serif;font-size:13px;outline:none;width:220px;transition:.2s}
+.var-search:focus{border-color:var(--orange)}
+.progress-ring{display:inline-flex;align-items:center;gap:6px;font-size:11px;color:var(--muted);font-family:'DM Mono',monospace}
 
 @media(max-width:700px){
-  .g2,.g3{grid-template-columns:1fr}
-  .flow{grid-template-columns:1fr 1fr}
-  .fstep::after{display:none}
-  .fstep:first-child,.fstep:last-child{border-radius:var(--radius)}
-  .wrap{padding:16px}
-  .tabs,.toolbar,.hdr{padding-left:16px;padding-right:16px}
+  .g2,.g3{grid-template-columns:1fr}.flow{grid-template-columns:1fr 1fr}
+  .fstep::after{display:none}.fstep:first-child,.fstep:last-child{border-radius:var(--radius)}
+  .wrap{padding:16px}.tabs,.toolbar,.hdr{padding-left:16px;padding-right:16px}
   .kpi-val{font-size:20px}
+  .var-row,.var-row-header{grid-template-columns:2fr 1fr 1fr}
+  .var-row>*:nth-child(4),.var-row>*:nth-child(5),.var-row-header>*:nth-child(4),.var-row-header>*:nth-child(5){display:none}
 }
 </style>
 </head>
@@ -186,13 +164,14 @@ tr:hover td{background:#fafbff}
 </div>
 
 <div class="tabs">
-  <div class="tab on" onclick="tab('overview')">📊 Overview</div>
-  <div class="tab" onclick="tab('bestsellers')">🏆 Best Sellers</div>
-  <div class="tab" onclick="tab('pricing')">💰 Pricing Intel</div>
-  <div class="tab" onclick="tab('keywords')">🔑 Keywords</div>
-  <div class="tab" onclick="tab('competitors')">🏪 Competitors</div>
-  <div class="tab" onclick="tab('log')">📋 Scrape Log</div>
-  <div class="tab" onclick="tab('framework')">⚙️ Setup</div>
+  <div class="tab on"  onclick="tab('overview')">📊 Overview</div>
+  <div class="tab"     onclick="tab('bestsellers')">🏆 Best Sellers</div>
+  <div class="tab"     onclick="tab('variants')">🧬 Variants</div>
+  <div class="tab"     onclick="tab('pricing')">💰 Pricing Intel</div>
+  <div class="tab"     onclick="tab('keywords')">🔑 Keywords</div>
+  <div class="tab"     onclick="tab('competitors')">🏪 Competitors</div>
+  <div class="tab"     onclick="tab('log')">📋 Scrape Log</div>
+  <div class="tab"     onclick="tab('framework')">⚙️ Setup</div>
 </div>
 
 <div class="wrap">
@@ -209,16 +188,16 @@ tr:hover td{background:#fafbff}
       <div class="kpi"><div class="kpi-icon" style="background:var(--red-l)">🏷️</div><div class="kpi-lbl">Max Discount</div><div class="kpi-val" id="k-disc">—</div><div class="kpi-sub">deepest cut seen</div><div class="kpi-bar" style="width:60%;background:var(--red)"></div></div>
     </div>
     <div class="g2">
-      <div class="card"><div class="card-hdr"><div><div class="card-title">Top 20 Products by Sales</div><div class="card-sub">Best performing listings by historical sold count</div></div></div><div class="card-body"><div class="chart-box"><canvas id="ch-sales"></canvas></div></div></div>
+      <div class="card"><div class="card-hdr"><div><div class="card-title">Top 20 Products by Sales</div><div class="card-sub">Best performing listings by historical sold</div></div></div><div class="card-body"><div class="chart-box"><canvas id="ch-sales"></canvas></div></div></div>
       <div class="card"><div class="card-hdr"><div><div class="card-title">Price Range Distribution</div><div class="card-sub">How products spread across price tiers</div></div></div><div class="card-body"><div class="chart-box"><canvas id="ch-price"></canvas></div></div></div>
     </div>
-    <div class="card"><div class="card-hdr"><div><div class="card-title">Products by Category</div><div class="card-sub">Catalogue breakdown by product category</div></div></div><div class="card-body"><div class="chart-box tall"><canvas id="ch-cat"></canvas></div></div></div>
-    <div id="overviewEmpty" class="empty"><div class="empty-ico">📡</div><div class="empty-h">No data loaded yet</div><div class="empty-t">Select a scraped shop from the dropdown above,<br>or click <strong>Demo</strong> to preview with sample data.</div></div>
+    <div class="card"><div class="card-hdr"><div><div class="card-title">Products by Category</div><div class="card-sub">Catalogue breakdown by category</div></div></div><div class="card-body"><div class="chart-box tall"><canvas id="ch-cat"></canvas></div></div></div>
+    <div id="overviewEmpty" class="empty"><div class="empty-ico">📡</div><div class="empty-h">No data loaded yet</div><div class="empty-t">Select a scraped shop above or click <strong>Demo</strong></div></div>
   </div>
 
   <!-- BEST SELLERS -->
   <div class="sec" id="sec-bestsellers">
-    <div class="sec-hdr"><h2>🏆 Best Selling Products</h2><p>All competitor listings — sort by any column to find insights</p></div>
+    <div class="sec-hdr"><h2>🏆 Best Selling Products</h2><p>All competitor listings — sort by any column</p></div>
     <div class="card">
       <div class="card-hdr">
         <div class="card-title">All Products</div>
@@ -234,25 +213,62 @@ tr:hover td{background:#fafbff}
     </div>
   </div>
 
+  <!-- VARIANTS TAB -->
+  <div class="sec" id="sec-variants">
+    <div class="sec-hdr"><h2>🧬 Variant-Level Sales</h2><p>Unit sold breakdown per SKU — see exactly which size, colour, or type sells best</p></div>
+
+    <!-- Variant KPIs -->
+    <div class="var-kpi-grid" id="varKpis">
+      <div class="var-kpi"><div class="var-kpi-val" id="vk-total">—</div><div class="var-kpi-lbl">Total Variants</div></div>
+      <div class="var-kpi"><div class="var-kpi-val" id="vk-sold">—</div><div class="var-kpi-lbl">Total Variant Sold</div></div>
+      <div class="var-kpi"><div class="var-kpi-val" id="vk-top">—</div><div class="var-kpi-lbl">Top Variant Sold</div></div>
+      <div class="var-kpi"><div class="var-kpi-val" id="vk-zero">—</div><div class="var-kpi-lbl">Zero Sales Variants</div></div>
+      <div class="var-kpi"><div class="var-kpi-val" id="vk-avgprice">—</div><div class="var-kpi-lbl">Avg Variant Price</div></div>
+    </div>
+
+    <!-- Charts -->
+    <div class="g2" style="margin-bottom:16px">
+      <div class="card"><div class="card-hdr"><div><div class="card-title">Top 20 Variants by Sold</div><div class="card-sub">Individual SKU performance</div></div></div><div class="card-body"><div class="chart-box tall"><canvas id="ch-varTop"></canvas></div></div></div>
+      <div class="card"><div class="card-hdr"><div><div class="card-title">Sold Distribution</div><div class="card-sub">How variants spread across sales ranges</div></div></div><div class="card-body"><div class="chart-box tall"><canvas id="ch-varDist"></canvas></div></div></div>
+    </div>
+
+    <!-- Filters -->
+    <div class="var-filter-row">
+      <input class="var-search" id="varSearch" placeholder="Search product or variant..." oninput="filterVariants()">
+      <div class="sort-btns">
+        <span class="sort-btn on" onclick="sortVariants('sold',this)">By Sold</span>
+        <span class="sort-btn" onclick="sortVariants('price',this)">By Price</span>
+        <span class="sort-btn" onclick="sortVariants('stock',this)">By Stock</span>
+        <span class="sort-btn" onclick="sortVariants('name',this)">By Name</span>
+      </div>
+      <span class="progress-ring" id="varCount">— variants</span>
+    </div>
+
+    <!-- Grouped variant table -->
+    <div id="variantGroups">
+      <div class="empty"><div class="empty-ico">🧬</div><div class="empty-h">No variant data</div><div class="empty-t">Select a shop — variant data loads automatically if scraped</div></div>
+    </div>
+  </div>
+
   <!-- PRICING -->
   <div class="sec" id="sec-pricing">
-    <div class="sec-hdr"><h2>💰 Pricing Intelligence</h2><p>Understand competitor pricing strategy and find your optimal price point</p></div>
+    <div class="sec-hdr"><h2>💰 Pricing Intelligence</h2><p>Understand competitor pricing and find your optimal price point</p></div>
     <div class="g3">
       <div class="card"><div class="card-hdr"><div class="card-title">Price Bucket Breakdown</div></div><div class="card-body" id="priceBuckets"></div></div>
       <div class="card"><div class="card-hdr"><div class="card-title">🎯 Price Sweet Spot</div></div><div class="card-body"><ul class="ilist" id="sweetSpot"></ul></div></div>
       <div class="card"><div class="card-hdr"><div class="card-title">🔥 Discount Strategy</div></div><div class="card-body"><ul class="ilist" id="discIntel"></ul></div></div>
     </div>
     <div class="g2">
-      <div class="card"><div class="card-hdr"><div><div class="card-title">Price vs Sales Scatter</div><div class="card-sub">Does higher or lower price lead to more sales?</div></div></div><div class="card-body"><div class="chart-box tall"><canvas id="ch-scatter"></canvas></div></div></div>
+      <div class="card"><div class="card-hdr"><div><div class="card-title">Price vs Sales Scatter</div><div class="card-sub">Does higher price = more or fewer sales?</div></div></div><div class="card-body"><div class="chart-box tall"><canvas id="ch-scatter"></canvas></div></div></div>
       <div class="card"><div class="card-hdr"><div><div class="card-title">Discount Depth Analysis</div><div class="card-sub">How aggressively does this shop discount?</div></div></div><div class="card-body"><div class="chart-box tall"><canvas id="ch-disc"></canvas></div></div></div>
     </div>
   </div>
 
   <!-- KEYWORDS -->
   <div class="sec" id="sec-keywords">
-    <div class="sec-hdr"><h2>🔑 Title & Keyword Intelligence</h2><p>Words and patterns found in competitor product titles</p></div>
+    <div class="sec-hdr"><h2>🔑 Title & Keyword Intelligence</h2><p>Words and patterns found in competitor titles</p></div>
     <div class="g2">
-      <div class="card"><div class="card-hdr"><div><div class="card-title">Most Used Keywords</div><div class="card-sub">🟠 High frequency &nbsp;🟢 Medium &nbsp;🟣 Low</div></div></div><div class="card-body"><div class="kwcloud" id="kwCloud"></div></div></div>
+      <div class="card"><div class="card-hdr"><div><div class="card-title">Most Used Keywords</div><div class="card-sub">🟠 High &nbsp;🟢 Medium &nbsp;🟣 Low frequency</div></div></div><div class="card-body"><div class="kwcloud" id="kwCloud"></div></div></div>
       <div class="card"><div class="card-hdr"><div class="card-title">Title Structure Patterns</div></div><div class="card-body"><ul class="ilist" id="titlePatterns"></ul></div></div>
     </div>
     <div class="g2">
@@ -266,11 +282,11 @@ tr:hover td{background:#fafbff}
     <div class="sec-hdr"><h2>🏪 Competitor Comparison</h2><p>Side-by-side view of all scraped competitor shops</p></div>
     <div class="comp-grid" id="compCards"></div>
     <div class="g2">
-      <div class="card"><div class="card-hdr"><div class="card-title">Total Sales Volume Comparison</div></div><div class="card-body"><div class="chart-box"><canvas id="ch-compSales"></canvas></div></div></div>
-      <div class="card"><div class="card-hdr"><div class="card-title">Average Price Comparison (RM)</div></div><div class="card-body"><div class="chart-box"><canvas id="ch-compPrice"></canvas></div></div></div>
+      <div class="card"><div class="card-hdr"><div class="card-title">Total Sales Volume</div></div><div class="card-body"><div class="chart-box"><canvas id="ch-compSales"></canvas></div></div></div>
+      <div class="card"><div class="card-hdr"><div class="card-title">Average Price (RM)</div></div><div class="card-body"><div class="chart-box"><canvas id="ch-compPrice"></canvas></div></div></div>
     </div>
-    <div class="card"><div class="card-hdr"><div class="card-title">Full Competitor Benchmark Table</div></div>
-      <div class="tbl-wrap"><table><thead><tr><th>Shop Name</th><th>Products</th><th>Total Sold</th><th>Avg Price</th><th>Avg Rating</th><th>Followers</th><th>Last Scraped</th></tr></thead><tbody id="compTbl"></tbody></table></div>
+    <div class="card"><div class="card-hdr"><div class="card-title">Competitor Benchmark Table</div></div>
+      <div class="tbl-wrap"><table><thead><tr><th>Shop</th><th>Products</th><th>Total Sold</th><th>Avg Price</th><th>Avg Rating</th><th>Followers</th><th>Last Scraped</th></tr></thead><tbody id="compTbl"></tbody></table></div>
     </div>
   </div>
 
@@ -285,35 +301,35 @@ tr:hover td{background:#fafbff}
 
   <!-- SETUP -->
   <div class="sec" id="sec-framework">
-    <div class="sec-hdr"><h2>⚙️ Setup & Architecture</h2><p>Full deployment guide for Supabase + Vercel + Claude in Chrome</p></div>
+    <div class="sec-hdr"><h2>⚙️ Setup & Architecture</h2><p>Supabase + Vercel + Claude in Chrome deployment guide</p></div>
     <div class="flow">
       <div class="fstep"><div class="fnum">1</div><div class="ftit">Supabase</div><div class="fdesc">Create project, run SQL schema, copy URL + service key</div></div>
       <div class="fstep"><div class="fnum">2</div><div class="ftit">GitHub</div><div class="fdesc">Push shopee-scope folder, connect repo to Vercel</div></div>
       <div class="fstep"><div class="fnum">3</div><div class="ftit">Vercel</div><div class="fdesc">Add env vars SUPABASE_URL + SERVICE_KEY, deploy</div></div>
-      <div class="fstep"><div class="fnum">4</div><div class="ftit">Scrape</div><div class="fdesc">Open shopee.com.my in Chrome, ask Claude to run scraper</div></div>
+      <div class="fstep"><div class="fnum">4</div><div class="ftit">Scrape</div><div class="fdesc">Open shopee.com.my in Chrome, ask Claude to scrape</div></div>
       <div class="fstep"><div class="fnum">5</div><div class="ftit">Analyse</div><div class="fdesc">Open dashboard on phone, select shop, get insights</div></div>
     </div>
     <div class="g3">
-      <div class="card"><div class="card-hdr"><div class="card-title">📡 Shopee APIs Used</div></div><div class="card-body"><ul class="ilist">
-        <li class="iitem"><div class="iico">🏪</div><div><div class="itxt">get_shop_detail</div><div class="isub">Shop profile, followers, rating</div></div></li>
-        <li class="iitem"><div class="iico">📦</div><div><div class="itxt">search_items (paginated)</div><div class="isub">All product listings with sales data</div></div></li>
-        <li class="iitem"><div class="iico">🔍</div><div><div class="itxt">item/get (per product)</div><div class="isub">Full detail, variants, SKUs</div></div></li>
-        <li class="iitem"><div class="iico">⭐</div><div><div class="itxt">item/get_ratings</div><div class="isub">Reviews, sentiment, seller replies</div></div></li>
-        <li class="iitem"><div class="iico">⚡</div><div><div class="itxt">flash_sale sessions</div><div class="isub">Flash sale timing and discounts</div></div></li>
+      <div class="card"><div class="card-hdr"><div class="card-title">📡 Data Collected</div></div><div class="card-body"><ul class="ilist">
+        <li class="iitem"><div class="iico">🏪</div><div><div class="itxt">Shop profile & metrics</div><div class="isub">followers, rating, response rate</div></div></li>
+        <li class="iitem"><div class="iico">📦</div><div><div class="itxt">All product listings</div><div class="isub">price, sold, stock, rating per product</div></div></li>
+        <li class="iitem"><div class="iico">🧬</div><div><div class="itxt">Variant-level SKU data</div><div class="isub">sold, stock, price per variant/size/colour</div></div></li>
+        <li class="iitem"><div class="iico">⭐</div><div><div class="itxt">Reviews & ratings</div><div class="isub">sentiment, tags, seller replies</div></div></li>
+        <li class="iitem"><div class="iico">⚡</div><div><div class="itxt">Flash sale sessions</div><div class="isub">timing, discount depth</div></div></li>
       </ul></div></div>
       <div class="card"><div class="card-hdr"><div class="card-title">🧠 Analysis Modules</div></div><div class="card-body"><ul class="ilist">
-        <li class="iitem"><div class="iico">💰</div><div><div class="itxt">Price bucket clustering</div><div class="isub">Find RM range with most sales</div></div></li>
-        <li class="iitem"><div class="iico">📈</div><div><div class="itxt">Sales velocity scoring</div><div class="isub">sold ÷ days listed = momentum</div></div></li>
-        <li class="iitem"><div class="iico">🔑</div><div><div class="itxt">Keyword frequency</div><div class="isub">Top words in competitor titles</div></div></li>
-        <li class="iitem"><div class="iico">🏷️</div><div><div class="itxt">Discount pattern detection</div><div class="isub">Does discounting drive sales?</div></div></li>
-        <li class="iitem"><div class="iico">🎯</div><div><div class="itxt">Price-to-sales sweet spot</div><div class="isub">Optimal price range per niche</div></div></li>
+        <li class="iitem"><div class="iico">💰</div><div><div class="itxt">Price bucket clustering</div><div class="isub">RM range with most total sales</div></div></li>
+        <li class="iitem"><div class="iico">🧬</div><div><div class="itxt">Variant winner detection</div><div class="isub">which SKU sells best per product</div></div></li>
+        <li class="iitem"><div class="iico">🔑</div><div><div class="itxt">Keyword frequency analysis</div><div class="isub">top words in competitor titles</div></div></li>
+        <li class="iitem"><div class="iico">🏷️</div><div><div class="itxt">Discount pattern detection</div><div class="isub">does discounting drive sales?</div></div></li>
+        <li class="iitem"><div class="iico">🎯</div><div><div class="itxt">Price-to-sales sweet spot</div><div class="isub">optimal price range per niche</div></div></li>
       </ul></div></div>
-      <div class="card"><div class="card-hdr"><div class="card-title">✅ What You Get</div></div><div class="card-body"><ul class="ilist">
-        <li class="iitem"><div class="iico">✅</div><div><div class="itxt">Optimal price for your niche</div><div class="isub">Price-vs-sales data driven</div></div></li>
-        <li class="iitem"><div class="iico">✅</div><div><div class="itxt">Discount % that drives most sales</div><div class="isub">From competitor patterns</div></div></li>
-        <li class="iitem"><div class="iico">✅</div><div><div class="itxt">Keywords for your listing title</div><div class="isub">Stolen from top performers</div></div></li>
-        <li class="iitem"><div class="iico">✅</div><div><div class="itxt">Competitor weak spots</div><div class="isub">Low stock + bad ratings = opportunity</div></div></li>
-        <li class="iitem"><div class="iico">✅</div><div><div class="itxt">Product gap opportunities</div><div class="isub">High demand, low competition</div></div></li>
+      <div class="card"><div class="card-hdr"><div class="card-title">✅ Actionable Outputs</div></div><div class="card-body"><ul class="ilist">
+        <li class="iitem"><div class="iico">✅</div><div><div class="itxt">Which variant to stock first</div><div class="isub">highest sold SKU = safest bet</div></div></li>
+        <li class="iitem"><div class="iico">✅</div><div><div class="itxt">Optimal price for your niche</div><div class="isub">data-driven, not guesswork</div></div></li>
+        <li class="iitem"><div class="iico">✅</div><div><div class="itxt">Keywords for your title</div><div class="isub">stolen from top-performing listings</div></div></li>
+        <li class="iitem"><div class="iico">✅</div><div><div class="itxt">Competitor weak spots</div><div class="isub">low stock + bad ratings = opportunity</div></div></li>
+        <li class="iitem"><div class="iico">✅</div><div><div class="itxt">Zero-sales variants to avoid</div><div class="isub">don't stock what doesn't sell</div></div></li>
       </ul></div></div>
     </div>
   </div>
@@ -321,21 +337,24 @@ tr:hover td{background:#fafbff}
 
 <script>
 const API=window.location.hostname==='localhost'?'http://localhost:3000':'';
-let ST={products:[],shops:[],activeShopid:null,shopMeta:{}};
+let ST={products:[],shops:[],variants:[],activeShopid:null,shopMeta:{},filteredVariants:[]};
 let CH={};
 
 window.onload=async()=>{await refreshShops();};
 
+// ── TABS ──
 function tab(name){
-  const names=['overview','bestsellers','pricing','keywords','competitors','log','framework'];
+  const names=['overview','bestsellers','variants','pricing','keywords','competitors','log','framework'];
   document.querySelectorAll('.tab').forEach((t,i)=>t.classList.toggle('on',names[i]===name));
   document.querySelectorAll('.sec').forEach(s=>s.classList.remove('on'));
   document.getElementById('sec-'+name).classList.add('on');
   if(name==='log')loadLog();
+  if(name==='variants'&&ST.variants.length===0&&ST.activeShopid)loadVariants();
 }
 
+// ── LOAD SHOPS ──
 async function refreshShops(){
-  setStatus('Loading shops from database...');
+  setStatus('Loading shops...');
   try{
     const res=await fetch(`${API}/api/data?type=shops`);
     if(!res.ok)throw new Error('API '+res.status);
@@ -351,9 +370,11 @@ async function refreshShops(){
   }catch(e){setStatus('Cannot reach API — showing Demo');loadDemo();}
 }
 
+// ── LOAD PRODUCTS ──
 async function loadShopData(){
   const shopid=document.getElementById('shopSelect').value;
   if(!shopid)return;
+  ST.variants=[];ST.filteredVariants=[];
   prog(true,30);setStatus('Loading products...');
   try{
     const res=await fetch(`${API}/api/data?type=products&shopid=${shopid}&limit=300`);
@@ -368,35 +389,182 @@ async function loadShopData(){
   }catch(e){prog(false);setStatus('Error: '+e.message);}
 }
 
-function loadDemo(){
-  const cats=['Pet Snacks','Dog Treats','Cat Treats','Dog Food','Cat Food','Supplements','Accessories'];
-  const titles=['Buddy Snack Chicken Jerky Dog Treats 500g Premium Natural','Grain Free Cat Treats Tuna Flavor 200g Healthy Snack','Dog Training Treats Small Bites Beef 300g Low Calorie','Premium Cat Snack Salmon Freeze Dried 100g Protein Rich','Puppy Milk Replacer Powder 400g Newborn Dog Formula','Dental Chews for Dogs Large Breed Mint Fresh 12pcs','Natural Rabbit Ears Dog Snack Dried 10pcs Hypoallergenic','Cat Grass Seed Kit Indoor Wheat Grass Grow Set','Dog Biscuits Assorted Flavor 1kg Value Pack Training','Catnip Spray 60ml Organic Premium Concentrated','Sweet Potato Dog Treats Dehydrated 250g Single Ingredient','Fish Skin Rolls Dog Chews Omega 3 Natural 200g','Puppy Training Pads Extra Thick 60x60cm 50pcs','Freeze Dried Duck Breast Cat Treats 80g Premium','Collagen Bone Dog Chew Large Breed 6pcs Joint Health','Cat Hairball Control Treats Malt Paste 100g Daily','Kangaroo Meat Dog Treats Hypoallergenic 250g Australia','Pet Probiotic Supplement Powder Dogs Cats 60g Digestive','Duck Feet Dog Treats Natural Dried 200g Crunchy','Interactive Treat Dispensing Ball Dog Toy Slow Feeder'];
-  const products=titles.map((name,i)=>{
-    const sold=Math.floor(Math.random()*1200)+50;
-    const price=Math.round((Math.random()*80+8)*100000);
-    const disc=[0,0,0,5,10,15,20,25][Math.floor(Math.random()*8)];
-    return{itemid:45e6+i*9999,shopid:123456789,username:'buddysnack',name,price_min:price,
-      price_min_before_discount:disc?Math.round(price/(1-disc/100)):price,
-      raw_discount:disc,historical_sold:sold,sold:Math.floor(sold*.25),
-      liked_count:Math.floor(sold*1.2),stock:Math.floor(Math.random()*300)+10,
-      rating_star:+(3.8+Math.random()*1.2).toFixed(1),rating_count:Math.floor(Math.random()*200)+10,
-      brand:['Buddy','Pedigree','Royal Canin','Whiskas','Me-O'][i%5],catid:1000+i%7,_cat:cats[i%cats.length]};
+// ── LOAD VARIANTS ──
+async function loadVariants(){
+  const shopid=ST.activeShopid;
+  if(!shopid)return;
+  setStatus('Loading variant data...');
+  try{
+    const res=await fetch(`${API}/api/get-variants?shopid=${shopid}&sort=sold`);
+    if(!res.ok)throw new Error('API '+res.status);
+    const variants=await res.json();
+    if(Array.isArray(variants)&&variants.length>0){
+      ST.variants=variants;
+      ST.filteredVariants=variants;
+      renderVariants(variants);
+      setStatus(`✓ ${variants.length} variants loaded`);
+    } else {
+      document.getElementById('variantGroups').innerHTML='<div class="empty"><div class="empty-ico">🧬</div><div class="empty-h">No variant data for this shop</div><div class="empty-t">Run the variant scraper first via Claude in Chrome</div></div>';
+    }
+  }catch(e){
+    document.getElementById('variantGroups').innerHTML=`<div class="empty"><div class="empty-ico">⚠️</div><div class="empty-h">Cannot load variants</div><div class="empty-t">${e.message}</div></div>`;
+  }
+}
+
+// ── RENDER VARIANTS ──
+function renderVariants(variants){
+  if(!variants||!variants.length)return;
+
+  // KPIs
+  const totalSold=variants.reduce((a,v)=>a+(v.sold||0),0);
+  const topSold=Math.max(...variants.map(v=>v.sold||0));
+  const zeroSales=variants.filter(v=>!v.sold).length;
+  const avgPrice=variants.length?(variants.reduce((a,v)=>a+(v.price||0),0)/variants.length).toFixed(2):0;
+  set('vk-total',variants.length);
+  set('vk-sold',fmtNum(totalSold));
+  set('vk-top',fmtNum(topSold));
+  set('vk-zero',zeroSales);
+  set('vk-avgprice','RM '+avgPrice);
+
+  // Top 20 chart
+  const top20=[...variants].sort((a,b)=>(b.sold||0)-(a.sold||0)).slice(0,20);
+  mkChart('ch-varTop','bar',{
+    labels:top20.map(v=>(v.variant_name||'Default').substring(0,18)+'…'),
+    datasets:[{data:top20.map(v=>v.sold||0),
+      backgroundColor:top20.map((_,i)=>i<3?'#10b981':i<10?'#34d399':'#a7f3d0'),
+      borderColor:top20.map((_,i)=>i<3?'#059669':i<10?'#10b981':'#6ee7b7'),
+      borderWidth:1,borderRadius:4}]
   });
-  products.sort((a,b)=>b.historical_sold-a.historical_sold);
-  ST.products=products;
-  ST.shopMeta={username:'buddysnack',shop_name:'Buddy Power',follower_count:8420,shop_rating:4.8};
-  ST.shops=[
-    {shopid:123456789,username:'buddysnack',shop_name:'Buddy Power',total_sold:52400,avg_price_rm:24.5,shop_rating:4.8,total_products:429,follower_count:8420},
-    {shopid:987654321,username:'petlover_my',shop_name:'Pet Lover MY',total_sold:31200,avg_price_rm:19.8,shop_rating:4.6,total_products:312,follower_count:5100},
-    {shopid:111222333,username:'pawsmart.my',shop_name:'PawSmart Malaysia',total_sold:78900,avg_price_rm:32.1,shop_rating:4.7,total_products:611,follower_count:15300},
+
+  // Distribution chart
+  const dist={'0 sold':0,'1-5':0,'6-20':0,'21-50':0,'51-100':0,'>100':0};
+  variants.forEach(v=>{const s=v.sold||0;if(!s)dist['0 sold']++;else if(s<=5)dist['1-5']++;else if(s<=20)dist['6-20']++;else if(s<=50)dist['21-50']++;else if(s<=100)dist['51-100']++;else dist['>100']++;});
+  mkChart('ch-varDist','doughnut',{
+    labels:Object.keys(dist),
+    datasets:[{data:Object.values(dist),
+      backgroundColor:['#fecaca','#fed7aa','#fde68a','#a7f3d0','#bbf7d0','#10b981'],
+      borderColor:'#fff',borderWidth:3}]
+  },{cutout:'55%'});
+
+  // Group by product
+  renderVariantGroups(variants);
+  set('varCount',variants.length+' variants');
+}
+
+function renderVariantGroups(variants){
+  // Group by itemid
+  const groups={};
+  variants.forEach(v=>{
+    if(!groups[v.itemid])groups[v.itemid]={name:v.product_name,itemid:v.itemid,variants:[]};
+    groups[v.itemid].variants.push(v);
+  });
+
+  const sorted=Object.values(groups).sort((a,b)=>{
+    const as=a.variants.reduce((x,v)=>x+(v.sold||0),0);
+    const bs=b.variants.reduce((x,v)=>x+(v.sold||0),0);
+    return bs-as;
+  });
+
+  const maxSold=Math.max(...variants.map(v=>v.sold||0),1);
+
+  document.getElementById('variantGroups').innerHTML=sorted.map(g=>{
+    const totalSold=g.variants.reduce((a,v)=>a+(v.sold||0),0);
+    const totalStock=g.variants.reduce((a,v)=>a+(v.stock||0),0);
+    const topVar=g.variants.reduce((a,v)=>(v.sold||0)>(a.sold||0)?v:a,g.variants[0]);
+
+    return`<div class="var-product-group">
+      <div class="var-product-header" onclick="toggleGroup(this)">
+        <div class="var-product-name">${g.name}</div>
+        <div class="var-product-meta">
+          <span class="var-badge var-badge-green">${fmtNum(totalSold)} sold</span>
+          <span class="var-badge var-badge-blue">${g.variants.length} variants</span>
+          <span class="var-badge var-badge-orange">stock ${fmtNum(totalStock)}</span>
+          <span style="color:var(--muted);font-size:13px">▼</span>
+        </div>
+      </div>
+      <div class="var-rows">
+        <div class="var-row-header">
+          <div class="var-col-label">Variant / SKU</div>
+          <div class="var-col-label">Price</div>
+          <div class="var-col-label">Sold</div>
+          <div class="var-col-label">Stock</div>
+          <div class="var-col-label">Sales Bar</div>
+        </div>
+        ${g.variants.sort((a,b)=>(b.sold||0)-(a.sold||0)).map(v=>{
+          const pct=Math.round((v.sold||0)/maxSold*100);
+          const sc=(v.stock||0)>50?'#10b981':(v.stock||0)>10?'#f59e0b':'#ef4444';
+          const isTop=v.variant_name===topVar.variant_name;
+          return`<div class="var-row" style="${isTop?'background:#f0fdf4;':''}" >
+            <div>
+              <div class="var-name">${isTop?'🏆 ':''} ${v.variant_name||'Default'}</div>
+              <div class="var-type">${v.variation_type||''}</div>
+            </div>
+            <div class="pricetag">RM ${(v.price||0).toFixed(2)}</div>
+            <div><span class="sold-val">${fmtNum(v.sold||0)}</span></div>
+            <div><span style="font-family:'DM Mono',monospace;font-size:12px;color:${sc}">${fmtNum(v.stock||0)}</span></div>
+            <div><div class="var-sold-bar"><div class="var-sold-fill" style="width:${pct}%"></div></div></div>
+          </div>`;
+        }).join('')}
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function toggleGroup(el){
+  const rows=el.nextElementSibling;
+  const arrow=el.querySelector('span:last-child');
+  if(rows.style.display==='none'){rows.style.display='';arrow.textContent='▼';}
+  else{rows.style.display='none';arrow.textContent='▶';}
+}
+
+function filterVariants(){
+  const q=document.getElementById('varSearch').value.toLowerCase();
+  const filtered=q?ST.variants.filter(v=>(v.product_name||'').toLowerCase().includes(q)||(v.variant_name||'').toLowerCase().includes(q)):ST.variants;
+  ST.filteredVariants=filtered;
+  renderVariantGroups(filtered);
+  set('varCount',filtered.length+' variants');
+}
+
+function sortVariants(field,el){
+  document.querySelectorAll('.sort-btn').forEach(b=>b.classList.remove('on'));if(el)el.classList.add('on');
+  const sorted=[...ST.filteredVariants].sort((a,b)=>field==='name'?a.variant_name?.localeCompare(b.variant_name||''):(b[field]||0)-(a[field]||0));
+  renderVariantGroups(sorted);
+}
+
+// ── DEMO ──
+function loadDemo(){
+  const cats=['Batteries','Lighting','Electronics','Accessories','Toys'];
+  const variantSets=[
+    [{n:'AA 4pcs',sold:342,stock:180},{n:'AA 8pcs',sold:210,stock:95},{n:'AA 40pcs',sold:89,stock:40},{n:'AAA 4pcs',sold:156,stock:120},{n:'AAA 8pcs',sold:78,stock:55}],
+    [{n:'CR2032 1pc',sold:520,stock:340},{n:'CR2032 5pcs',sold:280,stock:160},{n:'CR2032 10pcs',sold:145,stock:80}],
+    [{n:'Size S',sold:45,stock:30},{n:'Size M',sold:188,stock:95},{n:'Size L',sold:120,stock:60},{n:'Size XL',sold:22,stock:15}],
+    [{n:'Black',sold:312,stock:200},{n:'White',sold:145,stock:80},{n:'Blue',sold:67,stock:35}],
+    [{n:'Default',sold:89,stock:55}]
   ];
+  const pnames=['GP Supercell AA AAA Battery Pack','CR2032 Lithium Coin Cell Battery','3M Comfort Grip Gloves','Maxell Wireless Mouse MOW-101','Panasonic CR2016 Coin Battery'];
+  const titles=['GP Supercell Carbon Zinc AA AAA Heavy Duty Battery','Renata CR2032 Lithium Coin Cell 3V Battery','Grain Free Cat Treats Tuna Flavor 200g','Dog Training Treats Beef 300g Low Calorie','Puppy Milk Replacer 400g Formula','Dental Chews Dogs Mint 12pcs','RTL-SDR V3 Software Defined Radio','Diamond SRH Antenna Dual Band','Maxell SR927 Silver Oxide Watch Battery','Energizer AA 1.5V Alkaline Battery 8pcs','Kodak CR2430 3V Lithium Battery','Fujitsu AAA 1.5V Alkaline Battery 4pcs','GP ReCyko AAA 950mAh Rechargeable','Panasonic CR2025 Coin Battery','Baofeng UV-5R Dual Band Radio','PKCELL CR2016 3V Lithium Battery','Wouxun KG-868UV DMR Digital Radio','Maxell CR1632 Coin Battery','Universal Li-Ion 2 Slot Charger','Philips Heavy Duty Battery D Size'];
+  const products=titles.map((name,i)=>{const sold=Math.floor(Math.random()*900)+50;const price=Math.round((Math.random()*80+5)*100000);const disc=[0,0,0,5,10,15,20][Math.floor(Math.random()*7)];return{itemid:45e6+i*9999,shopid:3693884,username:'buddysnack',name,price_min:price,price_min_before_discount:disc?Math.round(price/(1-disc/100)):price,raw_discount:disc,historical_sold:sold,sold:Math.floor(sold*.25),liked_count:Math.floor(sold*1.2),stock:Math.floor(Math.random()*300)+10,rating_star:+(3.8+Math.random()*1.2).toFixed(1),rating_count:Math.floor(Math.random()*200)+10,brand:['GP','Maxell','Panasonic','Energizer','Kodak'][i%5],catid:1000+i%5,_cat:cats[i%cats.length]};});
+  products.sort((a,b)=>b.historical_sold-a.historical_sold);
+
+  // Demo variants
+  const demoVariants=[];
+  pnames.forEach((pname,pi)=>{
+    const vset=variantSets[pi];
+    const basePrice=[18,8,45,55,11][pi];
+    vset.forEach(v=>{demoVariants.push({itemid:45e6+pi*9999,product_name:pname,shopid:3693884,username:'buddysnack',variant_name:v.n,price:basePrice+(Math.random()*5-2),stock:v.stock,sold:v.sold,variation_type:['Type','Pack Size','Size','Color','Default'][pi]});});
+  });
+
+  ST.products=products;ST.variants=demoVariants;ST.filteredVariants=demoVariants;
+  ST.shopMeta={username:'buddysnack',shop_name:'Buddy Power',follower_count:8420,shop_rating:4.8};
+  ST.shops=[{shopid:3693884,username:'buddysnack',shop_name:'Buddy Power',total_sold:52400,avg_price_rm:18.5,shop_rating:4.8,total_products:223,follower_count:8420},{shopid:987654321,username:'petlover_my',shop_name:'Pet Lover MY',total_sold:31200,avg_price_rm:19.8,shop_rating:4.6,total_products:312,follower_count:5100}];
+  ST.activeShopid=3693884;
   document.getElementById('overviewEmpty').style.display='none';
   document.getElementById('hdrStatus').textContent='DEMO';
-  setStatus('Demo mode — 20 sample products loaded');
+  setStatus('Demo: 20 products + 16 variants loaded');
   const sel=document.getElementById('shopSelect');
   sel.innerHTML=ST.shops.map(s=>`<option value="${s.shopid}">${s.shop_name} (${s.total_products} products)</option>`).join('');
   sel.value=ST.shops[0].shopid;
-  renderAll();renderCompetitorSection(ST.shops);
+  renderAll();renderCompetitorSection(ST.shops);renderVariants(demoVariants);
 }
 
 function renderAll(){renderKPIs();renderCharts();renderTable([...ST.products].sort((a,b)=>b.historical_sold-a.historical_sold));renderPricing();renderKeywords();}
@@ -418,18 +586,14 @@ function renderCharts(){
   const p=ST.products;
   const top20=[...p].sort((a,b)=>b.historical_sold-a.historical_sold).slice(0,20);
   mkChart('ch-sales','bar',{labels:top20.map(x=>x.name.substring(0,20)+'…'),datasets:[{data:top20.map(x=>x.historical_sold),backgroundColor:top20.map((_,i)=>i<3?'#f97316':i<10?'#fb923c':'#fed7aa'),borderColor:top20.map((_,i)=>i<3?'#ea6c0a':i<10?'#f97316':'#fdba74'),borderWidth:1,borderRadius:4}]});
-
   const bkts=countBuckets(p);
   mkChart('ch-price','doughnut',{labels:Object.keys(bkts),datasets:[{data:Object.values(bkts),backgroundColor:['#f97316','#10b981','#3b82f6','#f59e0b','#ef4444'],borderColor:'#fff',borderWidth:3}]},{cutout:'60%'});
-
   const cats={};p.forEach(x=>{const c=x._cat||'Other';cats[c]=(cats[c]||0)+1;});
   const sc=Object.entries(cats).sort((a,b)=>b[1]-a[1]);
   mkChart('ch-cat','bar',{labels:sc.map(x=>x[0]),datasets:[{label:'Products',data:sc.map(x=>x[1]),backgroundColor:'#eff6ff',borderColor:'#3b82f6',borderWidth:2,borderRadius:5}]},{indexAxis:'y'});
-
   mkChart('ch-scatter','scatter',{datasets:[{label:'Products',data:p.map(x=>({x:x.price_min/1e5,y:x.historical_sold})),backgroundColor:'rgba(249,115,22,.5)',borderColor:'#f97316',pointRadius:6}]},{scales:{x:{...ltAxis(),title:{display:true,text:'Price (RM)',color:'#7b7f9e'}},y:{...ltAxis(),title:{display:true,text:'Total Sold',color:'#7b7f9e'}}}});
-
-  const db={'No Disc':0,'1–10%':0,'11–20%':0,'21–30%':0,'>30%':0};
-  p.forEach(x=>{const d=x.raw_discount||0;if(!d)db['No Disc']++;else if(d<=10)db['1–10%']++;else if(d<=20)db['11–20%']++;else if(d<=30)db['21–30%']++;else db['>30%']++;});
+  const db={'No Disc':0,'1-10%':0,'11-20%':0,'21-30%':0,'>30%':0};
+  p.forEach(x=>{const d=x.raw_discount||0;if(!d)db['No Disc']++;else if(d<=10)db['1-10%']++;else if(d<=20)db['11-20%']++;else if(d<=30)db['21-30%']++;else db['>30%']++;});
   mkChart('ch-disc','bar',{labels:Object.keys(db),datasets:[{data:Object.values(db),backgroundColor:['#e2e4ec','#fef9c3','#fed7aa','#bbf7d0','#fecaca'],borderColor:['#d0d3de','#ca8a04','#ea6c0a','#059669','#dc2626'],borderWidth:2,borderRadius:5}]});
 }
 
@@ -445,8 +609,8 @@ function mkChart(id,type,data,extra={}){
 }
 
 function countBuckets(p){
-  const b={'<RM10':0,'RM10–30':0,'RM30–60':0,'RM60–100':0,'>RM100':0};
-  p.forEach(x=>{const r=x.price_min/1e5;if(r<10)b['<RM10']++;else if(r<30)b['RM10–30']++;else if(r<60)b['RM30–60']++;else if(r<100)b['RM60–100']++;else b['>RM100']++;});
+  const b={'<RM10':0,'RM10-30':0,'RM30-60':0,'RM60-100':0,'>RM100':0};
+  p.forEach(x=>{const r=x.price_min/1e5;if(r<10)b['<RM10']++;else if(r<30)b['RM10-30']++;else if(r<60)b['RM30-60']++;else if(r<100)b['RM60-100']++;else b['>RM100']++;});
   return b;
 }
 
@@ -462,13 +626,13 @@ function renderTable(products){
 }
 
 function sortTbl(field,el){
-  document.querySelectorAll('.sort-btn').forEach(b=>b.classList.remove('on'));if(el)el.classList.add('on');
+  document.querySelectorAll('#sec-bestsellers .sort-btn').forEach(b=>b.classList.remove('on'));if(el)el.classList.add('on');
   renderTable([...ST.products].sort((a,b)=>field==='name'?a.name.localeCompare(b.name):(b[field]||0)-(a[field]||0)));
 }
 
 function renderPricing(){
   const p=ST.products;
-  const ranges=[{l:'<RM10',mn:0,mx:10},{l:'RM10–30',mn:10,mx:30},{l:'RM30–60',mn:30,mx:60},{l:'RM60–100',mn:60,mx:100},{l:'>RM100',mn:100,mx:9e9}];
+  const ranges=[{l:'<RM10',mn:0,mx:10},{l:'RM10-30',mn:10,mx:30},{l:'RM30-60',mn:30,mx:60},{l:'RM60-100',mn:60,mx:100},{l:'>RM100',mn:100,mx:9e9}];
   const colors=['#f97316','#10b981','#3b82f6','#f59e0b','#ef4444'];
   const counts=ranges.map(r=>p.filter(x=>{const v=x.price_min/1e5;return v>=r.mn&&v<r.mx;}));
   const maxC=Math.max(...counts.map(c=>c.length),1);
@@ -476,10 +640,8 @@ function renderPricing(){
     const c=counts[i],as=c.reduce((a,x)=>a+(x.historical_sold||0),0)/(c.length||1);
     return`<div class="pbucket"><div class="pb-lbl">${r.l}</div><div class="pb-track"><div class="pb-fill" style="width:${(c.length/maxC*100).toFixed(0)}%;background:${colors[i]}"></div></div><div class="pb-num">${c.length}</div></div><div style="font-size:10px;color:var(--muted);margin:-2px 0 10px 90px;font-family:'DM Mono',monospace">avg ${as.toFixed(0)} sold</div>`;
   }).join('');
-
   const sweet=ranges.map((r,i)=>({l:r.l,ts:counts[i].reduce((a,x)=>a+(x.historical_sold||0),0),n:counts[i].length})).sort((a,b)=>b.ts-a.ts);
   document.getElementById('sweetSpot').innerHTML=sweet.map((s,i)=>`<li class="iitem"><div class="iico">${i===0?'🥇':i===1?'🥈':'📍'}</div><div><div class="itxt">${s.l} — ${fmtNum(s.ts)} total sales</div><div class="isub">${s.n} products | avg ${s.n?Math.round(s.ts/s.n):0} sold each</div></div></li>`).join('');
-
   const wd=p.filter(x=>(x.raw_discount||0)>0),nd=p.filter(x=>!(x.raw_discount||0));
   const ads=wd.reduce((a,x)=>a+(x.historical_sold||0),0)/(wd.length||1);
   const and_=nd.reduce((a,x)=>a+(x.historical_sold||0),0)/(nd.length||1);
@@ -488,7 +650,7 @@ function renderPricing(){
     {ico:'🔖',t:`${wd.length} products use discounts`,s:`avg ${ads.toFixed(0)} units sold each`},
     {ico:'💲',t:`${nd.length} products at full price`,s:`avg ${and_.toFixed(0)} units sold each`},
     {ico:ads>and_?'✅':'📊',t:ads>and_?`Discounts drive ${lift}% more sales`:'Discounts not a key driver here',s:'Based on historical sales data'},
-    {ico:'💡',t:'Best tier: 15–20% off',s:'Most common among top-selling discounted items'},
+    {ico:'💡',t:'Best tier: 15-20% off',s:'Most common among top-selling discounted items'},
   ].map(x=>`<li class="iitem"><div class="iico">${x.ico}</div><div><div class="itxt">${x.t}</div><div class="isub">${x.s}</div></div></li>`).join('');
 }
 
@@ -501,41 +663,37 @@ function renderKeywords(){
   const mf=sorted[0]?.[1]||1;
   document.getElementById('kwCloud').innerHTML=sorted.map(([w,f])=>{
     const t=f/mf>.5?'h':f/mf>.25?'m':'l';
-    return`<span class="kw ${t}" title="appears in ${f} products">${w} <strong>${f}</strong></span>`;
+    return`<span class="kw ${t}" title="${f} products">${w} <strong>${f}</strong></span>`;
   }).join('');
-
   const avgLen=Math.round(p.reduce((a,x)=>a+x.name.length,0)/Math.max(p.length,1));
   const hasNum=p.filter(x=>/\d/.test(x.name)).length;
-  const hasBrand=p.filter(x=>/buddy|pedigree|royal|whiskas|hills|purina|me-o/i.test(x.name)).length;
   const hasWt=p.filter(x=>/\d+g|\d+kg|\d+ml|\d+pcs/i.test(x.name)).length;
   document.getElementById('titlePatterns').innerHTML=[
-    {ico:'📏',t:`Average title length: ${avgLen} characters`,s:'Shopee recommends 100–200 chars for best SEO'},
+    {ico:'📏',t:`Avg title length: ${avgLen} chars`,s:'Shopee recommends 100-200 chars for SEO'},
     {ico:'🔢',t:`${hasNum}/${p.length} titles include numbers`,s:'Weight, count, size = more search relevance'},
-    {ico:'🏷️',t:`${hasBrand}/${p.length} titles lead with brand`,s:'Brand-first titles rank higher in brand searches'},
-    {ico:'⚖️',t:`${hasWt}/${p.length} show weight/quantity`,s:'Size clarity reduces returns and bad reviews'},
+    {ico:'🏷️',t:`${hasWt}/${p.length} show weight/quantity`,s:'Size clarity reduces returns and bad reviews'},
+    {ico:'🔑',t:'Include model number in title',s:'e.g. "CR2032" beats "coin battery"'},
   ].map(x=>`<li class="iitem"><div class="iico">${x.ico}</div><div><div class="itxt">${x.t}</div><div class="isub">${x.s}</div></div></li>`).join('');
-
   document.getElementById('labelIntel').innerHTML=[
-    {ico:'📦',t:'State package contents in title',s:'"includes free bowl" → higher conversion rate'},
-    {ico:'🇲🇾',t:'Add "Malaysia Stock" or "MY Seller"',s:'Builds trust, reduces cart abandonment'},
-    {ico:'🔗',t:'State breed/pet compatibility',s:'"for small dogs" attracts exact target buyers'},
-    {ico:'📸',t:'White background product images',s:'Clean images = higher click-through rate'},
+    {ico:'📦',t:'State package contents',s:'"includes charger" → higher conversion'},
+    {ico:'🇲🇾',t:'Add "Malaysia Stock / MY Seller"',s:'Builds trust, reduces cart abandonment'},
+    {ico:'🔗',t:'State compatibility clearly',s:'"compatible with CR2032" catches more search'},
+    {ico:'📸',t:'White background images win',s:'Clean images = higher click-through rate'},
   ].map(x=>`<li class="iitem"><div class="iico">${x.ico}</div><div><div class="itxt">${x.t}</div><div class="isub">${x.s}</div></div></li>`).join('');
-
   const top=p[0];
   const avgP=(p.reduce((a,x)=>a+x.price_min/1e5,0)/Math.max(p.length,1)).toFixed(2);
   document.getElementById('actionPlan').innerHTML=[
-    {ico:'💰',t:`Price your product around RM ${avgP}`,s:'Matches the competitor sweet spot for this niche'},
-    {ico:'📸',t:`Top seller has ${fmtNum(top?.liked_count||0)} likes`,s:'Study its images, title, and description carefully'},
-    {ico:'⭐',t:'Target 4.8+ rating from day one',s:'Fast replies + resolve issues before bad reviews post'},
-    {ico:'🎯',t:'Watch for low-stock competitors',s:"Low stock = they're selling fast = profitable"},
-    {ico:'🔑',t:'Use orange keywords in your title',s:'Highest frequency in competitor top-selling titles'},
+    {ico:'💰',t:`Price around RM ${avgP}`,s:'Matches competitor sweet spot for this niche'},
+    {ico:'📸',t:`Top seller: ${fmtNum(top?.liked_count||0)} likes`,s:'Study its images, title, and description'},
+    {ico:'⭐',t:'Target 4.8+ rating from day one',s:'Fast replies + resolve issues early'},
+    {ico:'🧬',t:'Stock the top-selling variant first',s:'See Variants tab → 🏆 winners per product'},
+    {ico:'🎯',t:'Watch low-stock competitors',s:"Low stock = they're selling fast = profitable"},
   ].map(x=>`<li class="iitem"><div class="iico">${x.ico}</div><div><div class="itxt">${x.t}</div><div class="isub">${x.s}</div></div></li>`).join('');
 }
 
 function renderCompetitorSection(shops){
   if(!shops||!shops.length){document.getElementById('compCards').innerHTML='<div class="empty"><div class="empty-ico">🏪</div><div class="empty-h">No competitors yet</div><div class="empty-t">Scrape multiple shops to compare</div></div>';return;}
-  document.getElementById('compCards').innerHTML=shops.map(s=>`<div class="comp-card ${s.shopid==ST.activeShopid?'sel':''}" onclick="selectComp(this,'${s.shopid}')"><div class="cname">${s.shop_name||s.username}</div><div class="chandle">@${s.username}</div><div class="cstat"><span class="csl">Products</span><span class="csv">${s.total_products||'—'}</span></div><div class="cstat"><span class="csl">Total Sold</span><span class="csv" style="color:var(--green)">${fmtNum(s.total_sold||0)}</span></div><div class="cstat"><span class="csl">Avg Price</span><span class="csv" style="color:var(--orange)">RM ${(+(s.avg_price_rm||0)).toFixed(2)}</span></div><div class="cstat"><span class="csl">Followers</span><span class="csv">${fmtNum(s.follower_count||0)}</span></div><div><span class="rpill">★ ${s.shop_rating||'—'}</span></div></div>`).join('');
+  document.getElementById('compCards').innerHTML=shops.map(s=>`<div class="comp-card ${s.shopid==ST.activeShopid?'sel':''}" onclick="selectComp(this)"><div class="cname">${s.shop_name||s.username}</div><div class="chandle">@${s.username}</div><div class="cstat"><span class="csl">Products</span><span class="csv">${s.total_products||'—'}</span></div><div class="cstat"><span class="csl">Total Sold</span><span class="csv" style="color:var(--green)">${fmtNum(s.total_sold||0)}</span></div><div class="cstat"><span class="csl">Avg Price</span><span class="csv" style="color:var(--orange)">RM ${(+(s.avg_price_rm||0)).toFixed(2)}</span></div><div class="cstat"><span class="csl">Followers</span><span class="csv">${fmtNum(s.follower_count||0)}</span></div><div><span class="rpill">★ ${s.shop_rating||'—'}</span></div></div>`).join('');
   document.getElementById('compTbl').innerHTML=shops.map(s=>`<tr><td style="font-weight:700">${s.shop_name||s.username}</td><td style="font-family:'DM Mono',monospace">${s.total_products||'—'}</td><td class="sold-val">${fmtNum(s.total_sold||0)}</td><td class="pricetag">RM ${(+(s.avg_price_rm||0)).toFixed(2)}</td><td><span class="stars">${'★'.repeat(Math.round(s.shop_rating||0))}</span> ${s.shop_rating||'—'}</td><td style="color:var(--text2)">${fmtNum(s.follower_count||0)}</td><td style="font-family:'DM Mono',monospace;font-size:11px;color:var(--muted)">${s.last_scraped?new Date(s.last_scraped).toLocaleDateString('en-MY'):'-'}</td></tr>`).join('');
   const labels=shops.map(s=>s.username),colors=['#f97316','#10b981','#3b82f6','#f59e0b','#ef4444'];
   mkChart('ch-compSales','bar',{labels,datasets:[{data:shops.map(s=>s.total_sold||0),backgroundColor:shops.map((_,i)=>colors[i%colors.length]+'44'),borderColor:shops.map((_,i)=>colors[i%colors.length]),borderWidth:2,borderRadius:6}]});
@@ -546,8 +704,7 @@ function selectComp(el){document.querySelectorAll('.comp-card').forEach(c=>c.cla
 
 async function loadLog(){
   try{
-    const res=await fetch(`${API}/api/data?type=log`);
-    const log=await res.json();
+    const res=await fetch(`${API}/api/data?type=log`);const log=await res.json();
     document.getElementById('logList').innerHTML=log.length
       ?log.map(l=>`<div class="log-item"><span class="${l.status==='success'?'log-ok':'log-err'}">${l.status==='success'?'✓ OK':'✗ ERR'}</span><span class="log-shop">${l.username||'unknown'}</span><span class="log-meta">${l.total_items||0} products</span><span class="log-meta">${l.duration_ms||0}ms</span><span class="log-meta" style="margin-left:auto">${new Date(l.scraped_at).toLocaleString('en-MY')}</span></div>`).join('')
       :'<div class="empty" style="padding:32px"><div class="empty-ico" style="font-size:32px">📋</div><div class="empty-t">No scrape history yet</div></div>';
