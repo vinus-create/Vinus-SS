@@ -1311,7 +1311,7 @@ async function loadVelocity() {
 function renderVelocity() {
   const { period } = VEL;
   const isCustom = period === 'custom';
-  const data = isCustom ? VEL.customData : VEL.data;
+  const data = Array.isArray(isCustom ? VEL.customData : VEL.data) ? (isCustom ? VEL.customData : VEL.data) : [];
   const field = isCustom ? 'sold_custom' : period==='1d' ? 'sold_1d' : period==='3d' ? 'sold_3d' : period==='7d' ? 'sold_7d' : period==='14d' ? 'sold_14d' : 'sold_30d';
   const hasData = data.length > 0;
   const hasVel  = isCustom
@@ -1445,7 +1445,9 @@ async function applyCustomVelocity() {
     let url = `${API}/api/get-velocity?from=${from}&to=${to}&limit=500`;
     if (ST.activeShopid) url += `&shopid=${ST.activeShopid}`;
     const r = await fetch(url);
-    VEL.customData = await r.json();
+    const json = await r.json();
+    if (!r.ok) throw new Error(json.error || json.message || r.status);
+    VEL.customData = Array.isArray(json) ? json : [];
     VEL.loaded = true;
     const days = Math.round((new Date(to) - new Date(from)) / 86400000);
     status.textContent = `✓ ${days}d range · ${VEL.customData.length} variants`;
