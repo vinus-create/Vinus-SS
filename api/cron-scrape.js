@@ -4,7 +4,8 @@ const S=process.env.SUPABASE_URL;
 const K=process.env.SUPABASE_SERVICE_KEY;
 const CRON_SECRET=process.env.CRON_SECRET||'';
 
-const SHOPS=[
+// Fallback hardcoded list used only if DB read fails
+const FALLBACK_SHOPS=[
   {username:'buddysnack',        shopid:3693884},
   {username:'winstartech',       shopid:65231794},
   {username:'1stopbatteries',    shopid:436346628},
@@ -126,6 +127,21 @@ export default async function handler(req,res){
   if(CRON_SECRET&&auth!==`Bearer ${CRON_SECRET}`){
     return res.status(401).json({error:'Unauthorized'});
   }
+
+  // Load shops dynamically from DB; fall back to hardcoded list
+  let SHOPS=FALLBACK_SHOPS;
+  try{
+    const r=await fetch(`${S}/rest/v1/shops?select=username,shopid&order=updated_at.desc&limit=200`,{
+      headers:{'apikey':K,'Authorization':'Bearer '+K}
+    });
+    const dbShops=await r.json();
+    if(Array.isArray(dbShops)&&dbShops.length){
+      // Filter out placeholder usernames (disc_XXXXX) — those need full shop detail first
+      const real=dbShops.filter(s=>s.username&&!s.username.startsWith('disc_'));
+      if(real.length) SHOPS=real;
+    }
+  }catch(e){console.warn('Could not load shops from DB, using fallback:',e.message);}
+
   const startAll=Date.now();
   console.log('🕗 Cron started:',new Date().toISOString(),`(${SHOPS.length} shops)`);
   const results=[];

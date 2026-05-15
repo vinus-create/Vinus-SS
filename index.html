@@ -223,6 +223,22 @@ tr:hover td{background:rgba(249,115,22,.04)}
 .rv-tag{display:inline-block;padding:2px 7px;border-radius:10px;font-size:9px;font-weight:700;background:rgba(139,92,246,.1);color:var(--acc3);margin:1px;border:1px solid rgba(139,92,246,.18)}
 .rv-notice{background:rgba(245,158,11,.06);border:1px solid rgba(245,158,11,.18);border-radius:8px;padding:12px 16px;font-size:12px;color:var(--acc4);margin-bottom:16px;display:flex;gap:8px;align-items:center}
 
+/* MARKET / DISCOVER TABS */
+.shop-src{display:inline-block;padding:1px 6px;border-radius:8px;font-size:9px;font-weight:700;letter-spacing:.4px}
+.src-manual{background:rgba(16,185,129,.12);color:#065f46}
+.src-discovered{background:rgba(139,92,246,.12);color:#5b21b6}
+.src-cron{background:rgba(249,115,22,.12);color:#c2410c}
+.src-tracked{background:rgba(59,130,246,.12);color:#1d4ed8}
+.disc-log{background:var(--s2);border:1px solid var(--border);border-radius:8px;padding:12px 14px;font-family:'DM Mono',monospace;font-size:10.5px;color:var(--text);max-height:220px;overflow-y:auto;margin-top:12px;line-height:1.9}
+.cat-preset{padding:5px 13px;border:1px solid var(--border2);border-radius:16px;font-size:11px;font-weight:600;color:var(--muted);background:var(--s2);cursor:pointer;transition:.15s}
+.cat-preset:hover{border-color:var(--acc);color:var(--acc)}
+.cat-preset.on{border-color:var(--acc);background:rgba(249,115,22,.1);color:var(--acc)}
+.mkt-hero{background:linear-gradient(135deg,rgba(249,115,22,.08),rgba(139,92,246,.06));border:1px solid rgba(249,115,22,.15);border-radius:12px;padding:20px 24px;margin-bottom:16px;display:flex;gap:24px;align-items:center;flex-wrap:wrap}
+.mkt-hero-stat{text-align:center}
+.mkt-hero-val{font-size:28px;font-weight:800;color:var(--acc);line-height:1}
+.mkt-hero-lbl{font-size:10px;color:var(--muted);letter-spacing:1px;text-transform:uppercase;margin-top:4px;font-family:'DM Mono',monospace}
+.disc-step{background:var(--s2);border:1px solid var(--border);border-radius:8px;padding:14px 16px;margin-bottom:10px}
+.disc-step-title{font-size:11px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:var(--muted);margin-bottom:8px}
 /* MOBILE */
 @media(max-width:700px){
   .g2,.g3,.g21{grid-template-columns:1fr}
@@ -270,6 +286,8 @@ tr:hover td{background:rgba(249,115,22,.04)}
   <div class="tab"     onclick="tab('compare')">🔀 Compare</div>
   <div class="tab"     onclick="tab('competitors')">🏪 Competitors</div>
   <div class="tab"     onclick="tab('log')">📋 Scrape Log</div>
+  <div class="tab"     onclick="tab('market')">🌐 Market</div>
+  <div class="tab"     onclick="tab('discover')">🔍 Discover</div>
   <div class="tab"     onclick="tab('framework')">⚙️ Setup Guide</div>
 </div>
 
@@ -495,6 +513,127 @@ tr:hover td{background:rgba(249,115,22,.04)}
     </div>
   </div>
 
+  <!-- ======= MARKET ======= -->
+  <div class="sec" id="sec-market">
+    <div class="mkt-hero">
+      <div class="mkt-hero-stat"><div class="mkt-hero-val" id="mkt-total-shops">—</div><div class="mkt-hero-lbl">Shops Tracked</div></div>
+      <div class="mkt-hero-stat"><div class="mkt-hero-val" id="mkt-total-prods">—</div><div class="mkt-hero-lbl">Total Products</div></div>
+      <div class="mkt-hero-stat"><div class="mkt-hero-val" id="mkt-total-sold">—</div><div class="mkt-hero-lbl">Market Sales</div></div>
+      <div class="mkt-hero-stat"><div class="mkt-hero-val" id="mkt-leader">—</div><div class="mkt-hero-lbl">Market Leader</div></div>
+      <div style="margin-left:auto;display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+        <input id="mkt-search" type="text" placeholder="Filter shops…" oninput="filterMarket()" style="padding:7px 12px;border:1px solid var(--border2);border-radius:6px;font-size:12px;background:var(--s1);color:var(--text);outline:none;width:160px">
+        <button class="tb-btn tb-btn-primary" onclick="loadMarket(true)">↻ Refresh</button>
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-hdr">
+        <span class="card-title">All Shops Leaderboard</span>
+        <div style="display:flex;gap:6px;flex-wrap:wrap">
+          <button class="sort-btn on" id="mkt-sort-sold" onclick="sortMarket('total_sold',this)">By Sales</button>
+          <button class="sort-btn" id="mkt-sort-prods" onclick="sortMarket('total_products',this)">By Products</button>
+          <button class="sort-btn" id="mkt-sort-rating" onclick="sortMarket('avg_product_rating',this)">By Rating</button>
+          <button class="sort-btn" id="mkt-sort-followers" onclick="sortMarket('follower_count',this)">By Followers</button>
+        </div>
+      </div>
+      <div class="tbl-wrap">
+        <table>
+          <thead><tr>
+            <th style="width:36px">#</th>
+            <th>Shop</th>
+            <th>Source</th>
+            <th>Total Sold</th>
+            <th>Products</th>
+            <th>Avg Price</th>
+            <th>Rating</th>
+            <th>Followers</th>
+            <th>Last Scraped</th>
+            <th></th>
+          </tr></thead>
+          <tbody id="mkt-body"></tbody>
+        </table>
+      </div>
+    </div>
+    <div class="g2">
+      <div class="card"><div class="card-hdr"><span class="card-title">Sales Distribution</span></div><div class="card-body"><div class="chart-box"><canvas id="ch-mkt-sales"></canvas></div></div></div>
+      <div class="card"><div class="card-hdr"><span class="card-title">Avg Price by Shop</span></div><div class="card-body"><div class="chart-box"><canvas id="ch-mkt-price"></canvas></div></div></div>
+    </div>
+    <div id="mkt-empty" class="empty" style="display:none"><div class="empty-ico">🌐</div><div class="empty-h">No market data</div><div class="empty-t">Run the scraper or discovery first</div></div>
+  </div>
+
+  <!-- ======= DISCOVER ======= -->
+  <div class="sec" id="sec-discover">
+    <div class="g2">
+      <div>
+        <div class="disc-step">
+          <div class="disc-step-title">Step 1 — Select Categories</div>
+          <div style="display:flex;flex-wrap:wrap;gap:6px" id="disc-cat-pills">
+            <button class="cat-preset on" onclick="toggleDiscCat(11042,this)" data-catid="11042">🔋 Batteries</button>
+            <button class="cat-preset on" onclick="toggleDiscCat(11041,this)" data-catid="11041">🔌 Chargers</button>
+            <button class="cat-preset" onclick="toggleDiscCat(11139,this)" data-catid="11139">📱 Power Banks</button>
+            <button class="cat-preset" onclick="toggleDiscCat(11143,this)" data-catid="11143">🧩 Accessories</button>
+            <button class="cat-preset" onclick="toggleDiscCat(11038,this)" data-catid="11038">💻 Electronics</button>
+            <button class="cat-preset" onclick="toggleDiscCat(11119,this)" data-catid="11119">📷 Cameras</button>
+            <button class="cat-preset" onclick="toggleDiscCat(11095,this)" data-catid="11095">🎮 Gaming</button>
+            <button class="cat-preset" onclick="toggleDiscCat(11120,this)" data-catid="11120">📡 Radio</button>
+          </div>
+          <div style="margin-top:10px;display:flex;align-items:center;gap:8px">
+            <span style="font-size:11px;color:var(--muted)">Or enter catid:</span>
+            <input id="disc-custom-cat" type="number" placeholder="e.g. 11042" style="padding:5px 10px;border:1px solid var(--border2);border-radius:6px;font-size:12px;background:var(--s1);color:var(--text);outline:none;width:120px">
+            <button class="sort-btn" onclick="addCustomCat()">Add</button>
+          </div>
+        </div>
+        <div class="disc-step">
+          <div class="disc-step-title">Step 2 — Configure Depth</div>
+          <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap">
+            <label style="font-size:12px;color:var(--muted)">Pages per category:</label>
+            <select id="disc-pages" style="padding:6px 10px;border:1px solid var(--border2);border-radius:6px;font-size:12px;background:var(--s1);color:var(--text);outline:none">
+              <option value="3">3 pages (~180 products)</option>
+              <option value="5">5 pages (~300 products)</option>
+              <option value="10">10 pages (~600 products)</option>
+              <option value="20">20 pages (~1200 products)</option>
+            </select>
+          </div>
+          <div style="margin-top:8px;font-size:10px;color:var(--muted)">Must run on a Shopee tab. More pages = more shops found but takes longer.</div>
+        </div>
+        <div class="disc-step">
+          <div class="disc-step-title">Step 3 — Run Discovery</div>
+          <div style="display:flex;gap:8px;flex-wrap:wrap">
+            <button id="disc-run-btn" class="tb-btn tb-btn-primary" onclick="runDiscover()">🔍 Start Discovery</button>
+            <button class="tb-btn tb-btn-ghost" onclick="document.getElementById('disc-log').innerHTML=''">Clear Log</button>
+          </div>
+          <div class="disc-log" id="disc-log">Ready. Select categories and click Start Discovery.</div>
+        </div>
+      </div>
+      <div>
+        <div class="card" style="margin-bottom:0">
+          <div class="card-hdr"><span class="card-title">How It Works</span></div>
+          <div class="card-body">
+            <ul class="ilist">
+              <li class="iitem"><div class="iico">1️⃣</div><div><div class="itxt">Browser crawls Shopee category pages</div><div class="isub">Uses your session cookies — no CAPTCHA for normal speeds</div></div></li>
+              <li class="iitem"><div class="iico">2️⃣</div><div><div class="itxt">Extracts every shop selling in that category</div><div class="isub">Product data + shopid saved automatically</div></div></li>
+              <li class="iitem"><div class="iico">3️⃣</div><div><div class="itxt">New shops appear in the Market tab</div><div class="isub">Next daily cron scrapes their full product list</div></div></li>
+              <li class="iitem"><div class="iico">4️⃣</div><div><div class="itxt">Compare them in Best Sellers, Compare tabs</div><div class="isub">Full variant + velocity data after first cron run</div></div></li>
+            </ul>
+          </div>
+        </div>
+        <div class="card" style="margin-top:12px">
+          <div class="card-hdr"><span class="card-title">Nearby Category IDs</span></div>
+          <div class="card-body" style="font-family:'DM Mono',monospace;font-size:11px;line-height:2">
+            <div>11042 — Batteries &amp; Battery Packs</div>
+            <div>11041 — Chargers &amp; Charging Cables</div>
+            <div>11139 — Power Banks</div>
+            <div>11038 — Consumer Electronics</div>
+            <div>11095 — Gaming Accessories</div>
+            <div>11143 — Mobile Accessories</div>
+            <div>11120 — Walkie Talkies / Radio</div>
+            <div style="margin-top:8px;color:var(--muted)">Find more: shopee.com.my → browse category → check URL for catid param</div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div id="disc-results"></div>
+  </div>
+
   <!-- ======= SETUP GUIDE ======= -->
   <div class="sec" id="sec-framework">
     <div class="card" style="margin-bottom:16px"><div class="card-body">
@@ -609,11 +748,12 @@ window.onload = async () => {
 // TABS
 // ========================================================
 function tab(name) {
-  const names = ['overview','bestsellers','variants','pricing','keywords','reviews','velocity','compare','competitors','log','framework'];
+  const names = ['overview','bestsellers','variants','pricing','keywords','reviews','velocity','compare','competitors','log','market','discover','framework'];
   document.querySelectorAll('.tab').forEach((t,i) => t.classList.toggle('on', names[i]===name));
   document.querySelectorAll('.sec').forEach(s => s.classList.remove('on'));
   document.getElementById('sec-'+name).classList.add('on');
-  if (name==='log') loadLog();
+  if (name==='log')      loadLog();
+  if (name==='market'   && !MKT.loaded)  loadMarket();
   if (name==='variants' && ST.activeShopid) loadVariants();
   if (name==='reviews'  && ST.activeShopid && !RV.loaded)  loadReviews();
   if (name==='velocity' && ST.activeShopid && !VEL.loaded) loadVelocity();
@@ -1630,6 +1770,240 @@ function imgErr(el){ el.outerHTML='<div class="img-ph">📦</div>'; }
 function prog(show,pct=0){
   document.getElementById('progBar').classList.toggle('show',show);
   document.getElementById('progFill').style.width=pct+'%';
+}
+
+// ========================================================
+// MARKET TAB
+// ========================================================
+let MKT = { shops:[], filtered:[], sortField:'total_sold', loaded:false };
+
+async function loadMarket(force=false) {
+  if (MKT.loaded && !force) { renderMarket(); return; }
+  setStatus('Loading market data...');
+  try {
+    const res = await fetch(`${API}/api/data?type=market`);
+    if (!res.ok) throw new Error('API '+res.status);
+    MKT.shops = await res.json();
+    MKT.filtered = [...MKT.shops];
+    MKT.loaded = true;
+    renderMarket();
+    setStatus(`✓ ${MKT.shops.length} shops in market`);
+  } catch(e) {
+    setStatus('Market error: '+e.message);
+    document.getElementById('mkt-empty').style.display='block';
+  }
+}
+
+function filterMarket() {
+  const kw = (document.getElementById('mkt-search').value||'').toLowerCase();
+  MKT.filtered = kw
+    ? MKT.shops.filter(s=>(s.shop_name||'').toLowerCase().includes(kw)||(s.username||'').toLowerCase().includes(kw))
+    : [...MKT.shops];
+  renderMarketTable();
+}
+
+function sortMarket(field, el) {
+  document.querySelectorAll('#sec-market .sort-btn').forEach(b=>b.classList.remove('on'));
+  if(el) el.classList.add('on');
+  MKT.sortField = field;
+  MKT.filtered.sort((a,b)=>(b[field]||0)-(a[field]||0));
+  renderMarketTable();
+}
+
+function renderMarket() {
+  const s = MKT.shops;
+  if (!s.length) { document.getElementById('mkt-empty').style.display='block'; return; }
+  document.getElementById('mkt-empty').style.display='none';
+  const totalSold  = s.reduce((a,x)=>a+(+x.total_sold||0),0);
+  const totalProds = s.reduce((a,x)=>a+(+x.total_products||0),0);
+  document.getElementById('mkt-total-shops').textContent = s.length;
+  document.getElementById('mkt-total-prods').textContent = fmtNum(totalProds);
+  document.getElementById('mkt-total-sold').textContent  = fmtNum(totalSold);
+  document.getElementById('mkt-leader').textContent      = (s[0]?.shop_name||s[0]?.username||'—').substring(0,12);
+  MKT.filtered = [...s];
+  renderMarketTable();
+  renderMarketCharts();
+}
+
+function renderMarketTable() {
+  const rows = MKT.filtered;
+  document.getElementById('mkt-body').innerHTML = rows.map((s,i)=>{
+    const rk   = i===0?'g':i===1?'s':i===2?'b':'';
+    const src  = s.source||'manual';
+    const srcCls = src==='discovered'?'src-discovered':src==='cron'?'src-cron':'src-manual';
+    const shopUrl= `https://shopee.com.my/${s.username}`;
+    const last   = s.last_scraped ? new Date(s.last_scraped).toLocaleDateString('en-MY',{month:'short',day:'numeric'}) : '—';
+    const verified= s.is_shopee_verified?'✓ ':''; const official=s.is_official_shop?'🏅':'';
+    const rating  = s.avg_product_rating ? parseFloat(s.avg_product_rating).toFixed(1) : '—';
+    const price   = s.avg_price_rm ? 'RM '+parseFloat(s.avg_price_rm).toFixed(2) : '—';
+    return `<tr>
+      <td><span class="rank ${rk}">${i+1}</span></td>
+      <td>
+        <a href="${shopUrl}" target="_blank" rel="noopener" style="font-weight:700;color:var(--text);text-decoration:none">${verified}${official}${s.shop_name||s.username}</a>
+        <div style="font-size:10px;color:var(--muted);font-family:'DM Mono',monospace">@${s.username}</div>
+      </td>
+      <td><span class="shop-src ${srcCls}">${src}</span></td>
+      <td><span class="sold-val">${fmtNum(+s.total_sold||0)}</span></td>
+      <td style="font-family:'DM Mono',monospace;font-size:11px">${s.total_products||'—'}</td>
+      <td><span class="pricetag">${price}</span></td>
+      <td><span style="color:var(--acc4)">★</span> ${rating}</td>
+      <td style="font-family:'DM Mono',monospace;font-size:11px;color:var(--muted)">${fmtNum(+s.follower_count||0)}</td>
+      <td style="font-size:10px;color:var(--muted2);font-family:'DM Mono',monospace">${last}</td>
+      <td>
+        <button class="sort-btn" onclick="jumpToShop('${s.shopid}','${s.username}')">View →</button>
+      </td>
+    </tr>`;
+  }).join('');
+}
+
+function renderMarketCharts() {
+  const top12 = MKT.shops.slice(0,12);
+  const colors = ['#f97316','#10b981','#8b5cf6','#f59e0b','#ef4444','#3b82f6','#ec4899','#06b6d4','#84cc16','#a855f7','#f43f5e','#14b8a6'];
+  mkChart('ch-mkt-sales','bar',{
+    labels: top12.map(s=>(s.username||'').substring(0,12)),
+    datasets:[{ data:top12.map(s=>+s.total_sold||0),
+      backgroundColor:top12.map((_,i)=>colors[i%colors.length]+'33'),
+      borderColor:top12.map((_,i)=>colors[i%colors.length]),
+      borderWidth:2,borderRadius:5 }]
+  });
+  mkChart('ch-mkt-price','bar',{
+    labels: top12.map(s=>(s.username||'').substring(0,12)),
+    datasets:[{ data:top12.map(s=>+(+s.avg_price_rm||0).toFixed(2)),
+      backgroundColor:top12.map((_,i)=>colors[i%colors.length]+'33'),
+      borderColor:top12.map((_,i)=>colors[i%colors.length]),
+      borderWidth:2,borderRadius:5 }]
+  });
+}
+
+async function jumpToShop(shopid, username) {
+  const sel = document.getElementById('shopSelect');
+  // Try to find in existing dropdown
+  let found = [...sel.options].find(o=>o.value==shopid);
+  if (!found) {
+    // Add temporarily
+    const opt = document.createElement('option');
+    opt.value = shopid; opt.text = username+' (discovered)';
+    sel.appendChild(opt);
+  }
+  sel.value = shopid;
+  tab('bestsellers');
+  await loadShopData();
+}
+
+// ========================================================
+// DISCOVER TAB
+// ========================================================
+let DISC = { running:false, catids:[11042,11041], products:[], shops:{} };
+
+function toggleDiscCat(id, el) {
+  const idx = DISC.catids.indexOf(id);
+  if (idx>=0) { DISC.catids.splice(idx,1); el.classList.remove('on'); }
+  else { DISC.catids.push(id); el.classList.add('on'); }
+}
+
+function addCustomCat() {
+  const id = parseInt(document.getElementById('disc-custom-cat').value);
+  if (!id) return;
+  if (!DISC.catids.includes(id)) {
+    DISC.catids.push(id);
+    const pill = document.createElement('button');
+    pill.className='cat-preset on';
+    pill.dataset.catid=id;
+    pill.textContent='📁 '+id;
+    pill.onclick=()=>toggleDiscCat(id,pill);
+    document.getElementById('disc-cat-pills').appendChild(pill);
+  }
+  document.getElementById('disc-custom-cat').value='';
+}
+
+function discLog(msg) {
+  const el=document.getElementById('disc-log');
+  el.innerHTML+=`<div>[${new Date().toLocaleTimeString()}] ${msg}</div>`;
+  el.scrollTop=el.scrollHeight;
+}
+
+async function runDiscover() {
+  if (DISC.running) return;
+  if (!DISC.catids.length) { discLog('⚠️ Select at least one category first'); return; }
+  DISC.running=true;
+  DISC.products=[]; DISC.shops={};
+  document.getElementById('disc-run-btn').disabled=true;
+  document.getElementById('disc-log').innerHTML='';
+  discLog('🔍 Starting category discovery...');
+  discLog('Categories: '+DISC.catids.join(', '));
+
+  const H={'x-api-source':'pc','x-shopee-language':'en'};
+  const pages=parseInt(document.getElementById('disc-pages').value)||3;
+  const sleep=ms=>new Promise(r=>setTimeout(r,ms));
+
+  for (const catid of DISC.catids) {
+    discLog(`📂 Crawling catid ${catid}...`);
+    let offset=0, pagesDone=0, failed=false;
+    while (pagesDone<pages && !failed) {
+      try {
+        const r=await fetch(`https://shopee.com.my/api/v4/search/search_items?by=sales&limit=60&catid=${catid}&newest=${offset}&order=desc&page_type=search&scenario=PAGE_CATEGORY&version=2`,{headers:H});
+        if (!r.ok) { discLog(`  ⚠️ HTTP ${r.status} on catid ${catid}`); failed=true; break; }
+        const d=await r.json();
+        const items=(d.items||[]).map(i=>i.item_basic);
+        if (!items.length) break;
+        items.forEach(p=>{
+          if (!DISC.shops[p.shopid]) DISC.shops[p.shopid]={shopid:p.shopid,shop_name:p.shop_name||'',count:0};
+          DISC.shops[p.shopid].count++;
+          DISC.products.push(p);
+        });
+        discLog(`  Page ${pagesDone+1}: +${items.length} products · ${Object.keys(DISC.shops).length} unique shops`);
+        if (items.length<60) break;
+        offset+=60; pagesDone++;
+        await sleep(700);
+      } catch(e) { discLog(`  ❌ ${e.message}`); failed=true; }
+    }
+    await sleep(1200);
+  }
+
+  const shopCount=Object.keys(DISC.shops).length;
+  discLog(`✅ Done: ${DISC.products.length} products · ${shopCount} shops found`);
+  if (!DISC.products.length) { DISC.running=false; document.getElementById('disc-run-btn').disabled=false; return; }
+
+  discLog('💾 Saving to database...');
+  try {
+    const res=await fetch(`${API}/api/discover`,{
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({products:DISC.products, catids:DISC.catids})
+    });
+    const result=await res.json();
+    if (result.ok) {
+      discLog(`✅ Saved: ${result.products_saved} products · ${result.shops_discovered} shops discovered`);
+      discLog('🔄 Refresh the Market tab to see new shops');
+      MKT.loaded=false;
+      renderDiscoverResults();
+    } else { discLog('❌ Save error: '+(result.error||'unknown')); }
+  } catch(e) { discLog('❌ API error: '+e.message); }
+
+  DISC.running=false;
+  document.getElementById('disc-run-btn').disabled=false;
+}
+
+function renderDiscoverResults() {
+  const shops=Object.values(DISC.shops).sort((a,b)=>b.count-a.count);
+  document.getElementById('disc-results').innerHTML=`
+    <div class="card" style="margin-top:16px">
+      <div class="card-hdr">
+        <span class="card-title">Discovered Shops (${shops.length})</span>
+        <span style="font-size:11px;color:var(--muted)">${DISC.products.length} products total</span>
+      </div>
+      <div class="tbl-wrap"><table>
+        <thead><tr><th>#</th><th>Shop Name</th><th>Shop ID</th><th>Products Found</th><th>Action</th></tr></thead>
+        <tbody>${shops.slice(0,100).map((s,i)=>`<tr>
+          <td><span class="rank">${i+1}</span></td>
+          <td style="font-weight:600">${s.shop_name||'—'}</td>
+          <td style="font-family:'DM Mono',monospace;font-size:11px;color:var(--muted)">${s.shopid}</td>
+          <td><span class="sold-val">${s.count}</span> products</td>
+          <td>
+            <a href="https://shopee.com.my/shop/${s.shopid}" target="_blank" rel="noopener" class="sort-btn" style="text-decoration:none">View Shop →</a>
+          </td>
+        </tr>`).join('')}</tbody>
+      </table></div>
+    </div>`;
 }
 </script>
 </body>

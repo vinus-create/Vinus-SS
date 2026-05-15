@@ -11,12 +11,19 @@ const query = async (path) => {
 export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
   if (req.method === 'OPTIONS') return res.status(200).end();
-  const { type, shopid, limit = 200 } = req.query;
+  const { type, shopid, catid, limit = 200 } = req.query;
   try {
     if (type === 'shops') {
       const data = await query('shop_stats?order=total_sold.desc');
       return res.status(200).json(data);
     }
+
+    // All shops including auto-discovered (from market_rankings view)
+    if (type === 'market') {
+      const data = await query('market_rankings?order=total_sold.desc&limit=500');
+      return res.status(200).json(data);
+    }
+
     if (type === 'products' && shopid) {
       const data = await query(`latest_products?shopid=eq.${shopid}&order=historical_sold.desc&limit=${limit}`);
       const enhanced = data.map(p => ({
@@ -27,10 +34,36 @@ export default async function handler(req, res) {
       }));
       return res.status(200).json(enhanced);
     }
+
+    // Products by category across all shops
+    if (type === 'category' && catid) {
+      const data = await query(`latest_products?catid=eq.${catid}&order=historical_sold.desc&limit=${limit}`);
+      const enhanced = data.map(p => ({
+        ...p,
+        image_url: p.image ? `https://down-my.img.susercontent.com/file/${p.image}` : '',
+        product_url: p.username && p.shopid && p.itemid
+          ? `https://shopee.com.my/${p.username}-i.${p.shopid}.${p.itemid}` : ''
+      }));
+      return res.status(200).json(enhanced);
+    }
+
+    // Top sellers across ALL shops (market-wide)
+    if (type === 'top-products') {
+      const data = await query(`latest_products?order=historical_sold.desc&limit=${limit}`);
+      const enhanced = data.map(p => ({
+        ...p,
+        image_url: p.image ? `https://down-my.img.susercontent.com/file/${p.image}` : '',
+        product_url: p.username && p.shopid && p.itemid
+          ? `https://shopee.com.my/${p.username}-i.${p.shopid}.${p.itemid}` : ''
+      }));
+      return res.status(200).json(enhanced);
+    }
+
     if (type === 'log') {
-      const data = await query('scrape_log?order=scraped_at.desc&limit=20');
+      const data = await query('scrape_log?order=scraped_at.desc&limit=50');
       return res.status(200).json(data);
     }
+
     return res.status(400).json({ error: 'Invalid type' });
   } catch (err) {
     return res.status(500).json({ error: err.message });
