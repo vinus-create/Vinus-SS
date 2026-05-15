@@ -114,7 +114,7 @@ async function scrapeShop({username,shopid}){
     await sb('scrape_log',[{username,shopid,total_items:prodCount,status:'success',duration_ms:Date.now()-started}]);
     console.log(`✅ ${username}: ${prodCount} products, ${snapCount} snaps, ${revCount} reviews (${Math.round((Date.now()-started)/1000)}s)`);
 
-  }catch(e){api/cron-scrape.js
+  }catch(e){
     console.error(`❌ ${username}:`,e.message);
     await sb('scrape_log',[{username,shopid,total_items:0,status:'error',error_msg:e.message.substring(0,200),duration_ms:Date.now()-started}]);
   }
