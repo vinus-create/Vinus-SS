@@ -183,6 +183,7 @@ tr:hover td{background:rgba(249,115,22,.04)}
 .var-inline-sold{color:var(--acc2);font-family:'DM Mono',monospace;white-space:nowrap}
 .var-inline-stock{color:var(--muted);font-family:'DM Mono',monospace;white-space:nowrap}
 .var-inline-more{font-size:10px;color:var(--muted2);padding-left:8px;font-family:'DM Mono',monospace;font-style:italic}
+.img-ph{width:52px;height:52px;border-radius:8px;background:var(--s2);border:1px solid var(--border);display:flex;align-items:center;justify-content:center;font-size:22px;flex-shrink:0}
 /* VARIANTS ACCORDION */
 .vg-hdr{display:flex;align-items:center;gap:10px;padding:12px 16px;cursor:pointer;border-bottom:1px solid var(--border);background:var(--s1);user-select:none;transition:.15s}
 .vg-hdr:hover{background:var(--s2)}
@@ -817,25 +818,24 @@ function renderTable(products) {
     const productUrl = p.product_url || (p.username && p.shopid && p.itemid
       ? `https://shopee.com.my/${p.username}-i.${p.shopid}.${p.itemid}` : '');
 
-    const placeholder = `<div style="width:52px;height:52px;border-radius:8px;background:var(--s2);border:1px solid var(--border);display:flex;align-items:center;justify-content:center;font-size:22px;flex-shrink:0">📦</div>`;
     const imgCell = imageUrl
       ? `<img src="${imageUrl}" width="52" height="52" referrerpolicy="no-referrer"
            style="object-fit:cover;border-radius:8px;border:1px solid var(--border);display:block;flex-shrink:0"
-           onerror="this.outerHTML='${placeholder.replace(/'/g,"\\'")}'">`
-      : placeholder;
+           onerror="imgErr(this)">`
+      : `<div class="img-ph">📦</div>`;
 
     // Inline variants
     const vars = (ST.varsByItemId||{})[p.itemid] || [];
     const varHtml = vars.length
       ? `<div class="var-inline-list">${
-          vars.slice(0,6).map(v =>
+          vars.map(v =>
             `<div class="var-inline-item">
               <span class="var-inline-name">${v.variant_name||'Default'}</span>
               <span class="var-inline-price">RM ${(v.price||0).toFixed(2)}</span>
               <span class="var-inline-sold">${fmtNum(v.sold||0)} sold</span>
               <span class="var-inline-stock">${v.stock??'?'} in stock</span>
             </div>`).join('')
-          }${vars.length>6?`<div class="var-inline-more">+${vars.length-6} more variants</div>`:''}</div>`
+          }</div>`
       : '';
 
     const nameCell = productUrl
@@ -1490,6 +1490,7 @@ async function loadLog() {
 function set(id,v){ const el=document.getElementById(id); if(el) el.textContent=v; }
 function fmtNum(n){ return n>=1e6?(n/1e6).toFixed(1)+'M':n>=1000?(n/1000).toFixed(1)+'k':n.toString(); }
 function setStatus(msg){ document.getElementById('tbStatus').textContent=msg; }
+function imgErr(el){ el.outerHTML='<div class="img-ph">📦</div>'; }
 function prog(show,pct=0){
   document.getElementById('progBar').classList.toggle('show',show);
   document.getElementById('progFill').style.width=pct+'%';
