@@ -175,6 +175,14 @@ tr:hover td{background:rgba(249,115,22,.04)}
 
 /* VELOCITY */
 .vel-bar{height:6px;background:var(--border);border-radius:3px;overflow:hidden;margin-top:3px}
+/* INLINE VARIANTS in Best Sellers */
+.var-inline-list{margin-top:6px;display:flex;flex-direction:column;gap:3px}
+.var-inline-item{display:flex;gap:8px;align-items:center;font-size:10px;padding:3px 0 3px 8px;border-left:2px solid var(--border);flex-wrap:wrap}
+.var-inline-name{color:var(--text);font-weight:600;min-width:0;word-break:break-word;line-height:1.3}
+.var-inline-price{color:var(--acc);font-family:'DM Mono',monospace;font-weight:700;white-space:nowrap}
+.var-inline-sold{color:var(--acc2);font-family:'DM Mono',monospace;white-space:nowrap}
+.var-inline-stock{color:var(--muted);font-family:'DM Mono',monospace;white-space:nowrap}
+.var-inline-more{font-size:10px;color:var(--muted2);padding-left:8px;font-family:'DM Mono',monospace;font-style:italic}
 /* VARIANTS ACCORDION */
 .vg-hdr{display:flex;align-items:center;gap:10px;padding:12px 16px;cursor:pointer;border-bottom:1px solid var(--border);background:var(--s1);user-select:none;transition:.15s}
 .vg-hdr:hover{background:var(--s2)}
@@ -539,7 +547,7 @@ const API = window.location.hostname === 'localhost'
 // ========================================================
 // STATE
 // ========================================================
-let ST = { products:[], shops:[], activeShopid:null, shopMeta:{} };
+let ST = { products:[], shops:[], activeShopid:null, shopMeta:{}, varsByItemId:{} };
 let CH = {};
 
 // ========================================================
@@ -598,19 +606,28 @@ async function loadShopData() {
   prog(true, 30);
   setStatus('Loading products...');
   try {
-    const res = await fetch(`${API}/api/data?type=products&shopid=${shopid}&limit=300`);
-    if (!res.ok) throw new Error('API '+res.status);
-    const products = await res.json();
+    const [prodRes, varRes] = await Promise.all([
+      fetch(`${API}/api/data?type=products&shopid=${shopid}&limit=300`),
+      fetch(`${API}/api/get-variants?shopid=${shopid}&limit=2000`)
+    ]);
+    const products = prodRes.ok ? await prodRes.json() : [];
+    const variants = varRes.ok ? await varRes.json() : [];
     ST.products = products;
     ST.activeShopid = shopid;
+    ST.varsByItemId = {};
+    if (Array.isArray(variants)) {
+      variants.forEach(v => {
+        if (!ST.varsByItemId[v.itemid]) ST.varsByItemId[v.itemid] = [];
+        ST.varsByItemId[v.itemid].push(v);
+      });
+    }
     RV.loaded = false;
     VEL.loaded = false;
-    // Find shop meta
     ST.shopMeta = ST.shops.find(s => s.shopid == shopid) || {};
     prog(true, 90);
     renderAll();
     prog(false);
-    setStatus(`✓ ${products.length} products loaded — ${ST.shopMeta.username||''}`);
+    setStatus(`✓ ${products.length} products · ${variants.length||0} variants — ${ST.shopMeta.username||''}`);
     document.getElementById('overviewEmpty').style.display = 'none';
     document.getElementById('hdrStatus').textContent = 'LIVE';
   } catch(e) {
@@ -794,16 +811,41 @@ function renderTable(products) {
     const maxStk=180, sp=Math.min((p.stock||0)/maxStk*100,100);
     const sc = sp>60?'#00d4aa':sp>20?'#f59e0b':'#f43f5e';
     const rk = i===0?'g':i===1?'s':i===2?'b':'';
-    const imgCell = p.image_url
-      ? `<img src="${p.image_url}" width="44" height="44" style="object-fit:cover;border-radius:8px;border:1px solid var(--border);display:block" onerror="this.style.display='none'">`
-      : `<div style="width:44px;height:44px;border-radius:8px;background:var(--s2);border:1px solid var(--border);display:flex;align-items:center;justify-content:center;font-size:18px">📦</div>`;
-    const nameCell = p.product_url
-      ? `<a href="${p.product_url}" target="_blank" rel="noopener" style="color:var(--text);text-decoration:none;font-weight:600" class="pname" title="${p.name}">${p.name}</a>`
-      : `<div class="pname" title="${p.name}">${p.name}</div>`;
+
+    // Build URLs from raw fields (schema stores image hash + no product_url col)
+    const imageUrl = p.image_url || (p.image ? `https://down-my.img.susercontent.com/file/${p.image}` : '');
+    const productUrl = p.product_url || (p.username && p.shopid && p.itemid
+      ? `https://shopee.com.my/${p.username}-i.${p.shopid}.${p.itemid}` : '');
+
+    const placeholder = `<div style="width:52px;height:52px;border-radius:8px;background:var(--s2);border:1px solid var(--border);display:flex;align-items:center;justify-content:center;font-size:22px;flex-shrink:0">📦</div>`;
+    const imgCell = imageUrl
+      ? `<img src="${imageUrl}" width="52" height="52" referrerpolicy="no-referrer"
+           style="object-fit:cover;border-radius:8px;border:1px solid var(--border);display:block;flex-shrink:0"
+           onerror="this.outerHTML='${placeholder.replace(/'/g,"\\'")}'">`
+      : placeholder;
+
+    // Inline variants
+    const vars = (ST.varsByItemId||{})[p.itemid] || [];
+    const varHtml = vars.length
+      ? `<div class="var-inline-list">${
+          vars.slice(0,6).map(v =>
+            `<div class="var-inline-item">
+              <span class="var-inline-name">${v.variant_name||'Default'}</span>
+              <span class="var-inline-price">RM ${(v.price||0).toFixed(2)}</span>
+              <span class="var-inline-sold">${fmtNum(v.sold||0)} sold</span>
+              <span class="var-inline-stock">${v.stock??'?'} in stock</span>
+            </div>`).join('')
+          }${vars.length>6?`<div class="var-inline-more">+${vars.length-6} more variants</div>`:''}</div>`
+      : '';
+
+    const nameCell = productUrl
+      ? `<a href="${productUrl}" target="_blank" rel="noopener" class="pname">${p.name}</a>`
+      : `<div class="pname">${p.name}</div>`;
+
     return `<tr>
       <td><span class="rank ${rk}">${i+1}</span></td>
       <td style="padding:8px 10px">${imgCell}</td>
-      <td>${nameCell}</td>
+      <td>${nameCell}${varHtml}</td>
       <td><span class="pricetag">RM ${rm}</span></td>
       <td>${p.raw_discount?`<span class="disc">-${p.raw_discount}%</span>`:'<span style="color:var(--muted2)">—</span>'}</td>
       <td><span class="sold-val">${fmtNum(p.historical_sold||0)}</span></td>
@@ -1188,6 +1230,16 @@ function sortReviews(mode, el) {
 let VAR = { data: [], sortField: 'sold', filterKw: '' };
 
 async function loadVariants() {
+  // Reuse data already fetched in loadShopData() if available
+  const existing = Object.values(ST.varsByItemId || {}).flat();
+  if (existing.length > 0) {
+    VAR.data = existing;
+    VAR.filterKw = '';
+    document.getElementById('var-search').value = '';
+    renderVariants();
+    setStatus(`✓ ${VAR.data.length} variants`);
+    return;
+  }
   setStatus('Loading variants...');
   try {
     const res = await fetch(`${API}/api/get-variants?shopid=${ST.activeShopid}&limit=2000`);
