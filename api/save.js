@@ -73,7 +73,7 @@ export default async function handler(req, res) {
 
     const BATCH = 25;
     for (let i = 0; i < rows.length; i += BATCH) {
-      await supabase('products', 'POST', rows.slice(i, i + BATCH));
+      await supabase('products?on_conflict=shopid,itemid,scraped_date', 'POST', rows.slice(i, i + BATCH));
     }
 
     await supabase('scrape_log', 'POST', {
