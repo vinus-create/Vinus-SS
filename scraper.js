@@ -5,8 +5,18 @@
 
 const VERCEL_URL = 'https://vinus-ss.vercel.app'; // ← change this
 const SHOP_USERNAMES = [
-  'competitor_shop_1.my',   // ← add your competitor usernames
-  'competitor_shop_2.my',
+  'winstartech',
+  '1stopbatteries',
+  'icare4allshop',
+  'energizerbatteryhub',
+  'gadgetspecialist',
+  'gou.ori',
+  'tenbucksfood',
+  'dsconcept_store',
+  'sxmixempire',
+  'r_in_g',
+  'nextgenhardware.os',
+  'ham_radios.my',
 ];
 
 // ── Helpers ──────────────────────────────────────────────────

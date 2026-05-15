@@ -28,7 +28,7 @@ export default async function handler(req, res) {
     const { shop, products, username } = req.body;
     if (!shop || !products || !username) return res.status(400).json({ error: 'Missing fields' });
 
-    await supabase('shops', 'POST', {
+    await supabase('shops?on_conflict=username', 'POST', {
       username, shopid: shop.shopid, name: shop.name,
       follower_count: shop.follower_count || 0,
       following_count: shop.following_count || 0,
