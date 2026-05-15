@@ -101,7 +101,7 @@ tr:hover td{background:rgba(249,115,22,.04)}
 .rank.g{background:rgba(245,158,11,.12);color:var(--acc4)}
 .rank.s{background:rgba(200,200,220,.08);color:#9999bb}
 .rank.b{background:rgba(180,100,40,.12);color:#c87832}
-.pname{font-weight:600;max-width:180px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.pname{font-weight:600;white-space:normal;word-break:break-word;line-height:1.4}
 .pricetag{font-family:'DM Mono',monospace;font-weight:700;color:#c2410c;font-size:12px}
 .disc{display:inline-block;padding:2px 6px;background:rgba(239,68,68,.1);color:#b91c1c;border-radius:4px;font-size:9px;font-weight:700;font-family:'DM Mono',monospace;border:1px solid rgba(239,68,68,.2)}
 .sold-val{font-family:'DM Mono',monospace;font-size:11px;color:#047857}
@@ -175,6 +175,17 @@ tr:hover td{background:rgba(249,115,22,.04)}
 
 /* VELOCITY */
 .vel-bar{height:6px;background:var(--border);border-radius:3px;overflow:hidden;margin-top:3px}
+/* VARIANTS ACCORDION */
+.vg-hdr{display:flex;align-items:center;gap:10px;padding:12px 16px;cursor:pointer;border-bottom:1px solid var(--border);background:var(--s1);user-select:none;transition:.15s}
+.vg-hdr:hover{background:var(--s2)}
+.vg-toggle{font-size:11px;color:var(--muted);transition:transform .2s;flex-shrink:0}
+.vg-toggle.open{transform:rotate(90deg)}
+.vg-pname{font-weight:700;font-size:13px;flex:1;line-height:1.4;word-break:break-word}
+.vg-meta{font-size:10px;color:var(--muted);font-family:'DM Mono',monospace;white-space:nowrap}
+.vg-rows{display:none}
+.vg-rows.open{display:table-row-group}
+.vg-row td{background:var(--s2);font-size:11px}
+.vg-card{background:var(--s1);border:1px solid var(--border);border-radius:10px;overflow:hidden;margin-bottom:10px;box-shadow:0 1px 4px rgba(0,0,0,.06)}
 .vel-fill{height:100%;border-radius:3px;background:linear-gradient(90deg,#f97316,#f59e0b);transition:width .5s}
 .vel-period-btn{padding:6px 16px;background:var(--s2);border:1px solid var(--border);border-radius:6px;font-size:11px;font-weight:700;color:var(--muted);cursor:pointer;transition:.15s;font-family:'Inter',sans-serif}
 .vel-period-btn.on{background:var(--acc);color:#fff;border-color:var(--acc)}
@@ -229,6 +240,7 @@ tr:hover td{background:rgba(249,115,22,.04)}
 <div class="tabs">
   <div class="tab on"  onclick="tab('overview')">📊 Overview</div>
   <div class="tab"     onclick="tab('bestsellers')">🏆 Best Sellers</div>
+  <div class="tab"     onclick="tab('variants')">🧬 Variants</div>
   <div class="tab"     onclick="tab('pricing')">💰 Pricing</div>
   <div class="tab"     onclick="tab('keywords')">🔑 Keywords</div>
   <div class="tab"     onclick="tab('reviews')">⭐ Reviews</div>
@@ -279,6 +291,32 @@ tr:hover td{background:rgba(249,115,22,.04)}
           <th>Sold</th><th>Rating</th><th>Likes</th><th>Stock</th>
         </tr></thead><tbody id="tbl-body"></tbody></table>
       </div>
+    </div>
+  </div>
+
+  <!-- ======= VARIANTS ======= -->
+  <div class="sec" id="sec-variants">
+    <div class="card" style="margin-bottom:12px">
+      <div class="card-hdr">
+        <span class="card-title">🧬 Product Variants</span>
+        <div class="sort-btns">
+          <span class="sort-btn on" id="vSort-sold"   onclick="sortVariants('sold',this)">Sold</span>
+          <span class="sort-btn"   id="vSort-price"  onclick="sortVariants('price',this)">Price</span>
+          <span class="sort-btn"   id="vSort-stock"  onclick="sortVariants('stock',this)">Stock</span>
+          <span class="sort-btn"   id="vSort-name"   onclick="sortVariants('name',this)">Name</span>
+        </div>
+      </div>
+      <div class="card-body" style="padding-bottom:8px">
+        <input id="var-search" type="text" placeholder="Search products or variants..."
+          style="width:100%;background:var(--s3);border:1px solid var(--border2);color:var(--text);padding:9px 14px;border-radius:7px;font-size:13px;font-family:'Inter',sans-serif;outline:none"
+          oninput="filterVariants()">
+      </div>
+    </div>
+    <div id="var-list"></div>
+    <div id="var-empty" class="empty" style="display:none">
+      <div class="empty-ico">🧬</div>
+      <div class="empty-h">No variant data</div>
+      <div class="empty-t">Select a shop that has had variants scraped</div>
     </div>
   </div>
 
@@ -515,11 +553,12 @@ window.onload = async () => {
 // TABS
 // ========================================================
 function tab(name) {
-  const names = ['overview','bestsellers','pricing','keywords','reviews','velocity','compare','competitors','log','framework'];
+  const names = ['overview','bestsellers','variants','pricing','keywords','reviews','velocity','compare','competitors','log','framework'];
   document.querySelectorAll('.tab').forEach((t,i) => t.classList.toggle('on', names[i]===name));
   document.querySelectorAll('.sec').forEach(s => s.classList.remove('on'));
   document.getElementById('sec-'+name).classList.add('on');
   if (name==='log') loadLog();
+  if (name==='variants' && ST.activeShopid) loadVariants();
   if (name==='reviews'  && ST.activeShopid && !RV.loaded)  loadReviews();
   if (name==='velocity' && ST.activeShopid && !VEL.loaded) loadVelocity();
   if (name==='compare'  && !CMP.loaded) loadCompare();
@@ -768,7 +807,7 @@ function renderTable(products) {
       <td><span class="pricetag">RM ${rm}</span></td>
       <td>${p.raw_discount?`<span class="disc">-${p.raw_discount}%</span>`:'<span style="color:var(--muted2)">—</span>'}</td>
       <td><span class="sold-val">${fmtNum(p.historical_sold||0)}</span></td>
-      <td><span class="stars">${starsStr}</span><br><span style="font-size:9px;color:var(--muted)">${ratingDisp} (${p.rating_count||0})</span></td>
+      <td><span class="stars">${starsStr}</span><br><span style="font-size:9px;color:var(--muted)">${parseFloat(ratingDisp||0).toFixed(2)} (${p.rating_count||0})</span></td>
       <td style="font-family:'DM Mono',monospace;font-size:11px;color:var(--muted)">${fmtNum(p.liked_count||0)}</td>
       <td><div class="stock-mini"><div class="stock-fill" style="width:${sp}%;background:${sc}"></div></div><span style="font-size:9px;color:var(--muted)">${p.stock||'?'}</span></td>
     </tr>`;
@@ -1123,10 +1162,10 @@ function renderReviewTable() {
     const tagHtml = (r.tags||'').split(',').filter(Boolean)
       .map(t=>`<span class="rv-tag">${t.trim()}</span>`).join('') || '<span style="color:var(--muted2)">—</span>';
     const date = r.ctime ? new Date(r.ctime*1000).toLocaleDateString('en-MY') : '—';
-    const pname = (r.product_name||'Unknown').substring(0,35);
+    const pname = r.product_name||'Unknown';
     const variant = (r.variant_bought||'—').substring(0,25);
     return `<tr>
-      <td><div class="pname" style="max-width:150px;font-size:11px" title="${(r.product_name||'').replace(/"/g,'')}">${pname}${(r.product_name||'').length>35?'…':''}</div></td>
+      <td><div class="pname" style="font-size:11px;min-width:120px;max-width:200px" title="${(r.product_name||'').replace(/"/g,'')}">${pname}</div></td>
       <td style="font-size:10px;color:var(--muted);max-width:100px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis" title="${(r.variant_bought||'').replace(/"/g,'')}">${variant}</td>
       <td><span style="color:${starClr};letter-spacing:-1px;font-size:12px">${starStr}</span><br><span style="font-size:9px;color:var(--muted)">${s}.0</span></td>
       <td style="max-width:260px"><span class="rv-comment" onclick="this.classList.toggle('expanded')" title="Click to expand">${short}</span></td>
@@ -1141,6 +1180,134 @@ function sortReviews(mode, el) {
   if (el) el.classList.add('on');
   RV.sortMode = mode;
   renderReviewTable();
+}
+
+// ========================================================
+// VARIANTS (accordion grouped by product)
+// ========================================================
+let VAR = { data: [], sortField: 'sold', filterKw: '' };
+
+async function loadVariants() {
+  setStatus('Loading variants...');
+  try {
+    const res = await fetch(`${API}/api/get-variants?shopid=${ST.activeShopid}&limit=2000`);
+    if (!res.ok) throw new Error('API ' + res.status);
+    VAR.data = await res.json();
+    VAR.filterKw = '';
+    document.getElementById('var-search').value = '';
+    renderVariants();
+    setStatus(`✓ ${VAR.data.length} variants loaded`);
+  } catch(e) {
+    setStatus('Variants error: ' + e.message);
+  }
+}
+
+function sortVariants(field, el) {
+  document.querySelectorAll('#sec-variants .sort-btn').forEach(b => b.classList.remove('on'));
+  if (el) el.classList.add('on');
+  VAR.sortField = field;
+  renderVariants();
+}
+
+function filterVariants() {
+  VAR.filterKw = (document.getElementById('var-search').value || '').toLowerCase();
+  renderVariants();
+}
+
+function renderVariants() {
+  const { data, sortField, filterKw } = VAR;
+  const el = document.getElementById('var-list');
+  const emptyEl = document.getElementById('var-empty');
+
+  const filtered = filterKw
+    ? data.filter(v => (v.product_name||'').toLowerCase().includes(filterKw) || (v.variant_name||'').toLowerCase().includes(filterKw))
+    : data;
+
+  if (!filtered.length) {
+    el.innerHTML = '';
+    emptyEl.style.display = 'block';
+    return;
+  }
+  emptyEl.style.display = 'none';
+
+  // Group by itemid
+  const groups = {};
+  filtered.forEach(v => {
+    const key = v.itemid || v.product_name;
+    if (!groups[key]) groups[key] = { product_name: v.product_name, itemid: v.itemid, variants: [] };
+    groups[key].variants.push(v);
+  });
+
+  // Sort variants within each group
+  const sortFn = sortField === 'name'
+    ? (a, b) => (a.variant_name||'').localeCompare(b.variant_name||'')
+    : (a, b) => (b[sortField]||0) - (a[sortField]||0);
+  Object.values(groups).forEach(g => g.variants.sort(sortFn));
+
+  // Sort groups by their top variant's sort field
+  const sortedGroups = Object.values(groups).sort((a, b) => {
+    const av = sortField === 'name' ? (a.product_name||'') : (a.variants[0]?.[sortField]||0);
+    const bv = sortField === 'name' ? (b.product_name||'') : (b.variants[0]?.[sortField]||0);
+    return sortField === 'name' ? av.localeCompare(bv) : bv - av;
+  });
+
+  el.innerHTML = sortedGroups.map((g, gi) => {
+    const totalSold  = g.variants.reduce((s, v) => s + (v.sold||0), 0);
+    const totalStock = g.variants.reduce((s, v) => s + (v.stock||0), 0);
+    const minPrice   = Math.min(...g.variants.map(v => v.price||0));
+    const maxPrice   = Math.max(...g.variants.map(v => v.price||0));
+    const priceStr   = minPrice === maxPrice ? `RM ${minPrice.toFixed(2)}` : `RM ${minPrice.toFixed(2)}–${maxPrice.toFixed(2)}`;
+    const gid        = `vg${gi}`;
+
+    const varRows = g.variants.map(v => `
+      <tr class="vg-row">
+        <td style="padding-left:36px;padding-right:16px;font-weight:600;word-break:break-word;min-width:180px">${v.variant_name||'Default'}</td>
+        <td><span class="pricetag">RM ${(v.price||0).toFixed(2)}</span></td>
+        <td><span class="sold-val">${fmtNum(v.sold||0)}</span></td>
+        <td style="color:var(--muted)">${v.stock??'—'}</td>
+        <td style="color:var(--muted2)">${v.variation_type||'—'}</td>
+        <td style="font-family:'DM Mono',monospace;font-size:10px;color:var(--muted2)">${v.scraped_date||'—'}</td>
+      </tr>`).join('');
+
+    return `<div class="vg-card">
+      <table style="width:100%;border-collapse:collapse">
+        <thead>
+          <tr class="vg-hdr" onclick="toggleVG('${gid}')">
+            <th colspan="6" style="text-align:left;font-weight:normal;padding:0">
+              <div style="display:flex;align-items:center;gap:10px;padding:12px 16px">
+                <span class="vg-toggle" id="${gid}-arrow">▶</span>
+                <span class="vg-pname">${g.product_name||'Unknown Product'}</span>
+                <span class="vg-meta">${g.variants.length} variants</span>
+                <span class="vg-meta">${priceStr}</span>
+                <span class="vg-meta">sold: ${fmtNum(totalSold)}</span>
+                <span class="vg-meta">stock: ${fmtNum(totalStock)}</span>
+              </div>
+            </th>
+          </tr>
+          <tr class="vg-rows" id="${gid}" style="display:none">
+            <th style="background:var(--s3);padding:7px 16px 7px 36px;font-size:10px;text-align:left;color:var(--muted)">Variant</th>
+            <th style="background:var(--s3);padding:7px 10px;font-size:10px;text-align:left;color:var(--muted)">Price</th>
+            <th style="background:var(--s3);padding:7px 10px;font-size:10px;text-align:left;color:var(--muted)">Sold</th>
+            <th style="background:var(--s3);padding:7px 10px;font-size:10px;text-align:left;color:var(--muted)">Stock</th>
+            <th style="background:var(--s3);padding:7px 10px;font-size:10px;text-align:left;color:var(--muted)">Type</th>
+            <th style="background:var(--s3);padding:7px 10px;font-size:10px;text-align:left;color:var(--muted)">Date</th>
+          </tr>
+        </thead>
+        <tbody class="vg-rows" id="${gid}-body" style="display:none">${varRows}</tbody>
+      </table>
+    </div>`;
+  }).join('');
+}
+
+function toggleVG(gid) {
+  const header = document.getElementById(gid);
+  const body   = document.getElementById(gid + '-body');
+  const arrow  = document.getElementById(gid + '-arrow');
+  const isOpen = body.style.display !== 'none';
+  body.style.display   = isOpen ? 'none' : '';
+  header.style.display = isOpen ? 'none' : '';
+  arrow.textContent    = isOpen ? '▶' : '▼';
+  arrow.style.color    = isOpen ? '' : 'var(--acc)';
 }
 
 // ========================================================
