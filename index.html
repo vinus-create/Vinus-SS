@@ -882,7 +882,7 @@ function renderTable(products) {
     const productUrl= p.product_url || (p.username&&p.shopid&&p.itemid ? `https://shopee.com.my/${p.username}-i.${p.shopid}.${p.itemid}` : '');
 
     const imgCell = imageUrl
-      ? `<img src="${imageUrl}" width="52" height="52" referrerpolicy="no-referrer" crossorigin="anonymous"
+      ? `<img src="${imageUrl}" width="52" height="52"
            style="object-fit:cover;border-radius:8px;border:1px solid var(--border);display:block"
            onerror="imgErr(this)">`
       : `<div class="img-ph">📦</div>`;
