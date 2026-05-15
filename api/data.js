@@ -19,7 +19,13 @@ export default async function handler(req, res) {
     }
     if (type === 'products' && shopid) {
       const data = await query(`latest_products?shopid=eq.${shopid}&order=historical_sold.desc&limit=${limit}`);
-      return res.status(200).json(data);
+      const enhanced = data.map(p => ({
+        ...p,
+        image_url: p.image ? `https://down-my.img.susercontent.com/file/${p.image}` : '',
+        product_url: p.username && p.shopid && p.itemid
+          ? `https://shopee.com.my/${p.username}-i.${p.shopid}.${p.itemid}` : ''
+      }));
+      return res.status(200).json(enhanced);
     }
     if (type === 'log') {
       const data = await query('scrape_log?order=scraped_at.desc&limit=20');

@@ -175,6 +175,19 @@ tr:hover td{background:rgba(249,115,22,.04)}
 
 /* VELOCITY */
 .vel-bar{height:6px;background:var(--border);border-radius:3px;overflow:hidden;margin-top:3px}
+/* COLUMN SELECTOR */
+.col-sel-btn{padding:6px 12px;border:1px solid var(--border2);border-radius:6px;background:var(--s3);color:var(--text);font-size:11px;font-weight:700;cursor:pointer;transition:.15s;font-family:'Inter',sans-serif}
+.col-sel-btn:hover{border-color:var(--acc);color:var(--acc)}
+.col-sel-panel{position:absolute;top:52px;right:16px;background:var(--s1);border:1px solid var(--border);border-radius:10px;box-shadow:0 8px 32px rgba(0,0,0,.12);z-index:100;padding:16px;min-width:320px;max-width:420px}
+.col-sel-title{font-size:11px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:var(--muted);margin-bottom:12px}
+.col-sel-grid{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:12px}
+.col-chk{display:flex;align-items:center;gap:8px;padding:7px 10px;border-radius:6px;cursor:pointer;transition:.1s;border:1px solid var(--border)}
+.col-chk:hover{background:var(--s2);border-color:var(--border2)}
+.col-chk.on{background:rgba(249,115,22,.07);border-color:rgba(249,115,22,.3)}
+.col-chk input{accent-color:var(--acc);width:14px;height:14px;cursor:pointer;flex-shrink:0}
+.col-chk-lbl{font-size:11px;font-weight:600;line-height:1.2}
+.col-sel-reset{width:100%;padding:7px;border:1px dashed var(--border2);border-radius:6px;background:transparent;color:var(--muted);font-size:11px;cursor:pointer;font-family:'Inter',sans-serif}
+.col-sel-reset:hover{color:var(--acc);border-color:var(--acc)}
 /* INLINE VARIANTS in Best Sellers */
 .var-inline-list{margin-top:6px;display:flex;flex-direction:column;gap:3px}
 .var-inline-item{display:flex;gap:8px;align-items:center;font-size:10px;padding:3px 0 3px 8px;border-left:2px solid var(--border);flex-wrap:wrap}
@@ -283,22 +296,28 @@ tr:hover td{background:rgba(249,115,22,.04)}
 
   <!-- ======= BEST SELLERS ======= -->
   <div class="sec" id="sec-bestsellers">
-    <div class="card">
+    <div class="card" style="position:relative">
       <div class="card-hdr">
         <span class="card-title">🏆 Best Selling Products</span>
-        <div class="sort-btns">
-          <span class="sort-btn on" onclick="sortTbl('historical_sold',this)">Sales</span>
-          <span class="sort-btn" onclick="sortTbl('price_min',this)">Price</span>
-          <span class="sort-btn" onclick="sortTbl('rating_star',this)">Rating</span>
-          <span class="sort-btn" onclick="sortTbl('liked_count',this)">Likes</span>
-          <span class="sort-btn" onclick="sortTbl('raw_discount',this)">Discount</span>
+        <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+          <div class="sort-btns">
+            <span class="sort-btn on" onclick="sortTbl('historical_sold',this)">Sales</span>
+            <span class="sort-btn" onclick="sortTbl('price_min',this)">Price</span>
+            <span class="sort-btn" onclick="sortTbl('rating_star',this)">Rating</span>
+            <span class="sort-btn" onclick="sortTbl('liked_count',this)">Likes</span>
+            <span class="sort-btn" onclick="sortTbl('raw_discount',this)">Discount</span>
+          </div>
+          <button class="col-sel-btn" onclick="toggleColPanel(event)" title="Show/Hide Columns">⚙ Columns</button>
         </div>
       </div>
+      <!-- Column selector panel -->
+      <div class="col-sel-panel" id="colSelPanel" style="display:none">
+        <div class="col-sel-title">Show / Hide Columns</div>
+        <div class="col-sel-grid" id="colSelGrid"></div>
+        <button class="col-sel-reset" onclick="resetCols()">Reset to Default</button>
+      </div>
       <div class="tbl-wrap">
-        <table><thead><tr>
-          <th>#</th><th>Photo</th><th>Product</th><th>Price</th><th>Disc</th>
-          <th>Sold</th><th>Rating</th><th>Likes</th><th>Stock</th>
-        </tr></thead><tbody id="tbl-body"></tbody></table>
+        <table id="bs-table"><thead><tr id="bs-thead"></tr></thead><tbody id="tbl-body"></tbody></table>
       </div>
     </div>
   </div>
@@ -548,13 +567,41 @@ const API = window.location.hostname === 'localhost'
 // ========================================================
 // STATE
 // ========================================================
-let ST = { products:[], shops:[], activeShopid:null, shopMeta:{}, varsByItemId:{} };
+let ST = { products:[], shops:[], activeShopid:null, shopMeta:{}, varsByItemId:{}, velByItemId:{} };
+
+// ========================================================
+// COLUMN CONFIG
+// ========================================================
+const COLS = [
+  { id:'price',      label:'Price',             sort:'price_min',       default:true  },
+  { id:'discount',   label:'Discount',          sort:'raw_discount',    default:true  },
+  { id:'sold-u',     label:'Unit Sold',         sort:'historical_sold', default:true  },
+  { id:'sold-rm',    label:'Total Sold (RM)',   sort:'sold_rm',         default:false },
+  { id:'rating',     label:'Rating',            sort:'rating_star',     default:true  },
+  { id:'likes',      label:'Likes',             sort:'liked_count',     default:true  },
+  { id:'stock',      label:'Stock',             sort:'stock',           default:true  },
+  { id:'sold7d',     label:'7d Units',          sort:'sold7d',          default:false },
+  { id:'sold14d',    label:'14d Units',         sort:'sold14d',         default:false },
+  { id:'sold30d',    label:'30d Units',         sort:'sold30d',         default:false },
+  { id:'sold7d-rm',  label:'7d Sales (RM)',     sort:'sold7d_rm',       default:false },
+  { id:'sold14d-rm', label:'14d Sales (RM)',    sort:'sold14d_rm',      default:false },
+  { id:'sold30d-rm', label:'30d Sales (RM)',    sort:'sold30d_rm',      default:false },
+  { id:'ctime',      label:'Created',           sort:'ctime',           default:false },
+  { id:'updated',    label:'Last Updated',      sort:'scraped_at',      default:false },
+];
+let VCOLS = {};
+function initCols() {
+  const saved = JSON.parse(localStorage.getItem('bs-cols') || '{}');
+  COLS.forEach(c => { VCOLS[c.id] = saved[c.id] !== undefined ? saved[c.id] : c.default; });
+}
 let CH = {};
 
 // ========================================================
 // INIT
 // ========================================================
 window.onload = async () => {
+  initCols();
+  buildColPanel();
   await refreshShops();
 };
 
@@ -607,19 +654,30 @@ async function loadShopData() {
   prog(true, 30);
   setStatus('Loading products...');
   try {
-    const [prodRes, varRes] = await Promise.all([
+    const [prodRes, varRes, velRes] = await Promise.all([
       fetch(`${API}/api/data?type=products&shopid=${shopid}&limit=300`),
-      fetch(`${API}/api/get-variants?shopid=${shopid}&limit=2000`)
+      fetch(`${API}/api/get-variants?shopid=${shopid}&limit=2000`),
+      fetch(`${API}/api/get-velocity?shopid=${shopid}&limit=2000`)
     ]);
     const products = prodRes.ok ? await prodRes.json() : [];
     const variants = varRes.ok ? await varRes.json() : [];
+    const velocity = velRes.ok ? await velRes.json() : [];
     ST.products = products;
     ST.activeShopid = shopid;
     ST.varsByItemId = {};
+    ST.velByItemId  = {};
     if (Array.isArray(variants)) {
       variants.forEach(v => {
         if (!ST.varsByItemId[v.itemid]) ST.varsByItemId[v.itemid] = [];
         ST.varsByItemId[v.itemid].push(v);
+      });
+    }
+    if (Array.isArray(velocity)) {
+      velocity.forEach(v => {
+        if (!ST.velByItemId[v.itemid]) ST.velByItemId[v.itemid] = { sold_7d:0, sold_14d:0, sold_30d:0 };
+        ST.velByItemId[v.itemid].sold_7d  += v.sold_7d  || 0;
+        ST.velByItemId[v.itemid].sold_14d += v.sold_14d || 0;
+        ST.velByItemId[v.itemid].sold_30d += v.sold_30d || 0;
       });
     }
     RV.loaded = false;
@@ -805,62 +863,140 @@ function countBuckets(p){
 // TABLE
 // ========================================================
 function renderTable(products) {
+  // Build thead
+  const fixedTh = `<th style="width:36px">#</th><th style="width:60px">Photo</th><th>Product</th>`;
+  const dynTh = COLS.map(c => VCOLS[c.id]
+    ? `<th class="col-${c.id}" style="cursor:pointer;white-space:nowrap" onclick="sortTbl('${c.sort}',null)">${c.label}</th>`
+    : '').join('');
+  document.getElementById('bs-thead').innerHTML = fixedTh + dynTh;
+
   document.getElementById('tbl-body').innerHTML = products.map((p,i)=>{
-    const rm = (p.price_min/1e5).toFixed(2);
+    const priceRm  = (p.price_min||0) / 1e5;
     const ratingDisp = p.rating_star||0;
     const starsStr = '★'.repeat(Math.round(ratingDisp))+'☆'.repeat(5-Math.round(ratingDisp));
     const maxStk=180, sp=Math.min((p.stock||0)/maxStk*100,100);
     const sc = sp>60?'#00d4aa':sp>20?'#f59e0b':'#f43f5e';
     const rk = i===0?'g':i===1?'s':i===2?'b':'';
 
-    // Build URLs from raw fields (schema stores image hash + no product_url col)
-    const imageUrl = p.image_url || (p.image ? `https://down-my.img.susercontent.com/file/${p.image}` : '');
-    const productUrl = p.product_url || (p.username && p.shopid && p.itemid
-      ? `https://shopee.com.my/${p.username}-i.${p.shopid}.${p.itemid}` : '');
+    const imageUrl  = p.image_url || (p.image ? `https://down-my.img.susercontent.com/file/${p.image}` : '');
+    const productUrl= p.product_url || (p.username&&p.shopid&&p.itemid ? `https://shopee.com.my/${p.username}-i.${p.shopid}.${p.itemid}` : '');
 
     const imgCell = imageUrl
-      ? `<img src="${imageUrl}" width="52" height="52" referrerpolicy="no-referrer"
-           style="object-fit:cover;border-radius:8px;border:1px solid var(--border);display:block;flex-shrink:0"
+      ? `<img src="${imageUrl}" width="52" height="52" referrerpolicy="no-referrer" crossorigin="anonymous"
+           style="object-fit:cover;border-radius:8px;border:1px solid var(--border);display:block"
            onerror="imgErr(this)">`
       : `<div class="img-ph">📦</div>`;
 
-    // Inline variants
     const vars = (ST.varsByItemId||{})[p.itemid] || [];
-    const varHtml = vars.length
-      ? `<div class="var-inline-list">${
-          vars.map(v =>
-            `<div class="var-inline-item">
-              <span class="var-inline-name">${v.variant_name||'Default'}</span>
-              <span class="var-inline-price">RM ${(v.price||0).toFixed(2)}</span>
-              <span class="var-inline-sold">${fmtNum(v.sold||0)} sold</span>
-              <span class="var-inline-stock">${v.stock??'?'} in stock</span>
-            </div>`).join('')
-          }</div>`
-      : '';
+    const varHtml = vars.length ? `<div class="var-inline-list">${vars.map(v=>
+      `<div class="var-inline-item">
+        <span class="var-inline-name">${v.variant_name||'Default'}</span>
+        <span class="var-inline-price">RM ${(v.price||0).toFixed(2)}</span>
+        <span class="var-inline-sold">${fmtNum(v.sold||0)} sold</span>
+        <span class="var-inline-stock">${v.stock??'?'} stk</span>
+      </div>`).join('')}</div>` : '';
 
     const nameCell = productUrl
       ? `<a href="${productUrl}" target="_blank" rel="noopener" class="pname">${p.name}</a>`
       : `<div class="pname">${p.name}</div>`;
 
+    // Velocity data aggregated by itemid
+    const vel = (ST.velByItemId||{})[p.itemid] || {};
+    const s7  = vel.sold_7d  || 0;
+    const s14 = vel.sold_14d || 0;
+    const s30 = vel.sold_30d || 0;
+    const fv  = n => n>0 ? `<span class="sold-val">${fmtNum(n)}</span>` : `<span style="color:var(--muted2)">—</span>`;
+    const fvRm= (n,price) => n>0 ? `<span style="color:var(--acc2);font-family:'DM Mono',monospace;font-size:11px;font-weight:700">RM ${(n*price).toFixed(0)}</span>` : `<span style="color:var(--muted2)">—</span>`;
+
+    const soldRm  = (p.historical_sold||0) * priceRm;
+    const cdate   = p.ctime ? new Date(p.ctime*1000).toLocaleDateString('en-MY',{year:'2-digit',month:'short',day:'numeric'}) : '—';
+    const udate   = p.scraped_at ? new Date(p.scraped_at).toLocaleDateString('en-MY',{year:'2-digit',month:'short',day:'numeric'}) : '—';
+
+    const cd = id => VCOLS[id]; // column display check
+    const dynTd = [
+      cd('price')      ? `<td><span class="pricetag">RM ${priceRm.toFixed(2)}</span></td>` : '',
+      cd('discount')   ? `<td>${p.raw_discount?`<span class="disc">-${p.raw_discount}%</span>`:'<span style="color:var(--muted2)">—</span>'}</td>` : '',
+      cd('sold-u')     ? `<td><span class="sold-val">${fmtNum(p.historical_sold||0)}</span></td>` : '',
+      cd('sold-rm')    ? `<td><span style="color:var(--acc2);font-family:'DM Mono',monospace;font-size:11px;font-weight:700">RM ${fmtNum(Math.round(soldRm))}</span></td>` : '',
+      cd('rating')     ? `<td><span class="stars">${starsStr}</span><br><span style="font-size:9px;color:var(--muted)">${parseFloat(ratingDisp).toFixed(2)} (${p.rating_count||0})</span></td>` : '',
+      cd('likes')      ? `<td style="font-family:'DM Mono',monospace;font-size:11px;color:var(--muted)">${fmtNum(p.liked_count||0)}</td>` : '',
+      cd('stock')      ? `<td><div class="stock-mini"><div class="stock-fill" style="width:${sp}%;background:${sc}"></div></div><span style="font-size:9px;color:var(--muted)">${p.stock||'?'}</span></td>` : '',
+      cd('sold7d')     ? `<td>${fv(s7)}</td>` : '',
+      cd('sold14d')    ? `<td>${fv(s14)}</td>` : '',
+      cd('sold30d')    ? `<td>${fv(s30)}</td>` : '',
+      cd('sold7d-rm')  ? `<td>${fvRm(s7, priceRm)}</td>` : '',
+      cd('sold14d-rm') ? `<td>${fvRm(s14,priceRm)}</td>` : '',
+      cd('sold30d-rm') ? `<td>${fvRm(s30,priceRm)}</td>` : '',
+      cd('ctime')      ? `<td style="font-size:10px;color:var(--muted);font-family:'DM Mono',monospace;white-space:nowrap">${cdate}</td>` : '',
+      cd('updated')    ? `<td style="font-size:10px;color:var(--muted);font-family:'DM Mono',monospace;white-space:nowrap">${udate}</td>` : '',
+    ].join('');
+
     return `<tr>
       <td><span class="rank ${rk}">${i+1}</span></td>
       <td style="padding:8px 10px">${imgCell}</td>
       <td>${nameCell}${varHtml}</td>
-      <td><span class="pricetag">RM ${rm}</span></td>
-      <td>${p.raw_discount?`<span class="disc">-${p.raw_discount}%</span>`:'<span style="color:var(--muted2)">—</span>'}</td>
-      <td><span class="sold-val">${fmtNum(p.historical_sold||0)}</span></td>
-      <td><span class="stars">${starsStr}</span><br><span style="font-size:9px;color:var(--muted)">${parseFloat(ratingDisp||0).toFixed(2)} (${p.rating_count||0})</span></td>
-      <td style="font-family:'DM Mono',monospace;font-size:11px;color:var(--muted)">${fmtNum(p.liked_count||0)}</td>
-      <td><div class="stock-mini"><div class="stock-fill" style="width:${sp}%;background:${sc}"></div></div><span style="font-size:9px;color:var(--muted)">${p.stock||'?'}</span></td>
+      ${dynTd}
     </tr>`;
   }).join('');
 }
 
+// ========================================================
+// COLUMN SELECTOR
+// ========================================================
+function buildColPanel() {
+  document.getElementById('colSelGrid').innerHTML = COLS.map(c => `
+    <label class="col-chk ${VCOLS[c.id]?'on':''}" id="chk-${c.id}">
+      <input type="checkbox" ${VCOLS[c.id]?'checked':''} onchange="toggleCol('${c.id}',this)">
+      <span class="col-chk-lbl">${c.label}</span>
+    </label>`).join('');
+}
+
+function toggleColPanel(e) {
+  if (e) e.stopPropagation();
+  const p = document.getElementById('colSelPanel');
+  p.style.display = p.style.display === 'none' ? 'block' : 'none';
+  if (p.style.display === 'block') {
+    const close = ev => { if (!p.contains(ev.target)) { p.style.display='none'; document.removeEventListener('click',close); } };
+    setTimeout(() => document.addEventListener('click', close), 0);
+  }
+}
+
+function toggleCol(id, el) {
+  VCOLS[id] = el.checked;
+  const lbl = document.getElementById('chk-'+id);
+  if (lbl) lbl.classList.toggle('on', el.checked);
+  localStorage.setItem('bs-cols', JSON.stringify(VCOLS));
+  const sorted = [...ST.products].sort((a,b) => (b.historical_sold||0)-(a.historical_sold||0));
+  renderTable(sorted);
+}
+
+function resetCols() {
+  COLS.forEach(c => { VCOLS[c.id] = c.default; });
+  localStorage.removeItem('bs-cols');
+  buildColPanel();
+  const sorted = [...ST.products].sort((a,b) => (b.historical_sold||0)-(a.historical_sold||0));
+  renderTable(sorted);
+}
+
 function sortTbl(field, el) {
-  document.querySelectorAll('.sort-btn').forEach(b=>b.classList.remove('on'));
-  if(el) el.classList.add('on');
-  const sorted = [...ST.products].sort((a,b)=>
-    field==='name' ? a.name.localeCompare(b.name) : (b[field]||0)-(a[field]||0)
+  if (el) { document.querySelectorAll('#sec-bestsellers .sort-btn').forEach(b=>b.classList.remove('on')); el.classList.add('on'); }
+  // Attach velocity + computed fields for sorting
+  const enriched = ST.products.map(p => {
+    const vel = (ST.velByItemId||{})[p.itemid] || {};
+    return { ...p,
+      sold_rm:   (p.historical_sold||0) * (p.price_min||0) / 1e5,
+      sold7d:    vel.sold_7d  || 0,
+      sold14d:   vel.sold_14d || 0,
+      sold30d:   vel.sold_30d || 0,
+      sold7d_rm: (vel.sold_7d ||0) * (p.price_min||0) / 1e5,
+      sold14d_rm:(vel.sold_14d||0) * (p.price_min||0) / 1e5,
+      sold30d_rm:(vel.sold_30d||0) * (p.price_min||0) / 1e5,
+    };
+  });
+  const sorted = [...enriched].sort((a,b) =>
+    field==='name' ? a.name.localeCompare(b.name) :
+    field==='scraped_at' ? new Date(b.scraped_at||0) - new Date(a.scraped_at||0) :
+    (b[field]||0) - (a[field]||0)
   );
   renderTable(sorted);
 }
