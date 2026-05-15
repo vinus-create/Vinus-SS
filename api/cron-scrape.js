@@ -1,10 +1,8 @@
 // Vercel Cron — Daily 8am MYT (0:00 UTC)
-// Scrapes all competitor shops: products, snapshots, reviews
 const S=process.env.SUPABASE_URL;
 const K=process.env.SUPABASE_SERVICE_KEY;
 const CRON_SECRET=process.env.CRON_SECRET||'';
 
-// Fallback hardcoded list used only if DB read fails
 const FALLBACK_SHOPS=[
   {username:'buddysnack',        shopid:3693884},
   {username:'winstartech',       shopid:65231794},
@@ -26,6 +24,10 @@ const H={
   'User-Agent':'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
   'Referer':'https://shopee.com.my/','Accept':'application/json',
 };
+const H_SB={'apikey':K,'Authorization':'Bearer '+K,'Content-Type':'application/json'};
+
+// Sleep with ±30% random jitter to avoid pattern detection
+const sleep=ms=>new Promise(r=>setTimeout(r,ms+Math.floor(Math.random()*ms*0.3)));
 
 const shopee=async(path)=>{
   const r=await fetch(`https://shopee.com.my${path}`,{headers:H,signal:AbortSignal.timeout(15000)});
@@ -34,20 +36,24 @@ const shopee=async(path)=>{
 };
 
 const sb=async(table,rows)=>{
-  if(!rows.length)return;
+  if(!rows||!rows.length)return;
   const BATCH=25;
   for(let i=0;i<rows.length;i+=BATCH){
     const r=await fetch(`${S}/rest/v1/${table}`,{
       method:'POST',
-      headers:{'Content-Type':'application/json','apikey':K,'Authorization':'Bearer '+K,'Prefer':'resolution=merge-duplicates,return=minimal'},
+      headers:{...H_SB,'Prefer':'resolution=merge-duplicates,return=minimal'},
       body:JSON.stringify(rows.slice(i,i+BATCH))
     });
     if(!r.ok){const e=await r.text();console.error(`sb ${table}:`,e.substring(0,150));}
-    await sleep(100);
+    await sleep(80);
   }
 };
 
-const sleep=ms=>new Promise(r=>setTimeout(r,ms));
+const sbQuery=async(path)=>{
+  const r=await fetch(`${S}/rest/v1/${path}`,{headers:H_SB});
+  if(!r.ok)return[];
+  return r.json();
+};
 
 async function scrapeShop({username,shopid}){
   const today=new Date().toISOString().split('T')[0];
@@ -55,6 +61,12 @@ async function scrapeShop({username,shopid}){
   let prodCount=0,snapCount=0,revCount=0;
 
   try{
+    // Load last known historical_sold from DB to preserve if API returns 0
+    const dbProds=await sbQuery(`latest_products?shopid=eq.${shopid}&select=itemid,historical_sold&limit=1000`);
+    const hsMap={};
+    if(Array.isArray(dbProds)) dbProds.forEach(p=>{hsMap[p.itemid]=p.historical_sold||0;});
+    console.log(`  ${username}: loaded ${Object.keys(hsMap).length} existing products from DB`);
+
     // 1. All products (paginated)
     let prods=[],offset=0;
     while(true){
@@ -64,54 +76,75 @@ async function scrapeShop({username,shopid}){
       prods.push(...batch);
       if(batch.length<60)break;
       offset+=60;
-      await sleep(400);
+      await sleep(500);
     }
     prodCount=prods.length;
 
-    // 2. Save products with image + link
-    await sb('products',prods.map(p=>({
+    // 2. Save products — preserve historical_sold if API returns 0
+    await sb('products?on_conflict=shopid,itemid,scraped_date',prods.map(p=>({
       shopid,itemid:p.itemid,username,name:p.name,
-      price_min:p.price_min,price_max:p.price_max||p.price_min,
-      price_min_before_discount:p.price_min_before_discount||p.price_min,
-      raw_discount:p.raw_discount||0,historical_sold:p.historical_sold||0,
-      sold:p.sold||0,liked_count:p.liked_count||0,stock:p.stock||0,
+      price_min:p.price_min||0,price_max:p.price_max||p.price_min||0,
+      price_min_before_discount:p.price_min_before_discount||p.price_min||0,
+      raw_discount:p.raw_discount||0,
+      // Use API value if > 0, otherwise keep last known DB value
+      historical_sold:p.historical_sold||hsMap[p.itemid]||0,
+      sold:p.sold||0,
+      liked_count:p.liked_count||0,stock:p.stock||0,
       rating_star:p.item_rating?.rating_star||0,
       rating_count:p.item_rating?.rating_count?.reduce((a,b)=>a+b,0)||0,
       brand:p.brand||'',catid:p.catid||0,
-      image:p.image||'',
+      image:p.image||'',ctime:p.ctime||0,
       scraped_date:today,scraped_at:new Date().toISOString()
     })));
 
     // 3. Top 30 products: variant snapshots + reviews
-    const top30=[...prods].sort((a,b)=>b.historical_sold-a.historical_sold).slice(0,30);
-    const snaps=[],revs=[];
+    const top30=[...prods].sort((a,b)=>
+      (b.historical_sold||hsMap[b.itemid]||0)-(a.historical_sold||hsMap[a.itemid]||0)
+    ).slice(0,30);
 
+    const snaps=[],revs=[];
     for(let i=0;i<top30.length;i++){
       const p=top30[i];
       try{
+        await sleep(600);
         const d=await shopee(`/api/v4/item/get?itemid=${p.itemid}&shopid=${shopid}`);
         if(d.data?.models?.length>0){
           const vt=(d.data.tier_variations||[]).map(v=>v.name).join(' / ')||'variant';
-          d.data.models.forEach(m=>snaps.push({shopid,itemid:p.itemid,model_id:m.modelid||0,username,product_name:p.name,variant_name:m.name||'Default',variant_sku:m.model_sku||'',variation_type:vt,price:m.price/100000,stock:m.stock||0,sold:m.sold||0,scraped_date:today,scraped_at:new Date().toISOString()}));
-        } else {
-          snaps.push({shopid,itemid:p.itemid,model_id:0,username,product_name:p.name,variant_name:'Default',variant_sku:'',variation_type:'single',price:p.price_min/100000,stock:p.stock||0,sold:p.sold||0,scraped_date:today,scraped_at:new Date().toISOString()});
+          d.data.models.forEach(m=>snaps.push({
+            shopid,itemid:p.itemid,model_id:m.modelid||0,username,
+            product_name:p.name,variant_name:m.name||'Default',variant_sku:m.model_sku||'',
+            variation_type:vt,price:m.price/100000,stock:m.stock||0,sold:m.sold||0,
+            scraped_date:today,scraped_at:new Date().toISOString()
+          }));
+        }else{
+          snaps.push({
+            shopid,itemid:p.itemid,model_id:0,username,
+            product_name:p.name,variant_name:'Default',variant_sku:'',variation_type:'single',
+            price:(p.price_min||0)/100000,stock:p.stock||0,sold:p.sold||0,
+            scraped_date:today,scraped_at:new Date().toISOString()
+          });
         }
-        await sleep(500);
+        await sleep(600);
         const rr=await shopee(`/api/v2/item/get_ratings?itemid=${p.itemid}&shopid=${shopid}&limit=10&offset=0&filter=0&type=0&exclude_filter=1&flag=1&fold_filter=0&relevant_reviews=false&request_source=2`);
         (rr.data?.ratings||[]).forEach(rv=>{
           if(!rv.comment)return;
-          revs.push({shopid,itemid:p.itemid,product_name:p.name,rating_star:rv.rating_star||0,comment:rv.comment.substring(0,500),author:rv.author_username||'',variant_bought:rv.product_items?.[0]?.variation_name||'',tags:(rv.tags||[]).join(','),has_seller_reply:!!(rv.reply?.comment),ctime:rv.ctime||0,scraped_at:new Date().toISOString()});
+          revs.push({
+            shopid,itemid:p.itemid,product_name:p.name,
+            rating_star:rv.rating_star||0,comment:rv.comment.substring(0,500),
+            author:rv.author_username||'',variant_bought:rv.product_items?.[0]?.variation_name||'',
+            tags:(rv.tags||[]).join(','),has_seller_reply:!!(rv.reply?.comment),
+            ctime:rv.ctime||0,scraped_at:new Date().toISOString()
+          });
         });
       }catch(e){console.warn(`  item err ${p.itemid}:`,e.message);}
-      await sleep(500);
+      await sleep(600);
     }
 
-    await sb('snapshots',snaps);
-    await sb('reviews',revs);
-    await sb('product_variants',snaps.map(s=>({...s,scraped_date:today})));
+    await sb('snapshots?on_conflict=shopid,itemid,model_id,scraped_date',snaps);
+    await sb('reviews?on_conflict=shopid,itemid,ctime',revs);
+    await sb('product_variants?on_conflict=shopid,itemid,model_id,scraped_date',snaps.map(s=>({...s})));
     snapCount=snaps.length; revCount=revs.length;
 
-    // 4. Log
     await sb('scrape_log',[{username,shopid,total_items:prodCount,status:'success',duration_ms:Date.now()-started}]);
     console.log(`✅ ${username}: ${prodCount} products, ${snapCount} snaps, ${revCount} reviews (${Math.round((Date.now()-started)/1000)}s)`);
 
@@ -128,29 +161,47 @@ export default async function handler(req,res){
     return res.status(401).json({error:'Unauthorized'});
   }
 
-  // Load shops dynamically from DB; fall back to hardcoded list
+  const today=new Date().toISOString().split('T')[0];
+
+  // Load shop list from DB
   let SHOPS=FALLBACK_SHOPS;
   try{
-    const r=await fetch(`${S}/rest/v1/shops?select=username,shopid&order=updated_at.desc&limit=200`,{
-      headers:{'apikey':K,'Authorization':'Bearer '+K}
-    });
+    const r=await fetch(`${S}/rest/v1/shops?select=username,shopid&order=updated_at.desc&limit=200`,{headers:H_SB});
     const dbShops=await r.json();
     if(Array.isArray(dbShops)&&dbShops.length){
-      // Filter out placeholder usernames (disc_XXXXX) — those need full shop detail first
       const real=dbShops.filter(s=>s.username&&!s.username.startsWith('disc_'));
       if(real.length) SHOPS=real;
     }
   }catch(e){console.warn('Could not load shops from DB, using fallback:',e.message);}
 
+  // Skip shops already successfully scraped today
+  let doneToday=new Set();
+  try{
+    const r=await fetch(`${S}/rest/v1/scrape_log?select=username&status=eq.success&scraped_at=gte.${today}T00:00:00Z&limit=100`,{headers:H_SB});
+    const log=await r.json();
+    if(Array.isArray(log)) log.forEach(l=>doneToday.add(l.username));
+    if(doneToday.size) console.log(`⏭️ Already done today: ${[...doneToday].join(', ')}`);
+  }catch(e){console.warn('Could not check scrape_log:',e.message);}
+
+  const pending=SHOPS.filter(s=>!doneToday.has(s.username));
+
   const startAll=Date.now();
-  console.log('🕗 Cron started:',new Date().toISOString(),`(${SHOPS.length} shops)`);
+  console.log(`🕗 Cron started: ${new Date().toISOString()} — ${pending.length}/${SHOPS.length} shops to scrape`);
+
   const results=[];
-  for(const shop of SHOPS){
+  for(const shop of pending){
     const r=await scrapeShop(shop);
     results.push(r);
-    await sleep(3000); // 3s between shops to be polite
+    await sleep(5000); // 5s between shops + jitter
   }
+
   const duration=Math.round((Date.now()-startAll)/1000);
   console.log(`🏁 Cron done in ${duration}s. Scraped ${results.reduce((a,r)=>a+r.products,0)} products total.`);
-  return res.status(200).json({ok:true,scraped_at:new Date().toISOString(),duration_seconds:duration,shops:results});
+  return res.status(200).json({
+    ok:true,
+    scraped_at:new Date().toISOString(),
+    duration_seconds:duration,
+    skipped:[...doneToday],
+    shops:results
+  });
 }
