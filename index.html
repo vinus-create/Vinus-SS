@@ -596,12 +596,20 @@ tr:hover td{background:rgba(249,115,22,.04)}
           <div style="margin-top:8px;font-size:10px;color:var(--muted)">Must run on a Shopee tab. More pages = more shops found but takes longer.</div>
         </div>
         <div class="disc-step">
-          <div class="disc-step-title">Step 3 — Run Discovery</div>
-          <div style="display:flex;gap:8px;flex-wrap:wrap">
-            <button id="disc-run-btn" class="tb-btn tb-btn-primary" onclick="runDiscover()">🔍 Start Discovery</button>
-            <button class="tb-btn tb-btn-ghost" onclick="document.getElementById('disc-log').innerHTML=''">Clear Log</button>
+          <div class="disc-step-title">Step 3 — Generate &amp; Run Script</div>
+          <div style="background:rgba(245,158,11,.08);border:1px solid rgba(245,158,11,.25);border-radius:8px;padding:10px 14px;font-size:11px;color:#92400e;margin-bottom:10px;display:flex;gap:8px;align-items:flex-start">
+            <span style="font-size:15px;flex-shrink:0">⚠️</span>
+            <span>Shopee blocks cross-origin requests from this dashboard. You must run the script <strong>from a shopee.com.my tab</strong> (paste in console or use Claude in Chrome).</span>
           </div>
-          <div class="disc-log" id="disc-log">Ready. Select categories and click Start Discovery.</div>
+          <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px">
+            <button class="tb-btn tb-btn-primary" onclick="generateDiscScript()">📋 Generate &amp; Copy Script</button>
+            <button class="tb-btn tb-btn-ghost" onclick="window.open('https://shopee.com.my','_blank')">Open Shopee Tab →</button>
+          </div>
+          <div id="disc-script-box" style="display:none">
+            <textarea id="disc-script-ta" readonly style="width:100%;height:120px;font-family:'DM Mono',monospace;font-size:10px;border:1px solid var(--border2);border-radius:6px;padding:10px;background:var(--s2);color:var(--text);resize:none;outline:none"></textarea>
+            <div style="font-size:10px;color:var(--acc2);margin-top:6px;font-family:'DM Mono',monospace">✓ Copied to clipboard! Paste into shopee.com.my console and press Enter.</div>
+          </div>
+          <div class="disc-log" id="disc-log">Select categories → Generate Script → paste on shopee.com.my tab.</div>
         </div>
       </div>
       <div>
@@ -1922,65 +1930,55 @@ function discLog(msg) {
   el.scrollTop=el.scrollHeight;
 }
 
-async function runDiscover() {
-  if (DISC.running) return;
+function generateDiscScript() {
   if (!DISC.catids.length) { discLog('⚠️ Select at least one category first'); return; }
-  DISC.running=true;
-  DISC.products=[]; DISC.shops={};
-  document.getElementById('disc-run-btn').disabled=true;
-  document.getElementById('disc-log').innerHTML='';
-  discLog('🔍 Starting category discovery...');
-  discLog('Categories: '+DISC.catids.join(', '));
+  const pages = parseInt(document.getElementById('disc-pages').value)||3;
+  const catids = JSON.stringify(DISC.catids);
+  const vercelUrl = API;
 
-  const H={'x-api-source':'pc','x-shopee-language':'en'};
-  const pages=parseInt(document.getElementById('disc-pages').value)||3;
-  const sleep=ms=>new Promise(r=>setTimeout(r,ms));
-
-  for (const catid of DISC.catids) {
-    discLog(`📂 Crawling catid ${catid}...`);
-    let offset=0, pagesDone=0, failed=false;
-    while (pagesDone<pages && !failed) {
-      try {
-        const r=await fetch(`https://shopee.com.my/api/v4/search/search_items?by=sales&limit=60&catid=${catid}&newest=${offset}&order=desc&page_type=search&scenario=PAGE_CATEGORY&version=2`,{headers:H});
-        if (!r.ok) { discLog(`  ⚠️ HTTP ${r.status} on catid ${catid}`); failed=true; break; }
-        const d=await r.json();
-        const items=(d.items||[]).map(i=>i.item_basic);
-        if (!items.length) break;
-        items.forEach(p=>{
-          if (!DISC.shops[p.shopid]) DISC.shops[p.shopid]={shopid:p.shopid,shop_name:p.shop_name||'',count:0};
-          DISC.shops[p.shopid].count++;
-          DISC.products.push(p);
-        });
-        discLog(`  Page ${pagesDone+1}: +${items.length} products · ${Object.keys(DISC.shops).length} unique shops`);
-        if (items.length<60) break;
-        offset+=60; pagesDone++;
-        await sleep(700);
-      } catch(e) { discLog(`  ❌ ${e.message}`); failed=true; }
-    }
-    await sleep(1200);
+  const script = `(async()=>{
+const CATIDS=${catids},PAGES=${pages},VERCEL='${vercelUrl}';
+const H={'x-api-source':'pc','x-shopee-language':'en'};
+const sleep=ms=>new Promise(r=>setTimeout(r,ms));
+const prods=[],shops={};
+for(const cat of CATIDS){
+  let off=0,pg=0;
+  console.log('📂 catid',cat);
+  while(pg<PAGES){
+    try{
+      const r=await fetch('https://shopee.com.my/api/v4/search/search_items?by=sales&limit=60&catid='+cat+'&newest='+off+'&order=desc&page_type=search&scenario=PAGE_CATEGORY&version=2',{headers:H});
+      const d=await r.json();
+      const items=(d.items||[]).map(i=>i.item_basic);
+      if(!items.length)break;
+      items.forEach(p=>{if(!shops[p.shopid])shops[p.shopid]={shopid:p.shopid,shop_name:p.shop_name||'',count:0};shops[p.shopid].count++;prods.push(p);});
+      console.log('  page',(pg+1),'+'+items.length,'products,',Object.keys(shops).length,'shops');
+      if(items.length<60)break;
+      off+=60;pg++;await sleep(700);
+    }catch(e){console.error('err:',e.message);break;}
   }
+  await sleep(1000);
+}
+console.log('✅',prods.length,'products,',Object.keys(shops).length,'shops');
+const res=await fetch(VERCEL+'/api/discover',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({products:prods,catids:CATIDS})});
+const result=await res.json();
+console.log('💾 saved:',result);
+result;
+})();`;
 
-  const shopCount=Object.keys(DISC.shops).length;
-  discLog(`✅ Done: ${DISC.products.length} products · ${shopCount} shops found`);
-  if (!DISC.products.length) { DISC.running=false; document.getElementById('disc-run-btn').disabled=false; return; }
+  // Show script box
+  const box=document.getElementById('disc-script-box');
+  const ta=document.getElementById('disc-script-ta');
+  box.style.display='block';
+  ta.value=script;
 
-  discLog('💾 Saving to database...');
-  try {
-    const res=await fetch(`${API}/api/discover`,{
-      method:'POST', headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({products:DISC.products, catids:DISC.catids})
-    });
-    const result=await res.json();
-    if (result.ok) {
-      discLog(`✅ Saved: ${result.products_saved} products · ${result.shops_discovered} shops discovered`);
-      discLog('🔄 Refresh the Market tab to see new shops');
-      MKT.loaded=false;
-      renderDiscoverResults();
-    } else { discLog('❌ Save error: '+(result.error||'unknown')); }
-  } catch(e) { discLog('❌ API error: '+e.message); }
-
-  DISC.running=false;
-  document.getElementById('disc-run-btn').disabled=false;
+  // Copy to clipboard
+  navigator.clipboard.writeText(script).then(()=>{
+    discLog('✅ Script copied to clipboard!');
+    discLog('👉 Go to shopee.com.my tab → open DevTools Console (F12) → paste → Enter');
+    discLog('📊 Check console for progress. Market tab will update after it finishes.');
+  }).catch(()=>{
+    discLog('📋 Script generated — select all text above and copy manually (Ctrl+A, Ctrl+C)');
+  });
 }
 
 function renderDiscoverResults() {
