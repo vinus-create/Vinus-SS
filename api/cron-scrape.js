@@ -77,8 +77,7 @@ async function scrapeShop({username,shopid}){
       rating_star:p.item_rating?.rating_star||0,
       rating_count:p.item_rating?.rating_count?.reduce((a,b)=>a+b,0)||0,
       brand:p.brand||'',catid:p.catid||0,
-      image_url:p.image?`https://down-my.img.susercontent.com/file/${p.image}`:'',
-      product_url:`https://shopee.com.my/${username}-i.${shopid}.${p.itemid}`,
+      image:p.image||'',
       scraped_date:today,scraped_at:new Date().toISOString()
     })));
 
