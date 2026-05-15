@@ -435,9 +435,20 @@ tr:hover td{background:rgba(249,115,22,.04)}
     <div class="kpi-row" id="vel-kpis"></div>
     <div style="display:flex;gap:8px;margin-bottom:16px;align-items:center">
       <span style="font-size:12px;font-weight:600;color:var(--muted)">View by:</span>
+      <button class="vel-period-btn" onclick="switchVelocityView('1d',this)">1 Day</button>
+      <button class="vel-period-btn" onclick="switchVelocityView('3d',this)">3 Days</button>
       <button class="vel-period-btn on" onclick="switchVelocityView('7d',this)">7 Days</button>
       <button class="vel-period-btn" onclick="switchVelocityView('14d',this)">14 Days</button>
       <button class="vel-period-btn" onclick="switchVelocityView('30d',this)">30 Days</button>
+      <button class="vel-period-btn" onclick="switchVelocityView('custom',this)">📅 Custom</button>
+    </div>
+    <div id="vel-custom-picker" style="display:none;align-items:center;gap:8px;margin-bottom:12px;flex-wrap:wrap">
+      <span style="font-size:11px;color:var(--muted)">From:</span>
+      <input type="date" id="vel-from" style="padding:5px 8px;border:1px solid var(--border2);border-radius:6px;font-size:12px;background:var(--s1);color:var(--text);outline:none;font-family:'DM Mono',monospace">
+      <span style="font-size:11px;color:var(--muted)">To:</span>
+      <input type="date" id="vel-to" style="padding:5px 8px;border:1px solid var(--border2);border-radius:6px;font-size:12px;background:var(--s1);color:var(--text);outline:none;font-family:'DM Mono',monospace">
+      <button class="tb-btn tb-btn-primary" style="padding:5px 14px;font-size:11px" onclick="applyCustomVelocity()">Apply</button>
+      <span id="vel-custom-status" style="font-size:11px;color:var(--muted)"></span>
     </div>
     <div class="card">
       <div class="card-hdr"><span class="card-title">Top 15 Fastest-Selling Variants</span><span id="vel-chart-label" style="font-size:11px;color:var(--muted)"></span></div>
@@ -451,7 +462,7 @@ tr:hover td{background:rgba(249,115,22,.04)}
       <div class="tbl-wrap">
         <table><thead><tr>
           <th>#</th><th>Product</th><th>Variant</th><th>Price</th>
-          <th id="th-7d">7d Sold</th><th id="th-14d">14d Sold</th><th id="th-30d">30d Sold</th>
+          <th id="th-custom" style="display:none">Custom</th><th id="th-1d">1d Sold</th><th id="th-3d">3d Sold</th><th id="th-7d">7d Sold</th><th id="th-14d">14d Sold</th><th id="th-30d">30d Sold</th>
           <th>Stock</th><th>Velocity</th>
         </tr></thead><tbody id="vel-body"></tbody></table>
       </div>
@@ -588,7 +599,7 @@ tr:hover td{background:rgba(249,115,22,.04)}
             <label style="font-size:12px;color:var(--muted)">Pages per category:</label>
             <select id="disc-pages" style="padding:6px 10px;border:1px solid var(--border2);border-radius:6px;font-size:12px;background:var(--s1);color:var(--text);outline:none">
               <option value="3">3 pages (~180 products)</option>
-              <option value="5">5 pages (~300 products)</option>
+              <option value="5" selected>5 pages (~300 products)</option>
               <option value="10">10 pages (~600 products)</option>
               <option value="20">20 pages (~1200 products)</option>
             </select>
@@ -596,20 +607,11 @@ tr:hover td{background:rgba(249,115,22,.04)}
           <div style="margin-top:8px;font-size:10px;color:var(--muted)">Must run on a Shopee tab. More pages = more shops found but takes longer.</div>
         </div>
         <div class="disc-step">
-          <div class="disc-step-title">Step 3 — Generate &amp; Run Script</div>
-          <div style="background:rgba(245,158,11,.08);border:1px solid rgba(245,158,11,.25);border-radius:8px;padding:10px 14px;font-size:11px;color:#92400e;margin-bottom:10px;display:flex;gap:8px;align-items:flex-start">
-            <span style="font-size:15px;flex-shrink:0">⚠️</span>
-            <span>Shopee blocks cross-origin requests from this dashboard. You must run the script <strong>from a shopee.com.my tab</strong> (paste in console or use Claude in Chrome).</span>
-          </div>
+          <div class="disc-step-title">Step 3 — Run Discovery</div>
           <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px">
-            <button class="tb-btn tb-btn-primary" onclick="generateDiscScript()">📋 Generate &amp; Copy Script</button>
-            <button class="tb-btn tb-btn-ghost" onclick="window.open('https://shopee.com.my','_blank')">Open Shopee Tab →</button>
+            <button class="tb-btn tb-btn-primary" id="disc-run-btn" onclick="runDiscovery()">🔍 Run Discovery</button>
           </div>
-          <div id="disc-script-box" style="display:none">
-            <textarea id="disc-script-ta" readonly style="width:100%;height:120px;font-family:'DM Mono',monospace;font-size:10px;border:1px solid var(--border2);border-radius:6px;padding:10px;background:var(--s2);color:var(--text);resize:none;outline:none"></textarea>
-            <div style="font-size:10px;color:var(--acc2);margin-top:6px;font-family:'DM Mono',monospace">✓ Copied to clipboard! Paste into shopee.com.my console and press Enter.</div>
-          </div>
-          <div class="disc-log" id="disc-log">Select categories → Generate Script → paste on shopee.com.my tab.</div>
+          <div class="disc-log" id="disc-log">Select categories → click Run Discovery.</div>
         </div>
       </div>
       <div>
@@ -727,9 +729,13 @@ const COLS = [
   { id:'rating',     label:'Rating',            sort:'rating_star',     default:true  },
   { id:'likes',      label:'Likes',             sort:'liked_count',     default:true  },
   { id:'stock',      label:'Stock',             sort:'stock',           default:true  },
+  { id:'sold1d',     label:'1d Units',          sort:'sold1d',          default:false },
+  { id:'sold3d',     label:'3d Units',          sort:'sold3d',          default:false },
   { id:'sold7d',     label:'7d Units',          sort:'sold7d',          default:false },
   { id:'sold14d',    label:'14d Units',         sort:'sold14d',         default:false },
   { id:'sold30d',    label:'30d Units',         sort:'sold30d',         default:false },
+  { id:'sold1d-rm',  label:'1d Sales (RM)',     sort:'sold1d_rm',       default:false },
+  { id:'sold3d-rm',  label:'3d Sales (RM)',     sort:'sold3d_rm',       default:false },
   { id:'sold7d-rm',  label:'7d Sales (RM)',     sort:'sold7d_rm',       default:false },
   { id:'sold14d-rm', label:'14d Sales (RM)',    sort:'sold14d_rm',      default:false },
   { id:'sold30d-rm', label:'30d Sales (RM)',    sort:'sold30d_rm',      default:false },
@@ -822,7 +828,9 @@ async function loadShopData() {
     }
     if (Array.isArray(velocity)) {
       velocity.forEach(v => {
-        if (!ST.velByItemId[v.itemid]) ST.velByItemId[v.itemid] = { sold_7d:0, sold_14d:0, sold_30d:0 };
+        if (!ST.velByItemId[v.itemid]) ST.velByItemId[v.itemid] = { sold_1d:0, sold_3d:0, sold_7d:0, sold_14d:0, sold_30d:0 };
+        ST.velByItemId[v.itemid].sold_1d  += v.sold_1d  || 0;
+        ST.velByItemId[v.itemid].sold_3d  += v.sold_3d  || 0;
         ST.velByItemId[v.itemid].sold_7d  += v.sold_7d  || 0;
         ST.velByItemId[v.itemid].sold_14d += v.sold_14d || 0;
         ST.velByItemId[v.itemid].sold_30d += v.sold_30d || 0;
@@ -1050,6 +1058,8 @@ function renderTable(products) {
 
     // Velocity data aggregated by itemid
     const vel = (ST.velByItemId||{})[p.itemid] || {};
+    const s1  = vel.sold_1d  || 0;
+    const s3  = vel.sold_3d  || 0;
     const s7  = vel.sold_7d  || 0;
     const s14 = vel.sold_14d || 0;
     const s30 = vel.sold_30d || 0;
@@ -1069,9 +1079,13 @@ function renderTable(products) {
       cd('rating')     ? `<td><span class="stars">${starsStr}</span><br><span style="font-size:9px;color:var(--muted)">${parseFloat(ratingDisp).toFixed(2)} (${p.rating_count||0})</span></td>` : '',
       cd('likes')      ? `<td style="font-family:'DM Mono',monospace;font-size:11px;color:var(--muted)">${fmtNum(p.liked_count||0)}</td>` : '',
       cd('stock')      ? `<td><div class="stock-mini"><div class="stock-fill" style="width:${sp}%;background:${sc}"></div></div><span style="font-size:9px;color:var(--muted)">${p.stock||'?'}</span></td>` : '',
+      cd('sold1d')     ? `<td>${fv(s1)}</td>` : '',
+      cd('sold3d')     ? `<td>${fv(s3)}</td>` : '',
       cd('sold7d')     ? `<td>${fv(s7)}</td>` : '',
       cd('sold14d')    ? `<td>${fv(s14)}</td>` : '',
       cd('sold30d')    ? `<td>${fv(s30)}</td>` : '',
+      cd('sold1d-rm')  ? `<td>${fvRm(s1, priceRm)}</td>` : '',
+      cd('sold3d-rm')  ? `<td>${fvRm(s3, priceRm)}</td>` : '',
       cd('sold7d-rm')  ? `<td>${fvRm(s7, priceRm)}</td>` : '',
       cd('sold14d-rm') ? `<td>${fvRm(s14,priceRm)}</td>` : '',
       cd('sold30d-rm') ? `<td>${fvRm(s30,priceRm)}</td>` : '',
@@ -1133,9 +1147,13 @@ function sortTbl(field, el) {
     const vel = (ST.velByItemId||{})[p.itemid] || {};
     return { ...p,
       sold_rm:   (p.historical_sold||0) * (p.price_min||0) / 1e5,
+      sold1d:    vel.sold_1d  || 0,
+      sold3d:    vel.sold_3d  || 0,
       sold7d:    vel.sold_7d  || 0,
       sold14d:   vel.sold_14d || 0,
       sold30d:   vel.sold_30d || 0,
+      sold1d_rm: (vel.sold_1d ||0) * (p.price_min||0) / 1e5,
+      sold3d_rm: (vel.sold_3d ||0) * (p.price_min||0) / 1e5,
       sold7d_rm: (vel.sold_7d ||0) * (p.price_min||0) / 1e5,
       sold14d_rm:(vel.sold_14d||0) * (p.price_min||0) / 1e5,
       sold30d_rm:(vel.sold_30d||0) * (p.price_min||0) / 1e5,
@@ -1273,7 +1291,7 @@ function selectComp(el, shopid) {
 // ========================================================
 // VELOCITY
 // ========================================================
-let VEL = { data:[], period:'7d', loaded:false };
+let VEL = { data:[], period:'7d', loaded:false, customData:[] };
 
 async function loadVelocity() {
   if (!ST.activeShopid) return;
@@ -1291,21 +1309,36 @@ async function loadVelocity() {
 }
 
 function renderVelocity() {
-  const { data, period } = VEL;
-  const field = period==='7d' ? 'sold_7d' : period==='14d' ? 'sold_14d' : 'sold_30d';
+  const { period } = VEL;
+  const isCustom = period === 'custom';
+  const data = isCustom ? VEL.customData : VEL.data;
+  const field = isCustom ? 'sold_custom' : period==='1d' ? 'sold_1d' : period==='3d' ? 'sold_3d' : period==='7d' ? 'sold_7d' : period==='14d' ? 'sold_14d' : 'sold_30d';
   const hasData = data.length > 0;
-  const hasVel  = data.some(v => (v.sold_7d||0)+(v.sold_14d||0)+(v.sold_30d||0) > 0);
+  const hasVel  = isCustom
+    ? data.some(v => (v.sold_custom||0) > 0)
+    : data.some(v => (v.sold_1d||0)+(v.sold_3d||0)+(v.sold_7d||0)+(v.sold_14d||0)+(v.sold_30d||0) > 0);
 
   document.getElementById('vel-empty').style.display  = hasData ? 'none' : 'block';
   document.getElementById('vel-notice').style.display = (hasData && !hasVel) ? 'flex' : 'none';
   if (!hasData) return;
 
   const sorted  = [...data].sort((a,b) => (b[field]||0)-(a[field]||0));
-  const top7    = [...data].sort((a,b) => (b.sold_7d||0)-(a.sold_7d||0))[0];
-  const top14   = [...data].sort((a,b) => (b.sold_14d||0)-(a.sold_14d||0))[0];
+  const top1    = isCustom ? sorted[0] : [...data].sort((a,b) => (b.sold_1d||0)-(a.sold_1d||0))[0];
+  const top7    = isCustom ? null      : [...data].sort((a,b) => (b.sold_7d||0)-(a.sold_7d||0))[0];
+  const top14   = isCustom ? null      : [...data].sort((a,b) => (b.sold_14d||0)-(a.sold_14d||0))[0];
 
   // KPIs
-  document.getElementById('vel-kpis').innerHTML = [
+  const kpis = isCustom ? [
+    { lbl:'Top Variant (Custom)',
+      val: (top1?.sold_custom||0) > 0 ? top1.sold_custom : '—',
+      sub: (top1?.sold_custom||0) > 0 ? (top1.variant_name||'').substring(0,24) : 'No data yet',
+      clr:'#8b5cf6' },
+    { lbl:'Variants Tracked', val: fmtNum(data.length), sub: 'in range', clr:'var(--acc3)' },
+  ] : [
+    { lbl:'Top 1-Day Variant',
+      val: (top1?.sold_1d||0) > 0 ? top1.sold_1d : '—',
+      sub: (top1?.sold_1d||0) > 0 ? (top1.variant_name||'').substring(0,24) : 'Data from 2026-05-16',
+      clr:'#8b5cf6' },
     { lbl:'Top 7-Day Variant',
       val: (top7?.sold_7d||0) > 0 ? top7.sold_7d : '—',
       sub: (top7?.sold_7d||0) > 0 ? (top7.variant_name||'').substring(0,24) : 'Data from 2026-05-22',
@@ -1314,11 +1347,9 @@ function renderVelocity() {
       val: (top14?.sold_14d||0) > 0 ? top14.sold_14d : '—',
       sub: (top14?.sold_14d||0) > 0 ? (top14.variant_name||'').substring(0,24) : 'Data from 2026-05-29',
       clr:'var(--acc2)' },
-    { lbl:'Variants Tracked',
-      val: fmtNum(data.length),
-      sub: 'in snapshot table',
-      clr:'var(--acc3)' },
-  ].map(k=>`<div class="kpi" style="--accent-clr:${k.clr}"><div class="kpi-lbl">${k.lbl}</div><div class="kpi-val">${k.val}</div><div class="kpi-sub">${k.sub}</div></div>`).join('');
+    { lbl:'Variants Tracked', val: fmtNum(data.length), sub: 'in snapshot table', clr:'var(--acc3)' },
+  ];
+  document.getElementById('vel-kpis').innerHTML = kpis.map(k=>`<div class="kpi" style="--accent-clr:${k.clr}"><div class="kpi-lbl">${k.lbl}</div><div class="kpi-val">${k.val}</div><div class="kpi-sub">${k.sub}</div></div>`).join('');
 
   // Chart — top 15
   const top15  = sorted.slice(0, 15);
@@ -1352,7 +1383,7 @@ function renderVelocity() {
 
 function renderVelocityTable(sorted) {
   const { period } = VEL;
-  const field  = period==='7d' ? 'sold_7d' : period==='14d' ? 'sold_14d' : 'sold_30d';
+  const field  = period==='1d' ? 'sold_1d' : period==='3d' ? 'sold_3d' : period==='7d' ? 'sold_7d' : period==='14d' ? 'sold_14d' : 'sold_30d';
   const maxVel = Math.max(...sorted.map(v=>v[field]||0), 1);
 
   // Highlight active column header
@@ -1365,7 +1396,9 @@ function renderVelocityTable(sorted) {
   document.getElementById('vel-body').innerHTML = sorted.slice(0,150).map((v,i) => {
     const velVal = v[field]||0;
     const barPct = (velVal/maxVel*100).toFixed(0);
-    const d7  = v.sold_7d||0, d14 = v.sold_14d||0, d30 = v.sold_30d||0;
+    const isCustom = period === 'custom';
+    const dc  = v.sold_custom||0;
+    const d1  = v.sold_1d||0, d3 = v.sold_3d||0, d7  = v.sold_7d||0, d14 = v.sold_14d||0, d30 = v.sold_30d||0;
     const fmtV = n => n>0 ? `<span class="sold-val">${n}</span>` : `<span style="color:var(--muted2)">—</span>`;
     const rk   = i===0?'g':i===1?'s':i===2?'b':'';
     const hl   = (p) => p===period ? 'style="background:rgba(249,115,22,.06)"' : '';
@@ -1374,9 +1407,8 @@ function renderVelocityTable(sorted) {
       <td><div style="font-size:11px;font-weight:600;max-width:160px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis" title="${(v.product_name||'').replace(/"/g,'')}">${(v.product_name||'').substring(0,32)}${(v.product_name||'').length>32?'…':''}</div></td>
       <td><div style="font-size:11px;color:var(--muted);max-width:130px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${(v.variant_name||'—').substring(0,28)}</div></td>
       <td><span class="pricetag">RM ${(v.price||0).toFixed(2)}</span></td>
-      <td ${hl('7d')}>${fmtV(d7)}</td>
-      <td ${hl('14d')}>${fmtV(d14)}</td>
-      <td ${hl('30d')}>${fmtV(d30)}</td>
+      ${isCustom ? `<td style="background:rgba(249,115,22,.06)">${fmtV(dc)}</td>` : ''}
+      ${!isCustom ? `<td ${hl('1d')}>${fmtV(d1)}</td><td ${hl('3d')}>${fmtV(d3)}</td><td ${hl('7d')}>${fmtV(d7)}</td><td ${hl('14d')}>${fmtV(d14)}</td><td ${hl('30d')}>${fmtV(d30)}</td>` : ''}
       <td style="font-family:'DM Mono',monospace;font-size:11px;color:var(--muted)">${v.stock??'—'}</td>
       <td style="min-width:90px">
         <div class="vel-bar"><div class="vel-fill" style="width:${barPct}%"></div></div>
@@ -1390,7 +1422,37 @@ function switchVelocityView(period, el) {
   document.querySelectorAll('.vel-period-btn').forEach(b=>b.classList.remove('on'));
   if (el) el.classList.add('on');
   VEL.period = period;
-  if (VEL.loaded) renderVelocity();
+  const picker = document.getElementById('vel-custom-picker');
+  picker.style.display = period === 'custom' ? 'flex' : 'none';
+  document.getElementById('th-custom').style.display = period === 'custom' ? '' : 'none';
+  if (period === 'custom') {
+    const today = new Date().toISOString().split('T')[0];
+    const weekAgo = new Date(Date.now()-7*86400000).toISOString().split('T')[0];
+    if (!document.getElementById('vel-from').value) document.getElementById('vel-from').value = weekAgo;
+    if (!document.getElementById('vel-to').value)   document.getElementById('vel-to').value   = today;
+  }
+  if (period !== 'custom' && VEL.loaded) renderVelocity();
+}
+
+async function applyCustomVelocity() {
+  const from = document.getElementById('vel-from').value;
+  const to   = document.getElementById('vel-to').value;
+  if (!from || !to) { document.getElementById('vel-custom-status').textContent = '⚠️ Pick both dates'; return; }
+  if (from >= to)   { document.getElementById('vel-custom-status').textContent = '⚠️ From must be before To'; return; }
+  const status = document.getElementById('vel-custom-status');
+  status.textContent = '⏳ Loading...';
+  try {
+    let url = `${API}/api/get-velocity?from=${from}&to=${to}&limit=500`;
+    if (ST.activeShopid) url += `&shopid=${ST.activeShopid}`;
+    const r = await fetch(url);
+    VEL.customData = await r.json();
+    VEL.loaded = true;
+    const days = Math.round((new Date(to) - new Date(from)) / 86400000);
+    status.textContent = `✓ ${days}d range · ${VEL.customData.length} variants`;
+    renderVelocity();
+  } catch(e) {
+    status.textContent = '❌ ' + e.message;
+  }
 }
 
 // ========================================================
@@ -1930,75 +1992,51 @@ function discLog(msg) {
   el.scrollTop=el.scrollHeight;
 }
 
-function generateDiscScript() {
+async function runDiscovery() {
   if (!DISC.catids.length) { discLog('⚠️ Select at least one category first'); return; }
-  const pages = parseInt(document.getElementById('disc-pages').value)||3;
-  const catids = JSON.stringify(DISC.catids);
-  const vercelUrl = API;
+  if (DISC.running) { discLog('⏳ Already running...'); return; }
+  DISC.running = true;
+  const btn = document.getElementById('disc-run-btn');
+  btn.disabled = true; btn.textContent = '⏳ Running...';
+  document.getElementById('disc-log').innerHTML = '';
 
-  const script = `(async()=>{
-const CATIDS=${catids},PAGES=${pages},VERCEL='${vercelUrl}';
-const H={'x-api-source':'pc','x-shopee-language':'en'};
-const sleep=ms=>new Promise(r=>setTimeout(r,ms));
-const prods=[],shops={};
-for(const cat of CATIDS){
-  let off=0,pg=0;
-  console.log('📂 catid',cat);
-  while(pg<PAGES){
-    try{
-      const r=await fetch('https://shopee.com.my/api/v4/search/search_items?by=sales&limit=60&catid='+cat+'&newest='+off+'&order=desc&page_type=search&scenario=PAGE_CATEGORY&version=2',{headers:H});
-      const d=await r.json();
-      const items=(d.items||[]).map(i=>i.item_basic);
-      if(!items.length)break;
-      items.forEach(p=>{if(!shops[p.shopid])shops[p.shopid]={shopid:p.shopid,shop_name:p.shop_name||'',count:0};shops[p.shopid].count++;prods.push(p);});
-      console.log('  page',(pg+1),'+'+items.length,'products,',Object.keys(shops).length,'shops');
-      if(items.length<60)break;
-      off+=60;pg++;await sleep(700);
-    }catch(e){console.error('err:',e.message);break;}
+  const pages = parseInt(document.getElementById('disc-pages').value) || 3;
+  const catids = DISC.catids.join(',');
+  discLog(`🚀 Starting server-side discovery: catids=[${catids}], ${pages} pages each`);
+
+  try {
+    const url = `${API}/api/discover?catids=${catids}&pages=${pages}&secret=shopeescope2026`;
+    const r = await fetch(url);
+    const result = await r.json();
+    if (!r.ok) throw new Error(result.error || r.status);
+    discLog(`✅ Done! ${result.products_saved} products saved, ${result.shops_discovered} shops found`);
+    if (result.message) discLog(`ℹ️ ${result.message}`);
+    renderDiscoverResults(result.new_shopids || []);
+  } catch(e) {
+    discLog(`❌ Error: ${e.message}`);
+  } finally {
+    DISC.running = false;
+    btn.disabled = false; btn.textContent = '🔍 Run Discovery';
   }
-  await sleep(1000);
-}
-console.log('✅',prods.length,'products,',Object.keys(shops).length,'shops');
-const res=await fetch(VERCEL+'/api/discover',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({products:prods,catids:CATIDS})});
-const result=await res.json();
-console.log('💾 saved:',result);
-result;
-})();`;
-
-  // Show script box
-  const box=document.getElementById('disc-script-box');
-  const ta=document.getElementById('disc-script-ta');
-  box.style.display='block';
-  ta.value=script;
-
-  // Copy to clipboard
-  navigator.clipboard.writeText(script).then(()=>{
-    discLog('✅ Script copied to clipboard!');
-    discLog('👉 Go to shopee.com.my tab → open DevTools Console (F12) → paste → Enter');
-    discLog('📊 Check console for progress. Market tab will update after it finishes.');
-  }).catch(()=>{
-    discLog('📋 Script generated — select all text above and copy manually (Ctrl+A, Ctrl+C)');
-  });
 }
 
-function renderDiscoverResults() {
-  const shops=Object.values(DISC.shops).sort((a,b)=>b.count-a.count);
+function renderDiscoverResults(shopids) {
+  if (!shopids || !shopids.length) {
+    document.getElementById('disc-results').innerHTML = '';
+    return;
+  }
   document.getElementById('disc-results').innerHTML=`
     <div class="card" style="margin-top:16px">
       <div class="card-hdr">
-        <span class="card-title">Discovered Shops (${shops.length})</span>
-        <span style="font-size:11px;color:var(--muted)">${DISC.products.length} products total</span>
+        <span class="card-title">Newly Discovered Shops (${shopids.length})</span>
+        <span style="font-size:11px;color:var(--muted)">Saved to DB — visible in Market tab</span>
       </div>
       <div class="tbl-wrap"><table>
-        <thead><tr><th>#</th><th>Shop Name</th><th>Shop ID</th><th>Products Found</th><th>Action</th></tr></thead>
-        <tbody>${shops.slice(0,100).map((s,i)=>`<tr>
+        <thead><tr><th>#</th><th>Shop ID</th><th>Action</th></tr></thead>
+        <tbody>${shopids.slice(0,100).map((id,i)=>`<tr>
           <td><span class="rank">${i+1}</span></td>
-          <td style="font-weight:600">${s.shop_name||'—'}</td>
-          <td style="font-family:'DM Mono',monospace;font-size:11px;color:var(--muted)">${s.shopid}</td>
-          <td><span class="sold-val">${s.count}</span> products</td>
-          <td>
-            <a href="https://shopee.com.my/shop/${s.shopid}" target="_blank" rel="noopener" class="sort-btn" style="text-decoration:none">View Shop →</a>
-          </td>
+          <td style="font-family:'DM Mono',monospace;font-size:11px;color:var(--muted)">${id}</td>
+          <td><a href="https://shopee.com.my/shop/${id}" target="_blank" rel="noopener" class="sort-btn" style="text-decoration:none">View Shop →</a></td>
         </tr>`).join('')}</tbody>
       </table></div>
     </div>`;

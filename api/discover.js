@@ -35,7 +35,8 @@ export default async function handler(req, res) {
   // GET: server-side crawl (may return empty without Shopee session cookies)
   if (req.method === 'GET') {
     const auth = req.headers.authorization || '';
-    if (CRON_SECRET && auth !== `Bearer ${CRON_SECRET}`) return res.status(401).json({ error: 'Unauthorized' });
+    const secret = req.query.secret || '';
+    if (CRON_SECRET && auth !== `Bearer ${CRON_SECRET}` && secret !== CRON_SECRET) return res.status(401).json({ error: 'Unauthorized' });
 
     const { catids = '11042', pages = '3' } = req.query;
     const catList = catids.split(',').map(Number).filter(Boolean);
@@ -54,7 +55,7 @@ export default async function handler(req, res) {
       let offset = 0;
       for (let p = 0; p < maxPages; p++) {
         try {
-          const r = await fetch(`https://shopee.com.my/api/v4/search/search_items?by=sales&limit=60&catid=${catid}&newest=${offset}&order=desc&page_type=search&scenario=PAGE_CATEGORY&version=2`, { headers: H, signal: AbortSignal.timeout(12000) });
+          const r = await fetch(`https://shopee.com.my/api/v4/search/search_items?by=sales&limit=60&match_id=${catid}&newest=${offset}&order=desc&page_type=search&scenario=PAGE_CATEGORY&version=2`, { headers: H, signal: AbortSignal.timeout(12000) });
           if (!r.ok) break;
           const d = await r.json();
           const items = (d.items || []).map(i => i.item_basic);
