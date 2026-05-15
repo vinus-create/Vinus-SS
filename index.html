@@ -233,6 +233,7 @@ tr:hover td{background:rgba(249,115,22,.04)}
   <div class="tab"     onclick="tab('keywords')">🔑 Keywords</div>
   <div class="tab"     onclick="tab('reviews')">⭐ Reviews</div>
   <div class="tab"     onclick="tab('velocity')">📈 Velocity</div>
+  <div class="tab"     onclick="tab('compare')">🔀 Compare</div>
   <div class="tab"     onclick="tab('competitors')">🏪 Competitors</div>
   <div class="tab"     onclick="tab('log')">📋 Scrape Log</div>
   <div class="tab"     onclick="tab('framework')">⚙️ Setup Guide</div>
@@ -378,6 +379,34 @@ tr:hover td{background:rgba(249,115,22,.04)}
     </div>
   </div>
 
+  <!-- ======= COMPARE ======= -->
+  <div class="sec" id="sec-compare">
+    <div class="card" style="margin-bottom:12px">
+      <div class="card-hdr"><span class="card-title">🔀 Cross-Shop Variant Comparison</span></div>
+      <div class="card-body">
+        <div style="display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap">
+          <input id="cmp-search" type="text" placeholder="Search variants across all shops (e.g. AA, AAA, 9V, lithium)..."
+            style="flex:1;min-width:220px;background:var(--s3);border:1px solid var(--border2);color:var(--text);padding:9px 14px;border-radius:7px;font-size:13px;font-family:'Inter',sans-serif;outline:none"
+            oninput="cmpSearch()" onfocus="if(!CMP.loaded)loadCompare()">
+          <button class="tb-btn tb-btn-primary" onclick="loadCompare(true)" style="font-family:'Inter',sans-serif;font-size:12px;font-weight:700">↻ Load All Shops</button>
+        </div>
+        <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center">
+          <span style="font-size:11px;color:var(--muted);font-weight:600">Quick:</span>
+          <span class="sort-btn" onclick="cmpQuick('AA')">AA Battery</span>
+          <span class="sort-btn" onclick="cmpQuick('AAA')">AAA Battery</span>
+          <span class="sort-btn" onclick="cmpQuick('9V')">9V</span>
+          <span class="sort-btn" onclick="cmpQuick('C size')">C Size</span>
+          <span class="sort-btn" onclick="cmpQuick('D size')">D Size</span>
+          <span class="sort-btn" onclick="cmpQuick('lithium')">Lithium</span>
+          <span class="sort-btn" onclick="cmpQuick('alkaline')">Alkaline</span>
+          <span class="sort-btn" onclick="cmpQuick('18650')">18650</span>
+        </div>
+        <div id="cmp-status" style="margin-top:10px;font-size:11px;color:var(--muted);font-family:'DM Mono',monospace"></div>
+      </div>
+    </div>
+    <div id="cmp-results"></div>
+  </div>
+
   <!-- ======= COMPETITORS ======= -->
   <div class="sec" id="sec-competitors">
     <div class="comp-grid" id="compCards"></div>
@@ -486,13 +515,14 @@ window.onload = async () => {
 // TABS
 // ========================================================
 function tab(name) {
-  const names = ['overview','bestsellers','pricing','keywords','reviews','velocity','competitors','log','framework'];
+  const names = ['overview','bestsellers','pricing','keywords','reviews','velocity','compare','competitors','log','framework'];
   document.querySelectorAll('.tab').forEach((t,i) => t.classList.toggle('on', names[i]===name));
   document.querySelectorAll('.sec').forEach(s => s.classList.remove('on'));
   document.getElementById('sec-'+name).classList.add('on');
   if (name==='log') loadLog();
   if (name==='reviews'  && ST.activeShopid && !RV.loaded)  loadReviews();
   if (name==='velocity' && ST.activeShopid && !VEL.loaded) loadVelocity();
+  if (name==='compare'  && !CMP.loaded) loadCompare();
 }
 
 // ========================================================
@@ -1111,6 +1141,107 @@ function sortReviews(mode, el) {
   if (el) el.classList.add('on');
   RV.sortMode = mode;
   renderReviewTable();
+}
+
+// ========================================================
+// CROSS-SHOP COMPARE
+// ========================================================
+let CMP = { data: {}, loaded: false };
+
+async function loadCompare(force = false) {
+  if (CMP.loaded && !force) { cmpSearch(); return; }
+  CMP.data = {};
+  CMP.loaded = false;
+  const shops = ST.shops.filter(s => s.shopid);
+  if (!shops.length) { document.getElementById('cmp-status').textContent = 'No shops loaded — select a shop first.'; return; }
+  document.getElementById('cmp-status').textContent = `Loading variants from ${shops.length} shops...`;
+  setStatus('Loading all variants for comparison...');
+  const results = await Promise.all(shops.map(s =>
+    fetch(`${API}/api/get-variants?shopid=${s.shopid}&limit=1000`)
+      .then(r => r.json())
+      .then(vs => ({ shopid: s.shopid, username: s.username || s.shop_name, variants: Array.isArray(vs) ? vs : [] }))
+      .catch(() => ({ shopid: s.shopid, username: s.username || s.shop_name, variants: [] }))
+  ));
+  results.forEach(r => { CMP.data[r.shopid] = { username: r.username, variants: r.variants }; });
+  CMP.loaded = true;
+  const total = Object.values(CMP.data).reduce((s, v) => s + v.variants.length, 0);
+  const shopCount = results.filter(r => r.variants.length > 0).length;
+  document.getElementById('cmp-status').textContent = `✓ ${total.toLocaleString()} variants across ${shopCount} shops loaded. Type a keyword to compare.`;
+  setStatus(`✓ Compare: ${total} variants loaded`);
+  cmpSearch();
+}
+
+function cmpQuick(kw) {
+  document.getElementById('cmp-search').value = kw;
+  if (!CMP.loaded) loadCompare();
+  else cmpSearch();
+}
+
+function cmpSearch() {
+  const kw = (document.getElementById('cmp-search').value || '').trim().toLowerCase();
+  if (!CMP.loaded) { loadCompare(); return; }
+  if (!kw) { document.getElementById('cmp-results').innerHTML = ''; return; }
+
+  const matches = [];
+  Object.entries(CMP.data).forEach(([shopid, { username, variants }]) => {
+    variants.forEach(v => {
+      if ((v.variant_name || '').toLowerCase().includes(kw) ||
+          (v.product_name || '').toLowerCase().includes(kw)) {
+        matches.push({ ...v, username });
+      }
+    });
+  });
+  renderCmpResults(matches, kw);
+}
+
+function renderCmpResults(matches, kw) {
+  const el = document.getElementById('cmp-results');
+  if (!matches.length) {
+    el.innerHTML = `<div class="empty"><div class="empty-ico">🔍</div><div class="empty-h">No matches for "${kw}"</div><div class="empty-t">Try a broader keyword</div></div>`;
+    return;
+  }
+  const sorted   = [...matches].sort((a, b) => (b.sold || 0) - (a.sold || 0));
+  const byPrice  = [...matches].sort((a, b) => (a.price || 999) - (b.price || 999));
+  const cheapest = byPrice[0];
+  const topSold  = sorted[0];
+  const shops    = [...new Set(matches.map(m => m.username))];
+  const prices   = matches.map(m => m.price || 0).filter(p => p > 0);
+  const minPrice = prices.length ? Math.min(...prices) : 0;
+  const maxPrice = prices.length ? Math.max(...prices) : 0;
+
+  const kpis = `<div class="kpi-row" style="margin-bottom:16px">
+    <div class="kpi" style="--accent-clr:var(--acc)"><div class="kpi-lbl">Matches Found</div><div class="kpi-val">${matches.length}</div><div class="kpi-sub">${shops.length} shops</div></div>
+    <div class="kpi" style="--accent-clr:var(--acc2)"><div class="kpi-lbl">Cheapest</div><div class="kpi-val">RM ${(cheapest?.price || 0).toFixed(2)}</div><div class="kpi-sub">${cheapest?.username || '—'}</div></div>
+    <div class="kpi" style="--accent-clr:var(--acc3)"><div class="kpi-lbl">Top Seller</div><div class="kpi-val">${fmtNum(topSold?.sold || 0)}</div><div class="kpi-sub">${topSold?.username || '—'}</div></div>
+    <div class="kpi" style="--accent-clr:var(--acc4)"><div class="kpi-lbl">Price Range</div><div class="kpi-val">RM ${minPrice.toFixed(0)}–${maxPrice.toFixed(0)}</div><div class="kpi-sub">min to max</div></div>
+  </div>`;
+
+  const rows = sorted.slice(0, 300).map((v, i) => {
+    const rk = i === 0 ? 'g' : i === 1 ? 's' : i === 2 ? 'b' : '';
+    const cheapBadge = v === cheapest ? '<span style="color:var(--acc2);font-size:9px;margin-left:3px">🏷️ cheapest</span>' : '';
+    const hotBadge   = v === topSold  ? '<span style="color:var(--acc);font-size:9px;margin-left:3px">🔥 top sold</span>' : '';
+    return `<tr>
+      <td><span class="rank ${rk}">${i + 1}</span></td>
+      <td><span style="font-size:10px;background:var(--s3);border:1px solid var(--border);padding:2px 8px;border-radius:20px;font-weight:600;white-space:nowrap">${v.username}</span></td>
+      <td><div style="font-size:11px;font-weight:600;max-width:210px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis" title="${(v.product_name || '').replace(/"/g, '')}">${(v.product_name || '').substring(0, 38)}${(v.product_name || '').length > 38 ? '…' : ''}</div></td>
+      <td><div style="font-size:11px;color:var(--muted);max-width:140px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${(v.variant_name || '—').substring(0, 30)}</div></td>
+      <td><span class="pricetag">RM ${(v.price || 0).toFixed(2)}</span>${cheapBadge}</td>
+      <td><span class="sold-val">${fmtNum(v.sold || 0)}</span>${hotBadge}</td>
+      <td style="font-family:'DM Mono',monospace;font-size:11px;color:var(--muted)">${v.stock ?? '—'}</td>
+    </tr>`;
+  }).join('');
+
+  el.innerHTML = kpis + `<div class="card">
+    <div class="card-hdr">
+      <span class="card-title">Results for "<strong>${kw}</strong>"</span>
+      <span style="font-size:11px;color:var(--muted)">${sorted.length} variants · sorted by sold</span>
+    </div>
+    <div class="tbl-wrap">
+      <table><thead><tr>
+        <th>#</th><th>Shop</th><th>Product</th><th>Variant</th><th>Price</th><th>Sold</th><th>Stock</th>
+      </tr></thead><tbody>${rows}</tbody></table>
+    </div>
+  </div>`;
 }
 
 // ========================================================
