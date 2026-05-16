@@ -296,6 +296,46 @@ tr:hover td{background:rgba(249,115,22,.04)}
 
   <!-- ======= OVERVIEW ======= -->
   <div class="sec on" id="sec-overview">
+    <!-- Shop Profile Card -->
+    <div id="shopProfileCard" style="display:none;background:var(--s1);border:1px solid var(--border);border-radius:10px;padding:16px 20px;margin-bottom:16px;box-shadow:0 1px 4px rgba(0,0,0,.06)">
+      <div style="display:flex;align-items:center;gap:16px;flex-wrap:wrap">
+        <a id="spLink" href="#" target="_blank" rel="noopener" style="flex-shrink:0;text-decoration:none">
+          <img id="spAvatar" src="" alt="" style="width:64px;height:64px;border-radius:50%;border:2px solid var(--border2);object-fit:cover;display:none">
+          <div id="spAvatarFallback" style="width:64px;height:64px;border-radius:50%;background:var(--s3);border:2px solid var(--border2);display:flex;align-items:center;justify-content:center;font-size:26px">🏪</div>
+        </a>
+        <div style="flex:1;min-width:200px">
+          <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:4px">
+            <a id="spName" href="#" target="_blank" rel="noopener" style="font-size:18px;font-weight:800;color:var(--text);text-decoration:none;letter-spacing:-.3px">—</a>
+            <span id="spVerified" style="display:none;background:#f0fdf4;color:#166534;border:1px solid #86efac;border-radius:4px;padding:2px 7px;font-size:10px;font-weight:700">✓ VERIFIED</span>
+            <span id="spOfficial" style="display:none;background:#eff6ff;color:#1d4ed8;border:1px solid #bfdbfe;border-radius:4px;padding:2px 7px;font-size:10px;font-weight:700">★ OFFICIAL</span>
+          </div>
+          <div style="font-size:11px;color:var(--muted);font-family:'DM Mono',monospace" id="spLocation"></div>
+        </div>
+        <div style="display:flex;gap:20px;flex-wrap:wrap;align-items:center">
+          <div style="text-align:center">
+            <div style="font-size:18px;font-weight:800;color:var(--acc3)" id="spFollowers">—</div>
+            <div style="font-size:9px;font-weight:700;letter-spacing:1.5px;color:var(--muted);text-transform:uppercase">Followers</div>
+          </div>
+          <div style="text-align:center">
+            <div style="font-size:18px;font-weight:800;color:var(--acc2)" id="spRating">—</div>
+            <div style="font-size:9px;font-weight:700;letter-spacing:1.5px;color:var(--muted);text-transform:uppercase">Rating</div>
+          </div>
+          <div style="text-align:center">
+            <div style="font-size:18px;font-weight:800;color:var(--acc4)" id="spJoined">—</div>
+            <div style="font-size:9px;font-weight:700;letter-spacing:1.5px;color:var(--muted);text-transform:uppercase">Joined</div>
+          </div>
+          <div style="text-align:center">
+            <div style="font-size:18px;font-weight:800;color:var(--acc)" id="spResponseRate">—</div>
+            <div style="font-size:9px;font-weight:700;letter-spacing:1.5px;color:var(--muted);text-transform:uppercase">Chat Response</div>
+          </div>
+          <div style="text-align:center">
+            <div style="font-size:15px;font-weight:700;color:var(--text)" id="spResponseTime">—</div>
+            <div style="font-size:9px;font-weight:700;letter-spacing:1.5px;color:var(--muted);text-transform:uppercase">Avg Reply Time</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
     <div class="kpi-row" id="kpiRow">
       <div class="kpi" style="--accent-clr:var(--acc)"><div class="kpi-lbl">Products</div><div class="kpi-val" id="k-products">—</div><div class="kpi-sub" id="k-products-sub">scraped listings</div></div>
       <div class="kpi" style="--accent-clr:var(--acc2)"><div class="kpi-lbl">Est. Revenue</div><div class="kpi-val" id="k-revenue">—</div><div class="kpi-sub">sold × price</div></div>
@@ -895,9 +935,26 @@ const API = window.location.hostname === 'localhost'
   : '';  // empty = same origin (Vercel serves both frontend + API)
 
 // ========================================================
+// SHOPEE CATEGORY MAP  (catid → readable name)
+// ========================================================
+const SHOPEE_CAT = {
+  100001:'Health & Wellness', 100010:'Batteries', 100013:'Battery Accessories',
+  100534:'Coin & Watch Batteries', 100535:'Audio Accessories', 100629:'Food & Beverages',
+  100632:'Toys & Games', 100635:'Camera Batteries', 100636:'Tools & Hardware',
+  100637:'Flashlights & Torches', 100639:'Toys & Games', 100640:'Rechargeable Batteries',
+  100644:'Computer Accessories', 102187:'Battery Accessories',
+  // Common Shopee MY categories
+  100642:'Sports & Outdoors', 100609:'Home & Living', 100600:'Kitchen',
+  100620:'Garden & Pets', 100530:'Computer Accessories', 100550:'Cameras',
+  100560:'Gaming', 100570:'TV & Audio', 100580:'Printers',
+  11042:'Batteries', 11041:'Chargers', 11139:'Power Banks', 11143:'Accessories', 11038:'Electronics'
+};
+function resolveCat(catid) { return SHOPEE_CAT[catid] || SHOPEE_CAT[+catid] || 'Other'; }
+
+// ========================================================
 // STATE
 // ========================================================
-let ST = { products:[], shops:[], activeShopid:null, shopMeta:{}, varsByItemId:{}, velByItemId:{} };
+let ST = { products:[], shops:[], activeShopid:null, shopMeta:{}, shopProfile:{}, varsByItemId:{}, velByItemId:{} };
 
 // ========================================================
 // COLUMN CONFIG
@@ -1052,14 +1109,19 @@ async function loadShopData() {
   prog(true, 30);
   setStatus('Loading products...');
   try {
-    const [prodRes, varRes, velRes] = await Promise.all([
+    const username = (document.getElementById('shopSelect').selectedOptions[0]?.text || '').split(' (')[0];
+    const [prodRes, varRes, velRes, profRes] = await Promise.all([
       fetch(`${API}/api/data?type=products&shopid=${shopid}&limit=300`),
       fetch(`${API}/api/get-variants?shopid=${shopid}&limit=2000`),
-      fetch(`${API}/api/get-velocity?shopid=${shopid}&limit=2000`)
+      fetch(`${API}/api/get-velocity?shopid=${shopid}&limit=2000`),
+      fetch(`${API}/api/shop-profile?username=${encodeURIComponent(username)}`).catch(()=>null)
     ]);
     const products = prodRes.ok ? await prodRes.json() : [];
     const variants = varRes.ok ? await varRes.json() : [];
     const velocity = velRes.ok ? await velRes.json() : [];
+    ST.shopProfile = (profRes && profRes.ok) ? await profRes.json() : {};
+    // Resolve category names from catid
+    products.forEach(p => { p._cat = resolveCat(p.catid); });
     ST.products = products;
     ST.activeShopid = shopid;
     ST.varsByItemId = {};
@@ -1149,6 +1211,7 @@ function loadDemo() {
   products.sort((a,b)=>b.historical_sold-a.historical_sold);
   ST.products = products;
   ST.shopMeta = { username:'ham_radios.my', shop_name:'HAM Radios Malaysia', follower_count:3420, shop_rating:4.8 };
+  ST.shopProfile = { ok:true, username:'ham_radios.my', name:'HAM Radios Malaysia', follower_count:3420, rating_star:4.8, ctime:1514764800, response_rate:97, response_time:3600, shop_location:'Kuala Lumpur', is_shopee_verified:true };
   ST.shops = [ST.shopMeta, { username:'walkie_talkie_kl', shop_name:'Walkie Talkie KL', total_sold:3200, avg_price_rm:62.1, shop_rating:4.6, total_products:54, follower_count:1200 },
     { username:'radio_master_my', shop_name:'Radio Master MY', total_sold:7800, avg_price_rm:110.5, shop_rating:4.7, total_products:132, follower_count:8100 }];
   document.getElementById('overviewEmpty').style.display='none';
@@ -1162,12 +1225,92 @@ function loadDemo() {
 // RENDER ALL
 // ========================================================
 function renderAll() {
+  renderShopProfile();
   renderKPIs();
   renderInsights();
   renderCharts();
   renderTable([...ST.products].sort((a,b)=>b.historical_sold-a.historical_sold));
   renderPricing();
   renderKeywords();
+}
+
+// ========================================================
+// SHOP PROFILE CARD
+// ========================================================
+function renderShopProfile() {
+  const sp = ST.shopProfile;
+  const sm = ST.shopMeta;
+  const card = document.getElementById('shopProfileCard');
+  if (!sp?.ok && !sm?.username) { card.style.display = 'none'; return; }
+  card.style.display = '';
+
+  const username = sp.username || sm.username || '';
+  const name = sp.name || sm.shop_name || sm.username || '';
+  const shopUrl = `https://shopee.com.my/${username}`;
+
+  // Avatar
+  const avatarEl = document.getElementById('spAvatar');
+  const fallbackEl = document.getElementById('spAvatarFallback');
+  if (sp.avatar) {
+    const avatarUrl = `https://down-my.img.susercontent.com/file/${sp.avatar}`;
+    avatarEl.src = avatarUrl;
+    avatarEl.style.display = '';
+    fallbackEl.style.display = 'none';
+    avatarEl.onerror = () => { avatarEl.style.display='none'; fallbackEl.style.display=''; };
+  } else {
+    avatarEl.style.display = 'none';
+    fallbackEl.style.display = '';
+  }
+
+  // Name + link
+  document.getElementById('spLink').href = shopUrl;
+  const nameEl = document.getElementById('spName');
+  nameEl.textContent = name;
+  nameEl.href = shopUrl;
+
+  // Badges
+  document.getElementById('spVerified').style.display = sp.is_shopee_verified ? '' : 'none';
+  document.getElementById('spOfficial').style.display = sp.is_official_shop ? '' : 'none';
+
+  // Location
+  set('spLocation', [sp.shop_location, username].filter(Boolean).join(' · '));
+
+  // Stats
+  set('spFollowers', fmtNum(sp.follower_count || sm.follower_count || 0));
+
+  // Rating with stars
+  const totalRatings = (sp.rating_good||0) + (sp.rating_normal||0) + (sp.rating_bad||0);
+  const ratingPct = totalRatings > 0 ? Math.round((sp.rating_good||0)/totalRatings*100) : 0;
+  set('spRating', (sp.rating_star > 0 ? sp.rating_star.toFixed(1) : (sm.shop_rating||'—')) + (ratingPct > 0 ? ' ★' : ''));
+
+  // Joined date
+  if (sp.ctime) {
+    const joinDate = new Date(sp.ctime * 1000);
+    const now = new Date();
+    const yrs = ((now - joinDate) / (1000*60*60*24*365.25)).toFixed(1);
+    set('spJoined', joinDate.getFullYear() + ' (' + yrs + 'y)');
+  } else {
+    set('spJoined', '—');
+  }
+
+  // Response rate
+  if (sp.response_rate != null) {
+    const rateColor = sp.response_rate >= 90 ? 'var(--acc2)' : sp.response_rate >= 70 ? 'var(--acc4)' : 'var(--danger)';
+    const rateEl = document.getElementById('spResponseRate');
+    rateEl.textContent = sp.response_rate + '%';
+    rateEl.style.color = rateColor;
+  } else {
+    set('spResponseRate', '—');
+  }
+
+  // Response time
+  if (sp.response_time != null) {
+    const mins = Math.round(sp.response_time / 60);
+    const timeStr = mins < 60 ? mins + ' min' : (mins/60).toFixed(1) + ' hr';
+    set('spResponseTime', timeStr);
+  } else {
+    set('spResponseTime', '—');
+  }
 }
 
 // ========================================================
