@@ -342,23 +342,128 @@ tr:hover td{background:rgba(249,115,22,.04)}
 
   <!-- ======= VARIANTS ======= -->
   <div class="sec" id="sec-variants">
+    <!-- Controls bar -->
     <div class="card" style="margin-bottom:12px">
-      <div class="card-hdr">
-        <span class="card-title">🧬 Product Variants</span>
-        <div class="sort-btns">
-          <span class="sort-btn on" id="vSort-sold"   onclick="sortVariants('sold',this)">Sold</span>
-          <span class="sort-btn"   id="vSort-price"  onclick="sortVariants('price',this)">Price</span>
-          <span class="sort-btn"   id="vSort-stock"  onclick="sortVariants('stock',this)">Stock</span>
-          <span class="sort-btn"   id="vSort-name"   onclick="sortVariants('name',this)">Name</span>
+      <div class="card-hdr" style="flex-wrap:wrap;gap:8px">
+        <span class="card-title">🧬 Variants</span>
+        <div class="sort-btns" style="flex:1;min-width:200px">
+          <span class="sort-btn on" onclick="switchVarView('summary',this)">📊 Summary</span>
+          <span class="sort-btn"   onclick="switchVarView('flat',this)">📋 Flat List</span>
+          <span class="sort-btn"   onclick="switchVarView('stock',this)">⚠️ Stock Alerts</span>
+          <span class="sort-btn"   onclick="switchVarView('pack',this)">🔢 Pack Analysis</span>
         </div>
       </div>
-      <div class="card-body" style="padding-bottom:8px">
+      <div class="card-body" style="padding-bottom:8px;display:flex;gap:8px;flex-wrap:wrap">
         <input id="var-search" type="text" placeholder="Search products or variants..."
-          style="width:100%;background:var(--s3);border:1px solid var(--border2);color:var(--text);padding:9px 14px;border-radius:7px;font-size:13px;font-family:'Inter',sans-serif;outline:none"
+          style="flex:1;min-width:180px;background:var(--s3);border:1px solid var(--border2);color:var(--text);padding:9px 14px;border-radius:7px;font-size:13px;font-family:'Inter',sans-serif;outline:none"
           oninput="filterVariants()">
+        <select id="var-stock-filter" onchange="filterVariants()" style="background:var(--s3);border:1px solid var(--border2);color:var(--text);padding:8px 12px;border-radius:7px;font-size:13px;font-family:'Inter',sans-serif;outline:none">
+          <option value="all">All Stock</option>
+          <option value="out">Out of Stock (0)</option>
+          <option value="low">Low Stock (&lt;50)</option>
+          <option value="ok">In Stock (≥50)</option>
+        </select>
       </div>
     </div>
-    <div id="var-list"></div>
+
+    <!-- SUMMARY view -->
+    <div id="var-view-summary">
+      <div class="kpi-row" id="var-kpis"></div>
+      <div class="g2" style="margin-top:12px">
+        <div class="card"><div class="card-hdr"><span class="card-title">🏆 Top 15 Variants by Sold</span></div><div class="card-body"><canvas id="ch-var-top" style="max-height:320px"></canvas></div></div>
+        <div class="card"><div class="card-hdr"><span class="card-title">📦 Pack Size Demand</span></div><div class="card-body"><canvas id="ch-var-pack" style="max-height:320px"></canvas></div></div>
+      </div>
+      <div class="card" style="margin-top:12px">
+        <div class="card-hdr"><span class="card-title">🧬 By Product (accordion)</span><div class="sort-btns"><span class="sort-btn on" onclick="sortVariants('sold',this)">Sold</span><span class="sort-btn" onclick="sortVariants('price',this)">Price</span><span class="sort-btn" onclick="sortVariants('stock',this)">Stock</span><span class="sort-btn" onclick="sortVariants('name',this)">Name</span></div></div>
+        <div id="var-list" style="max-height:500px;overflow-y:auto"></div>
+      </div>
+    </div>
+
+    <!-- FLAT LIST view -->
+    <div id="var-view-flat" style="display:none">
+      <div class="card">
+        <div class="card-hdr">
+          <span class="card-title">📋 All Variants Ranked</span>
+          <div class="sort-btns">
+            <span class="sort-btn on"  onclick="sortVarFlat('sold',this)">Sold</span>
+            <span class="sort-btn"     onclick="sortVarFlat('price',this)">Price</span>
+            <span class="sort-btn"     onclick="sortVarFlat('stock',this)">Stock</span>
+            <span class="sort-btn"     onclick="sortVarFlat('unit_price',this)">RM/Unit</span>
+            <span class="sort-btn"     onclick="sortVarFlat('ratio',this)">Sold/Stock</span>
+          </div>
+        </div>
+        <div class="card-body" style="padding:0;overflow-x:auto">
+          <table style="width:100%;border-collapse:collapse;font-size:12px" id="var-flat-table">
+            <thead>
+              <tr style="background:var(--s2);border-bottom:1px solid var(--border)">
+                <th style="padding:8px 12px;text-align:left;font-size:11px;color:var(--muted);font-weight:600">#</th>
+                <th style="padding:8px 12px;text-align:left;font-size:11px;color:var(--muted);font-weight:600">Product</th>
+                <th style="padding:8px 12px;text-align:left;font-size:11px;color:var(--muted);font-weight:600">Variant</th>
+                <th style="padding:8px 12px;text-align:right;font-size:11px;color:var(--muted);font-weight:600">Price</th>
+                <th style="padding:8px 12px;text-align:right;font-size:11px;color:var(--muted);font-weight:600">RM/Unit</th>
+                <th style="padding:8px 12px;text-align:right;font-size:11px;color:var(--muted);font-weight:600">Sold</th>
+                <th style="padding:8px 12px;text-align:right;font-size:11px;color:var(--muted);font-weight:600">Stock</th>
+                <th style="padding:8px 12px;text-align:center;font-size:11px;color:var(--muted);font-weight:600">Health</th>
+                <th style="padding:8px 12px;text-align:right;font-size:11px;color:var(--muted);font-weight:600">Sold/Stock</th>
+              </tr>
+            </thead>
+            <tbody id="var-flat-body"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- STOCK ALERTS view -->
+    <div id="var-view-stock" style="display:none">
+      <div class="kpi-row" id="var-stock-kpis"></div>
+      <div class="card" style="margin-top:12px">
+        <div class="card-hdr"><span class="card-title">⚠️ Stock Alert Variants</span><span style="font-size:11px;color:var(--muted);margin-left:8px">Variants with low/zero stock — competitor weakness or your opportunity</span></div>
+        <div class="card-body" style="padding:0;overflow-x:auto">
+          <table style="width:100%;border-collapse:collapse;font-size:12px">
+            <thead>
+              <tr style="background:var(--s2);border-bottom:1px solid var(--border)">
+                <th style="padding:8px 12px;text-align:left;font-size:11px;color:var(--muted);font-weight:600">Product</th>
+                <th style="padding:8px 12px;text-align:left;font-size:11px;color:var(--muted);font-weight:600">Variant</th>
+                <th style="padding:8px 12px;text-align:right;font-size:11px;color:var(--muted);font-weight:600">Price</th>
+                <th style="padding:8px 12px;text-align:right;font-size:11px;color:var(--muted);font-weight:600">Sold</th>
+                <th style="padding:8px 12px;text-align:right;font-size:11px;color:var(--muted);font-weight:600">Stock</th>
+                <th style="padding:8px 12px;text-align:center;font-size:11px;color:var(--muted);font-weight:600">Status</th>
+                <th style="padding:8px 12px;text-align:left;font-size:11px;color:var(--muted);font-weight:600">Action</th>
+              </tr>
+            </thead>
+            <tbody id="var-stock-body"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- PACK ANALYSIS view -->
+    <div id="var-view-pack" style="display:none">
+      <div class="g2">
+        <div class="card"><div class="card-hdr"><span class="card-title">🔢 Pack Size Sales Distribution</span></div><div class="card-body"><canvas id="ch-pack-sold" style="max-height:300px"></canvas></div></div>
+        <div class="card"><div class="card-hdr"><span class="card-title">💰 Avg Price by Pack Size</span></div><div class="card-body"><canvas id="ch-pack-price" style="max-height:300px"></canvas></div></div>
+      </div>
+      <div class="card" style="margin-top:12px">
+        <div class="card-hdr"><span class="card-title">Pack Size Breakdown</span></div>
+        <div class="card-body" style="padding:0;overflow-x:auto">
+          <table style="width:100%;border-collapse:collapse;font-size:12px">
+            <thead>
+              <tr style="background:var(--s2);border-bottom:1px solid var(--border)">
+                <th style="padding:8px 16px;text-align:left;font-size:11px;color:var(--muted);font-weight:600">Pack Size</th>
+                <th style="padding:8px 12px;text-align:right;font-size:11px;color:var(--muted);font-weight:600"># Variants</th>
+                <th style="padding:8px 12px;text-align:right;font-size:11px;color:var(--muted);font-weight:600">Total Sold</th>
+                <th style="padding:8px 12px;text-align:right;font-size:11px;color:var(--muted);font-weight:600">Avg Price</th>
+                <th style="padding:8px 12px;text-align:right;font-size:11px;color:var(--muted);font-weight:600">Avg RM/Unit</th>
+                <th style="padding:8px 12px;text-align:right;font-size:11px;color:var(--muted);font-weight:600">Total Stock</th>
+                <th style="padding:8px 12px;text-align:left;font-size:11px;color:var(--muted);font-weight:600">Sales Share</th>
+              </tr>
+            </thead>
+            <tbody id="var-pack-body"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
     <div id="var-empty" class="empty" style="display:none">
       <div class="empty-ico">🧬</div>
       <div class="empty-h">No variant data</div>
@@ -1674,14 +1779,48 @@ function sortReviews(mode, el) {
 }
 
 // ========================================================
-// VARIANTS (accordion grouped by product)
+// VARIANTS — redesigned with 4 views
 // ========================================================
-let VAR = { data: [], sortField: 'sold', filterKw: '' };
+let VAR = { data: [], sortField: 'sold', filterKw: '', stockFilter: 'all', view: 'summary', flatSort: 'sold', charts: {} };
+
+// Parse pack count from variant/product name string
+// e.g. "5PCS" → 5, "1 PC" → 1, "10 Pieces" → 10, "AA 4pc" → 4
+function parsePackCount(name) {
+  if (!name) return null;
+  const s = name.toUpperCase();
+  const m = s.match(/\b(\d+)\s*(?:PCS?|PIECES?|UNITS?|PKT|PACKS?|SET|BOX)\b/);
+  if (m) return parseInt(m[1]);
+  // Also check for "X2", "X4" patterns
+  const m2 = s.match(/\bX\s*(\d+)\b/);
+  if (m2) return parseInt(m2[1]);
+  return null;
+}
+
+function getPackLabel(v) {
+  let count = parsePackCount(v.variant_name) || parsePackCount(v.product_name);
+  if (!count) return 'Single / Unknown';
+  if (count === 1) return '1 pc';
+  if (count <= 2) return '2 pcs';
+  if (count <= 4) return '4 pcs';
+  if (count <= 5) return '5 pcs';
+  if (count <= 8) return '8 pcs';
+  if (count <= 10) return '10 pcs';
+  if (count <= 12) return '12 pcs';
+  if (count <= 20) return '20 pcs';
+  if (count <= 24) return '24 pcs';
+  return count + ' pcs';
+}
+
+function stockHealth(stock, sold) {
+  if (stock === 0) return { label: '🔴 Out', cls: 'color:#dc2626', urgency: 3 };
+  if (stock < 20) return { label: '🟠 Critical', cls: 'color:#ea580c', urgency: 2 };
+  if (stock < 100) return { label: '🟡 Low', cls: 'color:#ca8a04', urgency: 1 };
+  return { label: '🟢 OK', cls: 'color:#16a34a', urgency: 0 };
+}
 
 async function loadVariants() {
-  // Reuse data already fetched in loadShopData() if available
   const existing = Object.values(ST.varsByItemId || {}).flat();
-  if (existing.length > 0) {
+  if (existing.length) {
     VAR.data = existing;
     VAR.filterKw = '';
     document.getElementById('var-search').value = '';
@@ -1689,109 +1828,186 @@ async function loadVariants() {
     setStatus(`✓ ${VAR.data.length} variants`);
     return;
   }
-  setStatus('Loading variants...');
   try {
-    const res = await fetch(`${API}/api/get-variants?shopid=${ST.activeShopid}&limit=2000`);
-    if (!res.ok) throw new Error('API ' + res.status);
-    VAR.data = await res.json();
+    const r = await fetch(`${API}/api/get-variants?shopid=${ST.activeShopid}&limit=2000`);
+    VAR.data = await r.json();
     VAR.filterKw = '';
     document.getElementById('var-search').value = '';
     renderVariants();
     setStatus(`✓ ${VAR.data.length} variants loaded`);
-  } catch(e) {
-    setStatus('Variants error: ' + e.message);
-  }
+  } catch(e) { setStatus('Variants error: ' + e.message); }
+}
+
+function switchVarView(view, el) {
+  VAR.view = view;
+  document.querySelectorAll('#sec-variants .sort-btn').forEach(b => b.classList.remove('on'));
+  if (el) el.classList.add('on');
+  ['summary','flat','stock','pack'].forEach(v => {
+    const el2 = document.getElementById('var-view-' + v);
+    if (el2) el2.style.display = v === view ? '' : 'none';
+  });
+  renderVariants();
 }
 
 function sortVariants(field, el) {
-  document.querySelectorAll('#sec-variants .sort-btn').forEach(b => b.classList.remove('on'));
+  document.querySelectorAll('#var-view-summary .sort-btn').forEach(b => b.classList.remove('on'));
   if (el) el.classList.add('on');
   VAR.sortField = field;
   renderVariants();
 }
 
+function sortVarFlat(field, el) {
+  document.querySelectorAll('#var-view-flat .sort-btn').forEach(b => b.classList.remove('on'));
+  if (el) el.classList.add('on');
+  VAR.flatSort = field;
+  renderVariants();
+}
+
 function filterVariants() {
   VAR.filterKw = (document.getElementById('var-search').value || '').toLowerCase();
+  VAR.stockFilter = document.getElementById('var-stock-filter').value;
   renderVariants();
 }
 
 function renderVariants() {
-  const { data, sortField, filterKw } = VAR;
-  const el = document.getElementById('var-list');
+  const { data, sortField, filterKw, stockFilter, view } = VAR;
   const emptyEl = document.getElementById('var-empty');
 
-  const filtered = filterKw
-    ? data.filter(v => (v.product_name||'').toLowerCase().includes(filterKw) || (v.variant_name||'').toLowerCase().includes(filterKw))
-    : data;
+  // Apply keyword + stock filter
+  let filtered = data.filter(v => {
+    const kw = filterKw ? ((v.product_name||'').toLowerCase().includes(filterKw) || (v.variant_name||'').toLowerCase().includes(filterKw)) : true;
+    let stk = true;
+    if (stockFilter === 'out') stk = (v.stock||0) === 0;
+    else if (stockFilter === 'low') stk = (v.stock||0) > 0 && (v.stock||0) < 50;
+    else if (stockFilter === 'ok') stk = (v.stock||0) >= 50;
+    return kw && stk;
+  });
 
-  if (!filtered.length) {
-    el.innerHTML = '';
+  if (!filtered.length && !data.length) {
     emptyEl.style.display = 'block';
     return;
   }
   emptyEl.style.display = 'none';
 
-  // Group by itemid
+  if (view === 'summary') renderVarSummary(filtered);
+  else if (view === 'flat') renderVarFlat(filtered);
+  else if (view === 'stock') renderVarStockAlerts(filtered);
+  else if (view === 'pack') renderVarPack(filtered);
+}
+
+function renderVarSummary(filtered) {
+  const totalSold  = filtered.reduce((s, v) => s + (v.sold||0), 0);
+  const totalStock = filtered.reduce((s, v) => s + (v.stock||0), 0);
+  const outOfStock = filtered.filter(v => (v.stock||0) === 0).length;
+  const avgPrice   = filtered.length ? filtered.reduce((s, v) => s + (v.price||0), 0) / filtered.length : 0;
+
+  document.getElementById('var-kpis').innerHTML = `
+    <div class="kpi-card"><div class="kpi-label">Total Variants</div><div class="kpi-val">${fmtNum(filtered.length)}</div></div>
+    <div class="kpi-card"><div class="kpi-label">Total Sold</div><div class="kpi-val">${fmtNum(totalSold)}</div></div>
+    <div class="kpi-card"><div class="kpi-label">Total Stock</div><div class="kpi-val">${fmtNum(totalStock)}</div></div>
+    <div class="kpi-card" style="${outOfStock > 0 ? 'border-color:#dc2626' : ''}"><div class="kpi-label">Out of Stock</div><div class="kpi-val" style="${outOfStock > 0 ? 'color:#dc2626' : ''}">${outOfStock}</div></div>
+    <div class="kpi-card"><div class="kpi-label">Avg Price</div><div class="kpi-val">RM ${avgPrice.toFixed(2)}</div></div>
+  `;
+
+  // Top 15 variants by sold — bar chart
+  const top15 = [...filtered].sort((a,b)=>(b.sold||0)-(a.sold||0)).slice(0,15);
+  const ctx1 = document.getElementById('ch-var-top');
+  if (ctx1) {
+    if (VAR.charts.top) VAR.charts.top.destroy();
+    VAR.charts.top = new Chart(ctx1, {
+      type: 'bar',
+      data: {
+        labels: top15.map(v => (v.variant_name||v.product_name||'').substring(0,25)),
+        datasets: [{ label: 'Sold', data: top15.map(v => v.sold||0), backgroundColor: '#f97316cc', borderRadius: 4 }]
+      },
+      options: { indexAxis: 'y', responsive: true, plugins: { legend: { display: false } }, scales: { x: { beginAtZero: true } } }
+    });
+  }
+
+  // Pack size chart
+  const packMap = {};
+  filtered.forEach(v => {
+    const lbl = getPackLabel(v);
+    if (!packMap[lbl]) packMap[lbl] = { sold: 0, count: 0 };
+    packMap[lbl].sold += v.sold||0;
+    packMap[lbl].count++;
+  });
+  const packSorted = Object.entries(packMap).sort((a,b)=>b[1].sold-a[1].sold).slice(0,10);
+  const ctx2 = document.getElementById('ch-var-pack');
+  if (ctx2) {
+    if (VAR.charts.pack) VAR.charts.pack.destroy();
+    VAR.charts.pack = new Chart(ctx2, {
+      type: 'doughnut',
+      data: {
+        labels: packSorted.map(([k])=>k),
+        datasets: [{ data: packSorted.map(([,v])=>v.sold), backgroundColor: ['#f97316','#3b82f6','#22c55e','#a855f7','#eab308','#14b8a6','#f43f5e','#6366f1','#84cc16','#0ea5e9'] }]
+      },
+      options: { responsive: true, plugins: { legend: { position: 'right', labels: { font: { size: 11 } } } } }
+    });
+  }
+
+  // Accordion list
+  const el = document.getElementById('var-list');
   const groups = {};
   filtered.forEach(v => {
     const key = v.itemid || v.product_name;
     if (!groups[key]) groups[key] = { product_name: v.product_name, itemid: v.itemid, variants: [] };
     groups[key].variants.push(v);
   });
-
-  // Sort variants within each group
-  const sortFn = sortField === 'name'
+  const sortFn = VAR.sortField === 'name'
     ? (a, b) => (a.variant_name||'').localeCompare(b.variant_name||'')
-    : (a, b) => (b[sortField]||0) - (a[sortField]||0);
+    : (a, b) => (b[VAR.sortField]||0) - (a[VAR.sortField]||0);
   Object.values(groups).forEach(g => g.variants.sort(sortFn));
-
-  // Sort groups by their top variant's sort field
   const sortedGroups = Object.values(groups).sort((a, b) => {
-    const av = sortField === 'name' ? (a.product_name||'') : (a.variants[0]?.[sortField]||0);
-    const bv = sortField === 'name' ? (b.product_name||'') : (b.variants[0]?.[sortField]||0);
-    return sortField === 'name' ? av.localeCompare(bv) : bv - av;
+    const av = VAR.sortField === 'name' ? (a.product_name||'') : (a.variants[0]?.[VAR.sortField]||0);
+    const bv = VAR.sortField === 'name' ? (b.product_name||'') : (b.variants[0]?.[VAR.sortField]||0);
+    return VAR.sortField === 'name' ? av.localeCompare(bv) : bv - av;
   });
 
   el.innerHTML = sortedGroups.map((g, gi) => {
-    const totalSold  = g.variants.reduce((s, v) => s + (v.sold||0), 0);
-    const totalStock = g.variants.reduce((s, v) => s + (v.stock||0), 0);
-    const minPrice   = Math.min(...g.variants.map(v => v.price||0));
-    const maxPrice   = Math.max(...g.variants.map(v => v.price||0));
-    const priceStr   = minPrice === maxPrice ? `RM ${minPrice.toFixed(2)}` : `RM ${minPrice.toFixed(2)}–${maxPrice.toFixed(2)}`;
-    const gid        = `vg${gi}`;
-
-    const varRows = g.variants.map(v => `
-      <tr class="vg-row">
+    const tSold  = g.variants.reduce((s, v) => s + (v.sold||0), 0);
+    const tStock = g.variants.reduce((s, v) => s + (v.stock||0), 0);
+    const minP   = Math.min(...g.variants.map(v => v.price||0));
+    const maxP   = Math.max(...g.variants.map(v => v.price||0));
+    const priceStr = minP === maxP ? `RM ${minP.toFixed(2)}` : `RM ${minP.toFixed(2)}–${maxP.toFixed(2)}`;
+    const hasOutOfStock = g.variants.some(v => (v.stock||0) === 0);
+    const gid = `vg${gi}`;
+    const varRows = g.variants.map(v => {
+      const packCnt = parsePackCount(v.variant_name) || parsePackCount(v.product_name);
+      const unitPrice = packCnt && v.price ? `RM ${(v.price/packCnt).toFixed(2)}/unit` : '—';
+      const h = stockHealth(v.stock||0, v.sold||0);
+      return `<tr class="vg-row">
         <td style="padding-left:36px;padding-right:16px;font-weight:600;word-break:break-word;min-width:180px">${v.variant_name||'Default'}</td>
         <td><span class="pricetag">RM ${(v.price||0).toFixed(2)}</span></td>
+        <td style="font-size:10px;color:var(--muted)">${unitPrice}</td>
         <td><span class="sold-val">${fmtNum(v.sold||0)}</span></td>
+        <td style="${h.cls};font-size:11px">${h.label}</td>
         <td style="color:var(--muted)">${v.stock??'—'}</td>
-        <td style="color:var(--muted2)">${v.variation_type||'—'}</td>
-        <td style="font-family:'DM Mono',monospace;font-size:10px;color:var(--muted2)">${v.scraped_date||'—'}</td>
-      </tr>`).join('');
-
+      </tr>`;
+    }).join('');
     return `<div class="vg-card">
       <table style="width:100%;border-collapse:collapse">
         <thead>
           <tr class="vg-hdr" onclick="toggleVG('${gid}')">
             <th colspan="6" style="text-align:left;font-weight:normal;padding:0">
-              <div style="display:flex;align-items:center;gap:10px;padding:12px 16px">
+              <div style="display:flex;align-items:center;gap:10px;padding:12px 16px;flex-wrap:wrap">
                 <span class="vg-toggle" id="${gid}-arrow">▶</span>
-                <span class="vg-pname">${g.product_name||'Unknown Product'}</span>
+                <span class="vg-pname">${g.product_name||'Unknown'}</span>
+                ${hasOutOfStock ? '<span style="background:#fef2f2;color:#dc2626;font-size:10px;padding:2px 6px;border-radius:4px;font-weight:600">STOCK OUT</span>' : ''}
                 <span class="vg-meta">${g.variants.length} variants</span>
                 <span class="vg-meta">${priceStr}</span>
-                <span class="vg-meta">sold: ${fmtNum(totalSold)}</span>
-                <span class="vg-meta">stock: ${fmtNum(totalStock)}</span>
+                <span class="vg-meta">sold: ${fmtNum(tSold)}</span>
+                <span class="vg-meta">stock: ${fmtNum(tStock)}</span>
               </div>
             </th>
           </tr>
           <tr class="vg-rows" id="${gid}" style="display:none">
             <th style="background:var(--s3);padding:7px 16px 7px 36px;font-size:10px;text-align:left;color:var(--muted)">Variant</th>
             <th style="background:var(--s3);padding:7px 10px;font-size:10px;text-align:left;color:var(--muted)">Price</th>
+            <th style="background:var(--s3);padding:7px 10px;font-size:10px;text-align:left;color:var(--muted)">RM/Unit</th>
             <th style="background:var(--s3);padding:7px 10px;font-size:10px;text-align:left;color:var(--muted)">Sold</th>
+            <th style="background:var(--s3);padding:7px 10px;font-size:10px;text-align:left;color:var(--muted)">Health</th>
             <th style="background:var(--s3);padding:7px 10px;font-size:10px;text-align:left;color:var(--muted)">Stock</th>
-            <th style="background:var(--s3);padding:7px 10px;font-size:10px;text-align:left;color:var(--muted)">Type</th>
-            <th style="background:var(--s3);padding:7px 10px;font-size:10px;text-align:left;color:var(--muted)">Date</th>
           </tr>
         </thead>
         <tbody class="vg-rows" id="${gid}-body" style="display:none">${varRows}</tbody>
@@ -1800,15 +2016,163 @@ function renderVariants() {
   }).join('');
 }
 
-function toggleVG(gid) {
-  const header = document.getElementById(gid);
-  const body   = document.getElementById(gid + '-body');
-  const arrow  = document.getElementById(gid + '-arrow');
-  const isOpen = body.style.display !== 'none';
-  body.style.display   = isOpen ? 'none' : '';
-  header.style.display = isOpen ? 'none' : '';
-  arrow.textContent    = isOpen ? '▶' : '▼';
-  arrow.style.color    = isOpen ? '' : 'var(--acc)';
+function renderVarFlat(filtered) {
+  const { flatSort } = VAR;
+  const enriched = filtered.map(v => {
+    const packCnt = parsePackCount(v.variant_name) || parsePackCount(v.product_name);
+    const unit_price = packCnt && v.price ? v.price / packCnt : null;
+    const ratio = v.stock > 0 ? ((v.sold||0) / v.stock).toFixed(1) : (v.sold > 0 ? '∞' : '0');
+    return { ...v, packCnt, unit_price, ratio_num: v.stock > 0 ? (v.sold||0)/v.stock : (v.sold > 0 ? 99999 : 0), ratio };
+  });
+
+  const sorted = [...enriched].sort((a, b) => {
+    if (flatSort === 'sold') return (b.sold||0) - (a.sold||0);
+    if (flatSort === 'price') return (b.price||0) - (a.price||0);
+    if (flatSort === 'stock') return (b.stock||0) - (a.stock||0);
+    if (flatSort === 'unit_price') return (a.unit_price||999) - (b.unit_price||999);
+    if (flatSort === 'ratio') return b.ratio_num - a.ratio_num;
+    return 0;
+  });
+
+  const tbody = document.getElementById('var-flat-body');
+  if (!tbody) return;
+  tbody.innerHTML = sorted.map((v, i) => {
+    const h = stockHealth(v.stock||0, v.sold||0);
+    const unitStr = v.unit_price ? `RM ${v.unit_price.toFixed(3)}` : '—';
+    const rowBg = i % 2 === 0 ? '' : 'background:var(--s1)';
+    return `<tr style="${rowBg};border-bottom:1px solid var(--border)">
+      <td style="padding:7px 12px;color:var(--muted2);font-size:11px">${i+1}</td>
+      <td style="padding:7px 12px;font-size:11px;max-width:200px;word-break:break-word">${(v.product_name||'').substring(0,50)}</td>
+      <td style="padding:7px 12px;font-weight:600;font-size:11px">${v.variant_name||'Default'}</td>
+      <td style="padding:7px 12px;text-align:right"><span class="pricetag">RM ${(v.price||0).toFixed(2)}</span></td>
+      <td style="padding:7px 12px;text-align:right;font-size:11px;color:var(--muted)">${unitStr}</td>
+      <td style="padding:7px 12px;text-align:right"><span class="sold-val">${fmtNum(v.sold||0)}</span></td>
+      <td style="padding:7px 12px;text-align:right;font-size:11px">${fmtNum(v.stock||0)}</td>
+      <td style="padding:7px 12px;text-align:center;font-size:11px;${h.cls}">${h.label}</td>
+      <td style="padding:7px 12px;text-align:right;font-size:11px;color:var(--muted);font-family:'DM Mono',monospace">${v.ratio}x</td>
+    </tr>`;
+  }).join('');
+}
+
+function renderVarStockAlerts(filtered) {
+  const outOfStock  = filtered.filter(v => (v.stock||0) === 0 && (v.sold||0) > 0);
+  const critical    = filtered.filter(v => (v.stock||0) > 0 && (v.stock||0) < 20 && (v.sold||0) > 0);
+  const low         = filtered.filter(v => (v.stock||0) >= 20 && (v.stock||0) < 100 && (v.sold||0) > 10);
+  const totalAlerts = outOfStock.length + critical.length + low.length;
+
+  document.getElementById('var-stock-kpis').innerHTML = `
+    <div class="kpi-card" style="border-color:#dc2626"><div class="kpi-label">🔴 Out of Stock</div><div class="kpi-val" style="color:#dc2626">${outOfStock.length}</div><div class="kpi-sub">variants (with sales)</div></div>
+    <div class="kpi-card" style="border-color:#ea580c"><div class="kpi-label">🟠 Critical (&lt;20)</div><div class="kpi-val" style="color:#ea580c">${critical.length}</div><div class="kpi-sub">variants at risk</div></div>
+    <div class="kpi-card" style="border-color:#ca8a04"><div class="kpi-label">🟡 Low (&lt;100)</div><div class="kpi-val" style="color:#ca8a04">${low.length}</div><div class="kpi-sub">variants</div></div>
+    <div class="kpi-card"><div class="kpi-label">Total Alerts</div><div class="kpi-val">${totalAlerts}</div><div class="kpi-sub">need attention</div></div>
+  `;
+
+  const alertData = [
+    ...outOfStock.map(v => ({ ...v, _urgency: 3 })),
+    ...critical.map(v => ({ ...v, _urgency: 2 })),
+    ...low.map(v => ({ ...v, _urgency: 1 })),
+  ].sort((a, b) => b._urgency - a._urgency || (b.sold||0) - (a.sold||0));
+
+  const tbody = document.getElementById('var-stock-body');
+  if (!tbody) return;
+  if (!alertData.length) {
+    tbody.innerHTML = '<tr><td colspan="7" style="padding:24px;text-align:center;color:var(--muted)">✅ No stock alerts — all variants have healthy stock levels</td></tr>';
+    return;
+  }
+  tbody.innerHTML = alertData.map((v, i) => {
+    const h = stockHealth(v.stock||0, v.sold||0);
+    const action = v._urgency === 3
+      ? '🎯 Competitor out of stock — opportunity to capture sales!'
+      : v._urgency === 2
+      ? '⚡ Running critically low — watch closely'
+      : '📦 Monitor — may sell out soon';
+    const rowBg = i % 2 === 0 ? '' : 'background:var(--s1)';
+    return `<tr style="${rowBg};border-bottom:1px solid var(--border)">
+      <td style="padding:8px 12px;font-size:11px;max-width:200px;word-break:break-word">${(v.product_name||'').substring(0,50)}</td>
+      <td style="padding:8px 12px;font-weight:600;font-size:11px">${v.variant_name||'Default'}</td>
+      <td style="padding:8px 12px;text-align:right"><span class="pricetag">RM ${(v.price||0).toFixed(2)}</span></td>
+      <td style="padding:8px 12px;text-align:right"><span class="sold-val">${fmtNum(v.sold||0)}</span></td>
+      <td style="padding:8px 12px;text-align:right;font-weight:700;${h.cls}">${v.stock||0}</td>
+      <td style="padding:8px 12px;text-align:center;font-size:11px;${h.cls}">${h.label}</td>
+      <td style="padding:8px 12px;font-size:11px;color:var(--muted)">${action}</td>
+    </tr>`;
+  }).join('');
+}
+
+function renderVarPack(filtered) {
+  const packMap = {};
+  filtered.forEach(v => {
+    const lbl = getPackLabel(v);
+    const packCnt = parsePackCount(v.variant_name) || parsePackCount(v.product_name) || 1;
+    if (!packMap[lbl]) packMap[lbl] = { sold: 0, count: 0, prices: [], stock: 0, unitPrices: [], packCnt };
+    packMap[lbl].sold += v.sold||0;
+    packMap[lbl].count++;
+    packMap[lbl].stock += v.stock||0;
+    if (v.price) packMap[lbl].prices.push(v.price);
+    if (v.price && packCnt > 0) packMap[lbl].unitPrices.push(v.price / packCnt);
+  });
+
+  const totalSold = filtered.reduce((s, v) => s + (v.sold||0), 0);
+  const packSorted = Object.entries(packMap).sort((a, b) => b[1].sold - a[1].sold);
+
+  // Charts
+  const colors = ['#f97316','#3b82f6','#22c55e','#a855f7','#eab308','#14b8a6','#f43f5e','#6366f1','#84cc16','#0ea5e9'];
+  const ctx1 = document.getElementById('ch-pack-sold');
+  if (ctx1) {
+    if (VAR.charts.packSold) VAR.charts.packSold.destroy();
+    VAR.charts.packSold = new Chart(ctx1, {
+      type: 'bar',
+      data: {
+        labels: packSorted.map(([k]) => k),
+        datasets: [{ label: 'Total Sold', data: packSorted.map(([,v]) => v.sold), backgroundColor: colors, borderRadius: 4 }]
+      },
+      options: { responsive: true, plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true } } }
+    });
+  }
+  const ctx2 = document.getElementById('ch-pack-price');
+  if (ctx2) {
+    if (VAR.charts.packPrice) VAR.charts.packPrice.destroy();
+    VAR.charts.packPrice = new Chart(ctx2, {
+      type: 'bar',
+      data: {
+        labels: packSorted.map(([k]) => k),
+        datasets: [{ label: 'Avg Price (RM)', data: packSorted.map(([,v]) => v.prices.length ? (v.prices.reduce((a,b)=>a+b,0)/v.prices.length).toFixed(2) : 0), backgroundColor: '#3b82f6cc', borderRadius: 4 }]
+      },
+      options: { responsive: true, plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true } } }
+    });
+  }
+
+  // Table
+  const tbody = document.getElementById('var-pack-body');
+  if (!tbody) return;
+  tbody.innerHTML = packSorted.map(([lbl, d], i) => {
+    const avgPrice = d.prices.length ? (d.prices.reduce((a,b)=>a+b,0)/d.prices.length) : 0;
+    const avgUnit  = d.unitPrices.length ? (d.unitPrices.reduce((a,b)=>a+b,0)/d.unitPrices.length) : 0;
+    const share = totalSold > 0 ? (d.sold / totalSold * 100) : 0;
+    const barW = Math.round(share);
+    const rowBg = i % 2 === 0 ? '' : 'background:var(--s1)';
+    return `<tr style="${rowBg};border-bottom:1px solid var(--border)">
+      <td style="padding:8px 16px;font-weight:700">${lbl}</td>
+      <td style="padding:8px 12px;text-align:right;color:var(--muted)">${d.count}</td>
+      <td style="padding:8px 12px;text-align:right"><span class="sold-val">${fmtNum(d.sold)}</span></td>
+      <td style="padding:8px 12px;text-align:right"><span class="pricetag">RM ${avgPrice.toFixed(2)}</span></td>
+      <td style="padding:8px 12px;text-align:right;font-size:11px;color:var(--muted)">RM ${avgUnit.toFixed(3)}/unit</td>
+      <td style="padding:8px 12px;text-align:right;color:var(--muted)">${fmtNum(d.stock)}</td>
+      <td style="padding:8px 16px">
+        <div style="display:flex;align-items:center;gap:8px">
+          <div style="background:var(--acc);height:8px;border-radius:4px;width:${barW}%;min-width:2px;max-width:120px"></div>
+          <span style="font-size:11px;color:var(--muted);font-family:'DM Mono',monospace">${share.toFixed(1)}%</span>
+        </div>
+      </td>
+    </tr>`;
+  }).join('');
+}
+
+function toggleVG(id) {
+  const rows = document.querySelectorAll(`#${id}, #${id}-body`);
+  const arrow = document.getElementById(`${id}-arrow`);
+  rows.forEach(r => r.style.display = r.style.display === 'none' ? '' : 'none');
+  if (arrow) arrow.textContent = arrow.textContent === '▶' ? '▼' : '▶';
 }
 
 // ========================================================
