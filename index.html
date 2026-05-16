@@ -613,7 +613,7 @@ tr:hover td{background:rgba(249,115,22,.04)}
   <div class="sec" id="sec-velocity">
     <div id="vel-notice" class="vel-notice" style="display:none">
       <span style="font-size:16px">⏳</span>
-      <span id="vel-notice-text">Velocity data builds up over time. 7-day data available from <strong>2026-05-22</strong>, 14-day from <strong>2026-05-29</strong>, 30-day from <strong>2026-06-14</strong>. Come back daily — the leaderboard fills automatically.</span>
+      <span id="vel-notice-text"></span>
     </div>
     <div class="kpi-row" id="vel-kpis"></div>
     <div style="display:flex;gap:8px;margin-bottom:16px;align-items:center">
@@ -702,7 +702,14 @@ tr:hover td{background:rgba(249,115,22,.04)}
   <!-- ======= SCRAPE LOG ======= -->
   <div class="sec" id="sec-log">
     <div class="card">
-      <div class="card-hdr"><span class="card-title">📋 Scrape History</span><button class="tb-btn tb-btn-ghost" style="padding:4px 12px;font-size:11px" onclick="loadLog()">↻ Reload</button></div>
+      <div class="card-hdr">
+        <span class="card-title">📋 Scrape History</span>
+        <div style="display:flex;gap:8px;align-items:center">
+          <button class="tb-btn tb-btn-ghost" style="padding:4px 12px;font-size:11px" onclick="loadLog()">↻ Reload</button>
+          <button class="tb-btn tb-btn-primary" id="rerun-btn" style="padding:4px 12px;font-size:11px" onclick="rerunFailed()" title="Re-run all shops that failed or haven't been scraped today">⚡ Re-run Failed</button>
+        </div>
+      </div>
+      <div id="log-summary" style="display:none;padding:10px 16px;background:var(--s3);border-bottom:1px solid var(--border);font-size:11px;display:flex;gap:16px;flex-wrap:wrap"></div>
       <div id="logList"></div>
     </div>
   </div>
@@ -1751,7 +1758,7 @@ function sortTbl(field, el) {
 // ========================================================
 function renderPricing() {
   const p = ST.products;
-  const ranges = [{l:'<RM10',mn:0,mx:10},{l:'RM10-50',mn:10,mx:50},{l:'RM50-100',mn:50,mx:100},{l:'RM100-200',mn:100,mx:200},{l:'>RM200',mn:200,mx:9e9}];
+  const ranges = [{l:'Under RM10',mn:0,mx:10},{l:'RM10–50',mn:10,mx:50},{l:'RM50–100',mn:50,mx:100},{l:'RM100–200',mn:100,mx:200},{l:'Over RM200',mn:200,mx:9e9}];
   const colors = ['#ff5c35','#00d4aa','#8b5cf6','#f59e0b','#f43f5e'];
   const counts = ranges.map(r=>p.filter(x=>{const v=x.price_min/1e5;return v>=r.mn&&v<r.mx;}));
   const maxC = Math.max(...counts.map(c=>c.length),1);
@@ -1887,6 +1894,29 @@ async function loadVelocity() {
   }
 }
 
+function updateVelCountdown() {
+  const milestones = [
+    { label: '7-day', date: new Date('2026-05-22'), days: 7 },
+    { label: '14-day', date: new Date('2026-05-29'), days: 14 },
+    { label: '30-day', date: new Date('2026-06-14'), days: 30 },
+  ];
+  const now = new Date();
+  const next = milestones.find(m => m.date > now);
+  const done = milestones.filter(m => m.date <= now);
+  let html = '';
+  if (next) {
+    const daysLeft = Math.ceil((next.date - now) / (1000*60*60*24));
+    const hoursLeft = Math.ceil((next.date - now) / (1000*60*60));
+    const timeStr = daysLeft <= 1 ? `${hoursLeft}h` : `${daysLeft} days`;
+    html += `⏳ <strong>${next.label} velocity</strong> unlocks in <strong>${timeStr}</strong> (${next.date.toLocaleDateString('en-MY', {day:'numeric',month:'short'})}).`;
+  }
+  if (done.length) html += ` ✅ ${done.map(m=>m.label).join(', ')} data already available.`;
+  if (!next) html = '✅ All velocity periods (7d, 14d, 30d) are now available! Select a shop to view.';
+  html += ' Snapshots save daily at 8am MYT automatically.';
+  const el = document.getElementById('vel-notice-text');
+  if (el) el.innerHTML = html;
+}
+
 function renderVelocity() {
   const { period } = VEL;
   const isCustom = period === 'custom';
@@ -1898,7 +1928,9 @@ function renderVelocity() {
     : data.some(v => (v.sold_1d||0)+(v.sold_3d||0)+(v.sold_7d||0)+(v.sold_14d||0)+(v.sold_30d||0) > 0);
 
   document.getElementById('vel-empty').style.display  = hasData ? 'none' : 'block';
-  document.getElementById('vel-notice').style.display = (hasData && !hasVel) ? 'flex' : 'none';
+  const showNotice = hasData && !hasVel;
+  document.getElementById('vel-notice').style.display = showNotice ? 'flex' : 'none';
+  if (showNotice) updateVelCountdown();
   if (!hasData) return;
 
   const sorted  = [...data].sort((a,b) => (b[field]||0)-(a[field]||0));
@@ -2394,43 +2426,52 @@ function renderVariants() {
 }
 
 function renderVarSummary(filtered) {
-  const totalSold  = filtered.reduce((s, v) => s + (v.sold||0), 0);
-  const totalStock = filtered.reduce((s, v) => s + (v.stock||0), 0);
-  const outOfStock = filtered.filter(v => (v.stock||0) === 0).length;
-  const avgPrice   = filtered.length ? filtered.reduce((s, v) => s + (v.price||0), 0) / filtered.length : 0;
+  const totalStock  = filtered.reduce((s, v) => s + (v.stock||0), 0);
+  const inStock     = filtered.filter(v => (v.stock||0) > 0).length;
+  const outOfStock  = filtered.filter(v => (v.stock||0) === 0).length;
+  const lowStock    = filtered.filter(v => (v.stock||0) > 0 && (v.stock||0) <= 5).length;
+  const avgPrice    = filtered.length ? filtered.reduce((s, v) => s + (v.price||0), 0) / filtered.length : 0;
+  const inStockPct  = filtered.length ? Math.round(inStock / filtered.length * 100) : 0;
 
   document.getElementById('var-kpis').innerHTML = `
     <div class="kpi-card"><div class="kpi-label">Total Variants</div><div class="kpi-val">${fmtNum(filtered.length)}</div></div>
-    <div class="kpi-card"><div class="kpi-label">Total Sold</div><div class="kpi-val">${fmtNum(totalSold)}</div></div>
-    <div class="kpi-card"><div class="kpi-label">Total Stock</div><div class="kpi-val">${fmtNum(totalStock)}</div></div>
-    <div class="kpi-card" style="${outOfStock > 0 ? 'border-color:#dc2626' : ''}"><div class="kpi-label">Out of Stock</div><div class="kpi-val" style="${outOfStock > 0 ? 'color:#dc2626' : ''}">${outOfStock}</div></div>
+    <div class="kpi-card"><div class="kpi-label">In Stock</div><div class="kpi-val" style="color:var(--acc2)">${inStockPct}%</div><div class="kpi-sub">${inStock} variants</div></div>
+    <div class="kpi-card" style="${outOfStock > 0 ? 'border-color:#dc2626' : ''}"><div class="kpi-label">Out of Stock</div><div class="kpi-val" style="${outOfStock > 0 ? 'color:#dc2626' : ''}">${outOfStock}</div><div class="kpi-sub">variants sold out</div></div>
+    <div class="kpi-card" style="${lowStock > 0 ? 'border-color:#f59e0b' : ''}"><div class="kpi-label">Low Stock ≤5</div><div class="kpi-val" style="${lowStock > 0 ? 'color:#f59e0b' : ''}">${lowStock}</div><div class="kpi-sub">opportunity to undercut</div></div>
+    <div class="kpi-card"><div class="kpi-label">Total Units</div><div class="kpi-val">${fmtNum(totalStock)}</div><div class="kpi-sub">stock across variants</div></div>
     <div class="kpi-card"><div class="kpi-label">Avg Price</div><div class="kpi-val">RM ${avgPrice.toFixed(2)}</div></div>
   `;
 
-  // Top 15 variants by sold — bar chart
-  const top15 = [...filtered].sort((a,b)=>(b.sold||0)-(a.sold||0)).slice(0,15);
+  // Top 15 variants by stock — highlight competitors running low
+  const top15 = [...filtered].sort((a,b)=>(b.stock||0)-(a.stock||0)).slice(0,15);
   const ctx1 = document.getElementById('ch-var-top');
   if (ctx1) {
     if (VAR.charts.top) VAR.charts.top.destroy();
     VAR.charts.top = new Chart(ctx1, {
       type: 'bar',
       data: {
-        labels: top15.map(v => (v.variant_name||v.product_name||'').substring(0,25)),
-        datasets: [{ label: 'Sold', data: top15.map(v => v.sold||0), backgroundColor: '#f97316cc', borderRadius: 4 }]
+        labels: top15.map(v => (v.variant_name||v.product_name||'').substring(0,28)),
+        datasets: [{ label: 'Stock', data: top15.map(v => v.stock||0),
+          backgroundColor: top15.map(v => (v.stock||0) <= 5 ? '#ef444488' : (v.stock||0) <= 20 ? '#f59e0b88' : '#10b98188'),
+          borderColor:     top15.map(v => (v.stock||0) <= 5 ? '#ef4444'   : (v.stock||0) <= 20 ? '#f59e0b'   : '#10b981'),
+          borderWidth: 1, borderRadius: 4 }]
       },
-      options: { indexAxis: 'y', responsive: true, plugins: { legend: { display: false } }, scales: { x: { beginAtZero: true } } }
+      options: { indexAxis: 'y', responsive: true, maintainAspectRatio: false,
+        plugins: { legend: { display: false }, tooltip: { callbacks: { afterLabel: ctx => ctx.parsed.x <= 5 ? '⚠️ Low stock — opportunity!' : ctx.parsed.x <= 20 ? '⚡ Running low' : '' } } },
+        scales: { x: { beginAtZero: true, ...dkAxis() }, y: { ...dkAxis() } }
+      }
     });
   }
 
-  // Pack size chart
+  // Pack size chart — by stock count (not sold)
   const packMap = {};
   filtered.forEach(v => {
     const lbl = getPackLabel(v);
-    if (!packMap[lbl]) packMap[lbl] = { sold: 0, count: 0 };
-    packMap[lbl].sold += v.sold||0;
+    if (!packMap[lbl]) packMap[lbl] = { stock: 0, count: 0 };
+    packMap[lbl].stock += v.stock||0;
     packMap[lbl].count++;
   });
-  const packSorted = Object.entries(packMap).sort((a,b)=>b[1].sold-a[1].sold).slice(0,10);
+  const packSorted = Object.entries(packMap).sort((a,b)=>b[1].count-a[1].count).slice(0,10);
   const ctx2 = document.getElementById('ch-var-pack');
   if (ctx2) {
     if (VAR.charts.pack) VAR.charts.pack.destroy();
@@ -2438,9 +2479,10 @@ function renderVarSummary(filtered) {
       type: 'doughnut',
       data: {
         labels: packSorted.map(([k])=>k),
-        datasets: [{ data: packSorted.map(([,v])=>v.sold), backgroundColor: ['#f97316','#3b82f6','#22c55e','#a855f7','#eab308','#14b8a6','#f43f5e','#6366f1','#84cc16','#0ea5e9'] }]
+        datasets: [{ data: packSorted.map(([,v])=>v.count), backgroundColor: ['#f97316','#3b82f6','#22c55e','#a855f7','#eab308','#14b8a6','#f43f5e','#6366f1','#84cc16','#0ea5e9'] }]
       },
-      options: { responsive: true, plugins: { legend: { position: 'right', labels: { font: { size: 11 } } } } }
+      options: { responsive: true, plugins: { legend: { position: 'right', labels: { font: { size: 11 }, color: '#6b7280' } },
+        tooltip: { callbacks: { label: ctx => `${ctx.label}: ${ctx.parsed} variants` } } } }
     });
   }
 
@@ -2781,17 +2823,71 @@ async function loadLog() {
   try {
     const res = await fetch(`${API}/api/data?type=log`);
     const log = await res.json();
-    document.getElementById('logList').innerHTML = log.length
-      ? log.map(l=>`<div class="log-item">
-          <span class="${l.status==='success'?'log-ok':'log-err'}">${l.status==='success'?'✓':'✗'}</span>
-          <span class="log-shop">${l.username||'unknown'}</span>
-          <span class="log-meta">${l.total_items||0} items</span>
-          <span class="log-meta">${l.duration_ms||0}ms</span>
-          <span class="log-meta" style="margin-left:auto">${new Date(l.scraped_at).toLocaleString()}</span>
-        </div>`).join('')
-      : '<div class="empty" style="padding:30px"><div class="empty-ico" style="font-size:28px">📋</div><div class="empty-t">No scrape history yet</div></div>';
+    if (!log.length) {
+      document.getElementById('logList').innerHTML = '<div class="empty" style="padding:30px"><div class="empty-ico" style="font-size:28px">📋</div><div class="empty-t">No scrape history yet</div></div>';
+      return;
+    }
+
+    // Summary bar — today's stats
+    const today = new Date().toISOString().split('T')[0];
+    const todayLog = log.filter(l => (l.scraped_at||'').startsWith(today));
+    const todayOk = todayLog.filter(l => l.status === 'success').length;
+    const todayFail = todayLog.filter(l => l.status !== 'success').length;
+    const sumEl = document.getElementById('log-summary');
+    if (sumEl && todayLog.length) {
+      sumEl.style.display = 'flex';
+      sumEl.innerHTML = `
+        <span style="font-weight:700;color:var(--text)">Today:</span>
+        <span style="color:var(--acc2)">✓ ${todayOk} success</span>
+        <span style="color:var(--danger)">✗ ${todayFail} failed</span>
+        <span style="color:var(--muted)">${todayLog.length} runs</span>
+        ${todayFail > 0 ? `<span style="color:var(--acc4);margin-left:auto">Click ⚡ Re-run Failed to retry ${todayFail} failed shop${todayFail>1?'s':''}</span>` : '<span style="color:var(--acc2);margin-left:auto">All shops OK today ✅</span>'}
+      `;
+    }
+
+    document.getElementById('logList').innerHTML = log.map(l => {
+      const durSec = l.duration_ms ? (l.duration_ms/1000).toFixed(1)+'s' : '—';
+      const isOk = l.status === 'success';
+      const errMsg = !isOk && l.error_msg ? `<span class="log-meta" style="color:var(--danger);max-width:300px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${l.error_msg}">${l.error_msg.substring(0,60)}</span>` : '';
+      return `<div class="log-item">
+        <span class="${isOk?'log-ok':'log-err'}">${isOk?'✓':'✗'}</span>
+        <span class="log-shop">${l.username||'unknown'}</span>
+        <span class="log-meta" style="${isOk?'':'color:var(--muted)'}">${l.total_items||0} items</span>
+        <span class="log-meta" style="font-family:'DM Mono',monospace">${durSec}</span>
+        ${errMsg}
+        <span class="log-meta" style="margin-left:auto;color:var(--muted2)">${new Date(l.scraped_at).toLocaleString('en-MY',{month:'short',day:'numeric',hour:'2-digit',minute:'2-digit'})}</span>
+      </div>`;
+    }).join('');
   } catch(e) {
     document.getElementById('logList').innerHTML = '<div class="empty"><div class="empty-t">Cannot load log — '+e.message+'</div></div>';
+  }
+}
+
+async function rerunFailed() {
+  const btn = document.getElementById('rerun-btn');
+  btn.disabled = true; btn.textContent = '⏳ Triggering...';
+  try {
+    // Fire with 15s timeout — cron runs async, we just need it to start
+    const ctrl = new AbortController();
+    const timer = setTimeout(() => ctrl.abort(), 15000);
+    const r = await fetch(`${API}/api/cron-scrape`, {
+      headers: { 'Authorization': 'Bearer shopeescope2026' },
+      signal: ctrl.signal
+    }).catch(() => null);
+    clearTimeout(timer);
+    btn.textContent = '✅ Triggered!';
+    btn.style.background = 'var(--acc2)';
+    setTimeout(() => {
+      btn.textContent = '⚡ Re-run Failed'; btn.style.background = '';
+      loadLog(); // refresh log after a moment
+    }, 3000);
+  } catch(e) {
+    // AbortError is fine — cron is still running in background
+    btn.textContent = '✅ Running BG';
+    btn.style.background = 'var(--acc2)';
+    setTimeout(() => { btn.textContent = '⚡ Re-run Failed'; btn.style.background = ''; btn.disabled = false; loadLog(); }, 5000);
+  } finally {
+    setTimeout(() => { btn.disabled = false; }, 5000);
   }
 }
 
