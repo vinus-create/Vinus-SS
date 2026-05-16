@@ -1348,14 +1348,17 @@ function renderInsights() {
   }
 
   // 3. Price sweet spot (bucket with most sold)
-  const buckets = {'<RM10':{min:0,max:10},'RM10-50':{min:10,max:50},'RM50-100':{min:50,max:100},'RM100-200':{min:100,max:200},'>RM200':{min:200,max:Infinity}};
-  let bestBucket='',bestBucketSold=0;
-  Object.entries(buckets).forEach(([name,{min,max}])=>{
+  const buckets = [
+    {name:'Under RM10',min:0,max:10},{name:'RM10–50',min:10,max:50},
+    {name:'RM50–100',min:50,max:100},{name:'RM100–200',min:100,max:200},{name:'Over RM200',min:200,max:Infinity}
+  ];
+  let bestBucket='',bestBucketSold=0,bestBucketCount=0;
+  buckets.forEach(({name,min,max})=>{
     const bProds=p.filter(x=>{const r=x.price_min/1e5;return r>=min&&r<max;});
     const bSold=bProds.reduce((a,x)=>a+(x.historical_sold||0),0);
-    if(bSold>bestBucketSold){bestBucketSold=bSold;bestBucket=name;}
+    if(bSold>bestBucketSold){bestBucketSold=bSold;bestBucket=name;bestBucketCount=bProds.length;}
   });
-  if(bestBucket) insights.push({ emoji:'💰', text:`Price sweet spot: <strong>${bestBucket}</strong> — highest combined sales volume`, type:'success' });
+  if(bestBucket) insights.push({ emoji:'💰', text:`Price sweet spot: <strong>${bestBucket}</strong> — ${bestBucketCount} products, ${fmtNum(bestBucketSold)} total sales`, type:'success' });
 
   // 4. Dead stock alert
   const zeroSales = p.filter(x=>!(x.historical_sold||0));
