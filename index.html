@@ -1044,9 +1044,15 @@ async function loadShopData() {
     }
     RV.loaded = false;
     VEL.loaded = false;
+    VAR.data = []; // reset so variants always re-renders fresh for new shop
     ST.shopMeta = ST.shops.find(s => s.shopid == shopid) || {};
     prog(true, 90);
     renderAll();
+    // If variants tab is already active, load variants now (tab() won't re-fire)
+    const activeTab = document.querySelector('.tab.on');
+    if (activeTab && activeTab.getAttribute('onclick') && activeTab.getAttribute('onclick').includes('variants')) {
+      loadVariants();
+    }
     prog(false);
     setStatus(`✓ ${products.length} products · ${variants.length||0} variants — ${ST.shopMeta.username||''}`);
     document.getElementById('overviewEmpty').style.display = 'none';
