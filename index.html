@@ -689,6 +689,44 @@ tr:hover td{background:rgba(249,115,22,.04)}
       </div></div>
     </div>
 
+    <!-- Cookie Setup Card -->
+    <div class="card" style="border:2px solid var(--acc);margin-bottom:16px">
+      <div class="card-hdr" style="background:linear-gradient(135deg,#fff7ed,#ffedd5)">
+        <span class="card-title">🍪 Auto-Scrape Cookie Setup</span>
+        <span id="cookie-status" style="font-size:11px;color:var(--muted);margin-left:8px">checking...</span>
+      </div>
+      <div class="card-body">
+        <p style="margin-bottom:12px;font-size:13px">The daily cron uses your Shopee session cookie to scrape real sales data. Save your cookie once — it lasts ~30–60 days, then refresh with one click.</p>
+
+        <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:12px;margin-bottom:14px">
+          <div style="font-weight:700;font-size:12px;margin-bottom:6px;color:var(--acc)">STEP 1 — Add the bookmarklet to your browser</div>
+          <p style="font-size:12px;color:var(--muted);margin-bottom:8px">Drag this button to your bookmarks bar:</p>
+          <a id="bookmarklet-link" href="" style="display:inline-block;background:var(--acc);color:#fff;padding:6px 14px;border-radius:6px;font-size:12px;font-weight:600;text-decoration:none;cursor:move">🍪 Save Shopee Cookies</a>
+          <p style="font-size:11px;color:var(--muted);margin-top:8px">⚠️ You must drag it — clicking here won't work (security restriction)</p>
+        </div>
+
+        <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:12px;margin-bottom:14px">
+          <div style="font-weight:700;font-size:12px;margin-bottom:6px;color:var(--acc)">STEP 2 — Use the bookmarklet on Shopee</div>
+          <ol style="font-size:12px;color:var(--muted);padding-left:18px;line-height:1.8">
+            <li>Go to <strong>shopee.com.my</strong> and log in as <strong>vinusahboy</strong></li>
+            <li>Click the <strong>🍪 Save Shopee Cookies</strong> bookmarklet in your bookmark bar</li>
+            <li>A popup will say "Cookies saved!" — done!</li>
+          </ol>
+        </div>
+
+        <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:12px;margin-bottom:14px">
+          <div style="font-weight:700;font-size:12px;margin-bottom:6px;color:var(--acc)">OR — Paste cookie string manually</div>
+          <textarea id="cookie-input" placeholder="Paste your cookie string here (from Chrome DevTools → Application → Cookies → shopee.com.my → copy all)" style="width:100%;height:80px;font-size:11px;font-family:'DM Mono',monospace;border:1px solid #e2e8f0;border-radius:6px;padding:8px;resize:vertical;box-sizing:border-box"></textarea>
+          <button onclick="saveCookiesManual()" style="margin-top:8px;background:var(--acc);color:#fff;border:none;padding:6px 16px;border-radius:6px;font-size:12px;font-weight:600;cursor:pointer">💾 Save Cookies</button>
+        </div>
+
+        <div style="font-size:11px;color:var(--muted)">
+          ℹ️ Cookies are stored encrypted in Supabase. The cron reads them server-side — your credentials never leave Supabase.<br>
+          🔁 Refresh cookies when the cron starts failing again (usually every 30–60 days).
+        </div>
+      </div>
+    </div>
+
     <div class="card"><div class="card-hdr"><span class="card-title">File Structure</span></div><div class="card-body">
       <pre style="font-family:'DM Mono',monospace;font-size:11px;color:var(--muted);line-height:1.8">
 shopee-scope/
@@ -755,8 +793,71 @@ let CH = {};
 window.onload = async () => {
   initCols();
   buildColPanel();
+  initBookmarklet();
+  checkCookieStatus();
   await refreshShops();
 };
+
+// ========================================================
+// ========================================================
+// COOKIE SETUP
+// ========================================================
+const VERCEL_URL = 'https://vinus-ss.vercel.app';
+const CRON_SECRET = 'shopeescope2026';
+
+function initBookmarklet() {
+  const code = `(function(){
+    var s=document.cookie;
+    if(!s){alert('No cookies found. Make sure you are logged in to Shopee.');return;}
+    fetch('${VERCEL_URL}/api/save-config',{
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({key:'shopee_cookies',value:s,secret:'${CRON_SECRET}'})
+    }).then(r=>r.json()).then(d=>{
+      if(d.ok)alert('✅ Shopee cookies saved! Cron will now scrape automatically.');
+      else alert('❌ Error: '+JSON.stringify(d));
+    }).catch(e=>alert('❌ Failed: '+e.message));
+  })();`;
+  const el = document.getElementById('bookmarklet-link');
+  if (el) el.href = 'javascript:' + encodeURIComponent(code).replace(/%20/g, ' ');
+}
+
+async function checkCookieStatus() {
+  try {
+    const r = await fetch(`${VERCEL_URL}/api/save-config?key=shopee_cookies`);
+    const d = await r.json();
+    const el = document.getElementById('cookie-status');
+    if (!el) return;
+    if (d.updated_at) {
+      const dt = new Date(d.updated_at);
+      const days = Math.floor((Date.now() - dt) / 86400000);
+      const fresh = days < 30;
+      el.textContent = fresh ? `✅ Active (saved ${days}d ago)` : `⚠️ Stale (${days}d ago — please refresh)`;
+      el.style.color = fresh ? '#16a34a' : '#dc2626';
+    } else {
+      el.textContent = '❌ No cookies saved yet';
+      el.style.color = '#dc2626';
+    }
+  } catch(e) {
+    const el = document.getElementById('cookie-status');
+    if (el) { el.textContent = 'Could not check'; el.style.color = 'var(--muted)'; }
+  }
+}
+
+async function saveCookiesManual() {
+  const val = document.getElementById('cookie-input').value.trim();
+  if (!val) { alert('Please paste your cookie string first.'); return; }
+  try {
+    const r = await fetch(`${VERCEL_URL}/api/save-config`, {
+      method: 'POST',
+      headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({key:'shopee_cookies', value: val, secret: CRON_SECRET})
+    });
+    const d = await r.json();
+    if (d.ok) { alert('✅ Cookies saved! Cron will use them from next run.'); checkCookieStatus(); }
+    else alert('❌ Error: ' + JSON.stringify(d));
+  } catch(e) { alert('❌ Failed: ' + e.message); }
+}
 
 // ========================================================
 // TABS

@@ -19,18 +19,30 @@ const FALLBACK_SHOPS=[
   {username:'ham_radios.my',     shopid:1231953709},
 ];
 
-const H={
-  'x-api-source':'pc','x-shopee-language':'en',
-  'User-Agent':'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
-  'Referer':'https://shopee.com.my/','Accept':'application/json',
-};
 const H_SB={'apikey':K,'Authorization':'Bearer '+K,'Content-Type':'application/json'};
 
 // Sleep with ±30% random jitter to avoid pattern detection
 const sleep=ms=>new Promise(r=>setTimeout(r,ms+Math.floor(Math.random()*ms*0.3)));
 
-const shopee=async(path)=>{
-  const r=await fetch(`https://shopee.com.my${path}`,{headers:H,signal:AbortSignal.timeout(15000)});
+// Load Shopee cookies from Supabase config table
+async function loadCookies(){
+  try{
+    const r=await fetch(`${S}/rest/v1/config?key=eq.shopee_cookies&select=value`,{headers:H_SB});
+    const rows=await r.json();
+    if(Array.isArray(rows)&&rows.length&&rows[0].value) return rows[0].value;
+  }catch(e){console.warn('Could not load cookies:',e.message);}
+  return null;
+}
+
+const makeShopeeHeaders=(cookies)=>({
+  'x-api-source':'pc','x-shopee-language':'en',
+  'User-Agent':'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
+  'Referer':'https://shopee.com.my/','Accept':'application/json',
+  ...(cookies?{'Cookie':cookies}:{})
+});
+
+const shopee=async(path,cookies)=>{
+  const r=await fetch(`https://shopee.com.my${path}`,{headers:makeShopeeHeaders(cookies),signal:AbortSignal.timeout(15000)});
   if(!r.ok)throw new Error(`${r.status}: ${path}`);
   return r.json();
 };
@@ -55,7 +67,7 @@ const sbQuery=async(path)=>{
   return r.json();
 };
 
-async function scrapeShop({username,shopid}){
+async function scrapeShop({username,shopid},cookies){
   const today=new Date().toISOString().split('T')[0];
   const started=Date.now();
   let prodCount=0,snapCount=0,revCount=0;
@@ -70,15 +82,19 @@ async function scrapeShop({username,shopid}){
     // 1. All products (paginated)
     let prods=[],offset=0;
     while(true){
-      const d=await shopee(`/api/v4/search/search_items?by=sales&limit=60&match_id=${shopid}&newest=${offset}&order=desc&page_type=shop&scenario=PAGE_OTHERS&version=2`);
-      const batch=(d.items||[]).map(i=>i.item_basic);
+      const d=await shopee(`/api/v4/search/search_items?by=sales&limit=60&match_id=${shopid}&newest=${offset}&order=desc&page_type=shop&scenario=PAGE_OTHERS&version=2`,cookies);
+      const batch=(d.items||[]).map(i=>i.item_basic).filter(Boolean);
       if(!batch.length)break;
       prods.push(...batch);
       if(batch.length<60)break;
       offset+=60;
-      await sleep(500);
+      await sleep(600);
     }
     prodCount=prods.length;
+
+    if(prodCount===0){
+      throw new Error('No products returned — cookies may be expired');
+    }
 
     // 2. Save products — preserve historical_sold if API returns 0
     await sb('products?on_conflict=shopid,itemid,scraped_date',prods.map(p=>({
@@ -86,7 +102,6 @@ async function scrapeShop({username,shopid}){
       price_min:p.price_min||0,price_max:p.price_max||p.price_min||0,
       price_min_before_discount:p.price_min_before_discount||p.price_min||0,
       raw_discount:p.raw_discount||0,
-      // Use API value if > 0, otherwise keep last known DB value
       historical_sold:p.historical_sold||hsMap[p.itemid]||0,
       sold:p.sold||0,
       liked_count:p.liked_count||0,stock:p.stock||0,
@@ -106,8 +121,8 @@ async function scrapeShop({username,shopid}){
     for(let i=0;i<top30.length;i++){
       const p=top30[i];
       try{
-        await sleep(600);
-        const d=await shopee(`/api/v4/item/get?itemid=${p.itemid}&shopid=${shopid}`);
+        await sleep(700);
+        const d=await shopee(`/api/v4/item/get?itemid=${p.itemid}&shopid=${shopid}`,cookies);
         if(d.data?.models?.length>0){
           const vt=(d.data.tier_variations||[]).map(v=>v.name).join(' / ')||'variant';
           d.data.models.forEach(m=>snaps.push({
@@ -124,8 +139,8 @@ async function scrapeShop({username,shopid}){
             scraped_date:today,scraped_at:new Date().toISOString()
           });
         }
-        await sleep(600);
-        const rr=await shopee(`/api/v2/item/get_ratings?itemid=${p.itemid}&shopid=${shopid}&limit=10&offset=0&filter=0&type=0&exclude_filter=1&flag=1&fold_filter=0&relevant_reviews=false&request_source=2`);
+        await sleep(700);
+        const rr=await shopee(`/api/v2/item/get_ratings?itemid=${p.itemid}&shopid=${shopid}&limit=10&offset=0&filter=0&type=0&exclude_filter=1&flag=1&fold_filter=0&relevant_reviews=false&request_source=2`,cookies);
         (rr.data?.ratings||[]).forEach(rv=>{
           if(!rv.comment)return;
           revs.push({
@@ -163,6 +178,14 @@ export default async function handler(req,res){
 
   const today=new Date().toISOString().split('T')[0];
 
+  // Load cookies from Supabase
+  const cookies=await loadCookies();
+  if(cookies){
+    console.log('✅ Loaded Shopee cookies from Supabase config');
+  }else{
+    console.warn('⚠️ No cookies found in config — scrape may fail. Use the dashboard to save cookies.');
+  }
+
   // Load shop list from DB
   let SHOPS=FALLBACK_SHOPS;
   try{
@@ -190,15 +213,16 @@ export default async function handler(req,res){
 
   const results=[];
   for(const shop of pending){
-    const r=await scrapeShop(shop);
+    const r=await scrapeShop(shop,cookies);
     results.push(r);
-    await sleep(5000); // 5s between shops + jitter
+    await sleep(5000);
   }
 
   const duration=Math.round((Date.now()-startAll)/1000);
   console.log(`🏁 Cron done in ${duration}s. Scraped ${results.reduce((a,r)=>a+r.products,0)} products total.`);
   return res.status(200).json({
     ok:true,
+    cookies_loaded:!!cookies,
     scraped_at:new Date().toISOString(),
     duration_seconds:duration,
     skipped:[...doneToday],
