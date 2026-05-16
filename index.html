@@ -701,12 +701,40 @@ tr:hover td{background:rgba(249,115,22,.04)}
 
   <!-- ======= SCRAPE LOG ======= -->
   <div class="sec" id="sec-log">
+    <!-- 403 Fix banner -->
+    <div style="background:linear-gradient(135deg,#fff7ed,#fef3c7);border:1px solid #fcd34d;border-radius:10px;padding:14px 18px;margin-bottom:16px;display:flex;align-items:center;gap:12px;flex-wrap:wrap">
+      <span style="font-size:20px">⚠️</span>
+      <div style="flex:1">
+        <div style="font-weight:700;font-size:13px;color:#92400e">Cron scrape fails with 403? — Shopee geo-blocks Vercel's US servers</div>
+        <div style="font-size:11px;color:#b45309;margin-top:2px">The auto cron will always get 403 from Shopee (non-Malaysian IP). Use <strong>Browser Scrape</strong> instead: generates a script → paste in shopee.com.my console → all 13 shops scraped in ~10 min.</div>
+      </div>
+      <div style="display:flex;gap:8px">
+        <button class="tb-btn tb-btn-primary" onclick="generateScraperScript()" style="font-size:12px">🌐 Browser Scrape</button>
+        <a href="https://shopee.com.my" target="_blank" rel="noopener" class="tb-btn tb-btn-ghost" style="font-size:12px;text-decoration:none">Open Shopee →</a>
+      </div>
+    </div>
+
+    <!-- Script output panel -->
+    <div id="scraper-script-box" style="display:none" class="card">
+      <div class="card-hdr" style="background:var(--s3)">
+        <span class="card-title" style="font-family:'DM Mono',monospace;font-size:11px;color:var(--acc4)">📋 Copy → open shopee.com.my → F12 → Console → Paste → Enter</span>
+        <div style="display:flex;gap:8px">
+          <span id="scraper-shop-count" style="font-size:11px;color:var(--muted);align-self:center"></span>
+          <button onclick="copyScraperScript()" id="scraper-copy-btn" style="padding:4px 12px;background:var(--acc);color:#fff;border:none;border-radius:5px;font-size:11px;font-weight:700;cursor:pointer">Copy Script</button>
+          <a href="https://shopee.com.my" target="_blank" rel="noopener" class="tb-btn tb-btn-ghost" style="font-size:11px;text-decoration:none;padding:4px 10px">Open Shopee →</a>
+        </div>
+      </div>
+      <div class="card-body" style="padding:0">
+        <textarea id="scraper-script-txt" readonly style="width:100%;height:220px;font-family:'DM Mono',monospace;font-size:10px;background:#1a1d2e;color:#a5f3fc;border:none;padding:12px;resize:vertical;outline:none;line-height:1.5;display:block"></textarea>
+      </div>
+    </div>
+
     <div class="card">
       <div class="card-hdr">
         <span class="card-title">📋 Scrape History</span>
         <div style="display:flex;gap:8px;align-items:center">
           <button class="tb-btn tb-btn-ghost" style="padding:4px 12px;font-size:11px" onclick="loadLog()">↻ Reload</button>
-          <button class="tb-btn tb-btn-primary" id="rerun-btn" style="padding:4px 12px;font-size:11px" onclick="rerunFailed()" title="Re-run all shops that failed or haven't been scraped today">⚡ Re-run Failed</button>
+          <button class="tb-btn tb-btn-primary" id="rerun-btn" style="padding:4px 12px;font-size:11px;background:var(--acc3)" onclick="rerunFailed()" title="Trigger server-side cron scrape now">⚡ Re-run Failed</button>
         </div>
       </div>
       <div id="log-summary" style="display:none;padding:10px 16px;background:var(--s3);border-bottom:1px solid var(--border);font-size:11px;display:flex;gap:16px;flex-wrap:wrap"></div>
@@ -765,15 +793,11 @@ tr:hover td{background:rgba(249,115,22,.04)}
   <div class="sec" id="sec-discover">
 
     <!-- Mode banner -->
-    <div style="background:linear-gradient(135deg,#fff7ed,#fef3c7);border:1px solid #fcd34d;border-radius:10px;padding:14px 18px;margin-bottom:16px;display:flex;align-items:center;gap:12px;flex-wrap:wrap">
-      <span style="font-size:20px">🌐</span>
+    <div style="background:linear-gradient(135deg,#f0fdf4,#dcfce7);border:1px solid #86efac;border-radius:10px;padding:14px 18px;margin-bottom:16px;display:flex;align-items:center;gap:12px;flex-wrap:wrap">
+      <span style="font-size:20px">🖥️</span>
       <div style="flex:1">
-        <div style="font-weight:700;font-size:13px;color:#92400e">Browser Mode Required</div>
-        <div style="font-size:11px;color:#b45309;margin-top:2px">Shopee blocks server-to-server requests (non-MY IP). Discovery must run from your browser while logged into Shopee. Click <strong>Generate Script</strong> → open shopee.com.my → paste in Console (F12).</div>
-      </div>
-      <div style="display:flex;gap:8px">
-        <button class="tb-btn tb-btn-primary" onclick="generateDiscScript()" style="font-size:12px">⚡ Generate Script</button>
-        <a href="https://shopee.com.my" target="_blank" rel="noopener" class="tb-btn tb-btn-ghost" style="font-size:12px;text-decoration:none">Open Shopee →</a>
+        <div style="font-weight:700;font-size:13px;color:#166534">Server-Side Discovery</div>
+        <div style="font-size:11px;color:#15803d;margin-top:2px">Uses your saved Shopee cookies to crawl categories server-side — no browser pasting needed. Select categories, set pages, then click <strong>Run Discovery</strong>.</div>
       </div>
     </div>
 
@@ -842,22 +866,14 @@ tr:hover td{background:rgba(249,115,22,.04)}
           </div>
         </div>
 
-        <!-- Step 3: Generate -->
+        <!-- Step 3: Run -->
         <div class="disc-step">
-          <div class="disc-step-title">Step 3 — Generate &amp; Run</div>
+          <div class="disc-step-title">Step 3 — Run Discovery</div>
           <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px">
-            <button class="tb-btn tb-btn-primary" onclick="generateDiscScript()" style="font-size:13px">⚡ Generate Script</button>
-            <a href="https://shopee.com.my" target="_blank" rel="noopener" class="tb-btn tb-btn-ghost" style="font-size:12px;text-decoration:none">🌐 Open Shopee Tab</a>
+            <button class="tb-btn tb-btn-primary" id="disc-run-btn" onclick="runDiscovery()" style="font-size:13px">🖥️ Run Discovery</button>
           </div>
-          <div id="disc-script-box" style="display:none">
-            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">
-              <span style="font-size:11px;font-weight:700;color:var(--acc4)">📋 Copy this script → paste in Shopee Console (F12 → Console tab)</span>
-              <button onclick="copyDiscScript()" style="padding:4px 10px;background:var(--acc);color:#fff;border:none;border-radius:5px;font-size:11px;font-weight:700;cursor:pointer" id="disc-copy-btn">Copy</button>
-            </div>
-            <textarea id="disc-script-txt" readonly style="width:100%;height:180px;font-family:'DM Mono',monospace;font-size:10px;background:#1a1d2e;color:#a5f3fc;border:1px solid var(--border2);border-radius:6px;padding:10px;resize:vertical;outline:none;line-height:1.5"></textarea>
-          </div>
-          <div style="margin-top:10px;font-size:11px;font-weight:700;color:var(--muted)">Script results log:</div>
-          <div class="disc-log" id="disc-log" style="margin-top:4px">Generate a script → run it on shopee.com.my → results appear here after POST.</div>
+          <div style="margin-top:10px;font-size:11px;font-weight:700;color:var(--muted)">Discovery log:</div>
+          <div class="disc-log" id="disc-log" style="margin-top:4px">Select categories above → click Run Discovery → results appear here.</div>
         </div>
       </div>
 
@@ -868,22 +884,19 @@ tr:hover td{background:rgba(249,115,22,.04)}
           <div class="card-body">
             <ul class="ilist">
               <li class="iitem"><div class="iico">1️⃣</div><div><div class="itxt">Select categories + depth above</div><div class="isub">Choose the niches you want to spy on</div></div></li>
-              <li class="iitem"><div class="iico">2️⃣</div><div><div class="itxt">Click Generate Script</div><div class="isub">Creates a ready-to-run JS snippet with your settings</div></div></li>
-              <li class="iitem"><div class="iico">3️⃣</div><div><div class="itxt">Open shopee.com.my → F12 → Console → Paste → Enter</div><div class="isub">Runs in your browser — Shopee sees it as normal browsing</div></div></li>
-              <li class="iitem"><div class="iico">4️⃣</div><div><div class="itxt">New shops auto-appear in Market tab</div><div class="isub">Daily cron scrapes their full product list overnight</div></div></li>
+              <li class="iitem"><div class="iico">2️⃣</div><div><div class="itxt">Click Run Discovery</div><div class="isub">Server uses your saved Shopee cookies to crawl</div></div></li>
+              <li class="iitem"><div class="iico">3️⃣</div><div><div class="itxt">New shops saved to database</div><div class="isub">Products discovered and stored automatically</div></div></li>
+              <li class="iitem"><div class="iico">4️⃣</div><div><div class="itxt">New shops appear in Competitors tab</div><div class="isub">Daily cron scrapes their full product list overnight</div></div></li>
             </ul>
           </div>
         </div>
         <div class="card">
-          <div class="card-hdr"><span class="card-title">Why Browser Mode?</span></div>
+          <div class="card-hdr"><span class="card-title">Requirements</span></div>
           <div class="card-body" style="font-size:11px;line-height:1.8;color:var(--muted)">
-            <div>✅ <strong>Works reliably</strong> — uses your real Shopee session</div>
-            <div>✅ <strong>No CAPTCHA</strong> — Shopee treats it as normal browsing</div>
-            <div>✅ <strong>Malaysian IP</strong> — no geo-blocking</div>
-            <div>❌ <strong>Server mode fails</strong> — Vercel servers are US-based, Shopee blocks them regardless of cookies</div>
-            <div style="margin-top:8px;padding:8px;background:var(--s3);border-radius:6px;font-family:'DM Mono',monospace;font-size:10px">
-              shopee.com.my → F12 → Console → Paste script → Press Enter
-            </div>
+            <div>✅ <strong>Fresh cookies</strong> — save via Setup Guide → Cookie Setup</div>
+            <div>✅ <strong>No browser needed</strong> — runs fully server-side on Vercel</div>
+            <div>✅ <strong>CSRF token</strong> — automatically extracted from saved cookies</div>
+            <div>⚠️ <strong>Cookies expire</strong> — refresh every 7–14 days if discovery fails</div>
           </div>
         </div>
       </div>
@@ -3053,65 +3066,37 @@ function discLog(msg) {
   el.scrollTop=el.scrollHeight;
 }
 
-function generateDiscScript() {
+async function runDiscovery() {
   if (!DISC.catids.length) { alert('Select at least one category first'); return; }
-  const pages = parseInt(document.getElementById('disc-pages').value) || 5;
-  const catids = JSON.stringify(DISC.catids);
-  const vercel = API || 'https://vinus-ss.vercel.app';
+  const pages = parseInt(document.getElementById('disc-pages').value) || 3;
+  const btn = document.getElementById('disc-run-btn');
+  btn.disabled = true; btn.textContent = '⏳ Running...';
+  discLog(`🖥️ Starting server-side discovery: catids=[${DISC.catids.join(',')}], ${pages} pages each...`);
 
-  const script = `// ShopeeScope Category Discovery
-// Generated: ${new Date().toLocaleString()}
-// Categories: ${DISC.catids.join(', ')} | Pages: ${pages} per category
-(async () => {
-  const VERCEL = '${vercel}';
-  const catids = ${catids};
-  const pages = ${pages};
-  const sleep = ms => new Promise(r => setTimeout(r, ms + Math.floor(Math.random()*300)));
-  const H = { credentials:'include', headers:{'x-api-source':'pc','x-shopee-language':'en','Accept':'application/json','Referer':'https://shopee.com.my/'} };
-  const products = [];
-  for (const catid of catids) {
-    let offset = 0;
-    console.log('Crawling catid:', catid);
-    for (let p = 0; p < pages; p++) {
-      try {
-        const r = await fetch('https://shopee.com.my/api/v4/search/search_items?by=sales&limit=60&match_id='+catid+'&newest='+offset+'&order=desc&page_type=search&scenario=PAGE_CATEGORY&version=2', H);
-        const d = await r.json();
-        const items = (d.items||[]).map(i=>i.item_basic).filter(Boolean);
-        if (!items.length) { console.log('  catid '+catid+' page '+(p+1)+': no more items'); break; }
-        products.push(...items);
-        console.log('  catid '+catid+' page '+(p+1)+': '+items.length+' items (total: '+products.length+')');
-        if (items.length < 60) break;
-        offset += 60;
-        await sleep(800);
-      } catch(e) { console.error('Fetch error:', e.message); break; }
+  try {
+    const url = `${API}/api/discover?catids=${DISC.catids.join(',')}&pages=${pages}&secret=shopeescope2026`;
+    discLog(`📡 Calling: /api/discover?catids=${DISC.catids.join(',')}&pages=${pages}`);
+    const r = await fetch(url, { signal: AbortSignal.timeout(55000) });
+    const result = await r.json();
+    if (result.ok) {
+      discLog(`✅ Done! Saved <strong>${result.products_saved}</strong> products, found <strong>${result.shops_discovered}</strong> shops.`);
+      if (result.new_shopids?.length) {
+        renderDiscoverResults(result.new_shopids);
+        discLog(`🆕 New shop IDs: ${result.new_shopids.slice(0,10).join(', ')}${result.new_shopids.length>10?'...':''}`);
+      }
+    } else {
+      discLog(`❌ Error: ${result.error || result.message || 'Unknown error'}`);
+      if (result.cookies_loaded === false) discLog(`⚠️ No cookies saved yet — go to Setup Guide → Cookie Setup to save your Shopee cookies.`);
     }
-    await sleep(1200);
+  } catch(e) {
+    if (e.name === 'TimeoutError' || e.name === 'AbortError') {
+      discLog(`⏱️ Request timed out (55s). Discovery is likely still running on server — check Scrape Log in a minute.`);
+    } else {
+      discLog(`❌ ${e.message}`);
+    }
+  } finally {
+    btn.disabled = false; btn.textContent = '🖥️ Run Discovery';
   }
-  console.log('Total products found:', products.length);
-  if (!products.length) { console.warn('No products found — check if you are logged into Shopee'); return; }
-  console.log('Posting to ShopeeScope...');
-  const res = await fetch(VERCEL+'/api/discover', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({products, catids}) });
-  const result = await res.json();
-  console.log('Result:', result);
-  if (result.ok) console.log('✅ Saved '+result.products_saved+' products, found '+result.shops_discovered+' shops!');
-  else console.error('❌ Error:', result.error);
-  result;
-})();`;
-
-  document.getElementById('disc-script-box').style.display = '';
-  document.getElementById('disc-script-txt').value = script;
-  discLog(`✅ Script generated for catids=[${DISC.catids.join(',')}], ${pages} pages each`);
-  discLog(`📋 Copy the script above → open <a href="https://shopee.com.my" target="_blank" style="color:var(--acc)">shopee.com.my</a> → F12 → Console → Paste → Enter`);
-}
-
-function copyDiscScript() {
-  const txt = document.getElementById('disc-script-txt');
-  txt.select();
-  document.execCommand('copy');
-  const btn = document.getElementById('disc-copy-btn');
-  btn.textContent = '✓ Copied!';
-  btn.style.background = 'var(--acc2)';
-  setTimeout(()=>{ btn.textContent='Copy'; btn.style.background='var(--acc)'; }, 2000);
 }
 
 function renderDiscoverResults(shopids) {

@@ -34,12 +34,23 @@ async function loadCookies(){
   return null;
 }
 
-const makeShopeeHeaders=(cookies)=>({
-  'x-api-source':'pc','x-shopee-language':'en',
-  'User-Agent':'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
-  'Referer':'https://shopee.com.my/','Accept':'application/json',
-  ...(cookies?{'Cookie':cookies}:{})
-});
+function extractCsrf(cookies){
+  if(!cookies)return null;
+  const m=cookies.match(/SPC_CTOKEN=([^;]+)/);
+  return m?decodeURIComponent(m[1]):null;
+}
+
+const makeShopeeHeaders=(cookies)=>{
+  const csrf=extractCsrf(cookies);
+  return {
+    'x-api-source':'pc','x-shopee-language':'en',
+    'User-Agent':'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
+    'Referer':'https://shopee.com.my/','Accept':'application/json',
+    'Accept-Language':'en-MY,en;q=0.9,ms;q=0.8',
+    ...(cookies?{'Cookie':cookies}:{}),
+    ...(csrf?{'x-csrftoken':csrf}:{})
+  };
+};
 
 const shopee=async(path,cookies)=>{
   const r=await fetch(`https://shopee.com.my${path}`,{headers:makeShopeeHeaders(cookies),signal:AbortSignal.timeout(15000)});

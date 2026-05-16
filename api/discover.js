@@ -56,13 +56,16 @@ export default async function handler(req, res) {
 
     // Load stored cookies from Supabase
     const cookies = await loadCookies();
+    const csrf = (() => { if (!cookies) return null; const m = cookies.match(/SPC_CTOKEN=([^;]+)/); return m ? decodeURIComponent(m[1]) : null; })();
     const H = {
       'x-api-source': 'pc', 'x-shopee-language': 'en',
       'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
       'Referer': 'https://shopee.com.my/', 'Accept': 'application/json',
-      ...(cookies ? { 'Cookie': cookies } : {})
+      'Accept-Language': 'en-MY,en;q=0.9,ms;q=0.8',
+      ...(cookies ? { 'Cookie': cookies } : {}),
+      ...(csrf ? { 'x-csrftoken': csrf } : {})
     };
-    console.log(`Discover: cookies ${cookies ? 'loaded' : 'NOT found'}, catids=${catList}, pages=${maxPages}`);
+    console.log(`Discover: cookies ${cookies ? 'loaded' : 'NOT found'}, csrf ${csrf ? 'found' : 'missing'}, catids=${catList}, pages=${maxPages}`);
 
     const products = [];
     for (const catid of catList) {
