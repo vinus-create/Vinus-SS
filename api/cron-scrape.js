@@ -79,22 +79,38 @@ async function scrapeShop({username,shopid},cookies){
     if(Array.isArray(dbProds)) dbProds.forEach(p=>{hsMap[p.itemid]=p.historical_sold||0;});
     console.log(`  ${username}: loaded ${Object.keys(hsMap).length} existing products from DB`);
 
-    // 1. All products (paginated)
-    let prods=[],offset=0;
-    while(true){
-      const d=await shopee(`/api/v4/search/search_items?by=sales&limit=60&match_id=${shopid}&newest=${offset}&order=desc&page_type=shop&scenario=PAGE_OTHERS&version=2`,cookies);
-      const batch=(d.items||[]).map(i=>i.item_basic).filter(Boolean);
-      if(!batch.length)break;
-      prods.push(...batch);
-      if(batch.length<60)break;
-      offset+=60;
-      await sleep(600);
+    // 1. All products — scrape 3 sort orders to bypass API ~240 item cap
+    const seenItemIds=new Set();
+    const prodsMap={};
+    for(const sortBy of ['sales','ctime','price']){
+      let offset=0,sortProds=0;
+      while(true){
+        const d=await shopee(`/api/v4/search/search_items?by=${sortBy}&limit=60&match_id=${shopid}&newest=${offset}&order=desc&page_type=shop&scenario=PAGE_OTHERS&version=2`,cookies);
+        const batch=(d.items||[]).map(i=>i.item_basic).filter(Boolean);
+        if(!batch.length)break;
+        let newItems=0;
+        batch.forEach(p=>{
+          if(!seenItemIds.has(p.itemid)){
+            seenItemIds.add(p.itemid);
+            prodsMap[p.itemid]=p;
+            newItems++;
+          }
+        });
+        sortProds+=batch.length;
+        if(batch.length<60)break;
+        offset+=60;
+        await sleep(700);
+      }
+      console.log(`  ${username} [${sortBy}]: ${sortProds} fetched, ${seenItemIds.size} unique total`);
+      await sleep(1500); // pause between sort orders
     }
+    const prods=Object.values(prodsMap);
     prodCount=prods.length;
 
     if(prodCount===0){
       throw new Error('No products returned — cookies may be expired');
     }
+    console.log(`  ${username}: ${prodCount} unique products after dedup`);
 
     // 2. Save products — preserve historical_sold if API returns 0
     await sb('products?on_conflict=shopid,itemid,scraped_date',prods.map(p=>({

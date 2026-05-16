@@ -1,10 +1,11 @@
 // ============================================================
 // ShopeeScope Scraper — Run via Claude in Chrome javascript_tool
-// Must be on any shopee.com.my tab when running
+// Must be on any shopee.com.my tab when running (logged in)
 // ============================================================
 
-const VERCEL_URL = 'https://vinus-ss.vercel.app'; // ← change this
+const VERCEL_URL = 'https://vinus-ss.vercel.app';
 const SHOP_USERNAMES = [
+  'buddysnack',
   'winstartech',
   '1stopbatteries',
   'icare4allshop',
@@ -20,13 +21,44 @@ const SHOP_USERNAMES = [
 ];
 
 // ── Helpers ──────────────────────────────────────────────────
-const H = { 'x-api-source': 'pc', 'x-shopee-language': 'en' };
-const sleep = ms => new Promise(r => setTimeout(r, ms));
+const sleep = ms => new Promise(r => setTimeout(r, ms + Math.floor(Math.random()*400)));
 const shopee = async (path) => {
-  const r = await fetch(`https://shopee.com.my${path}`, { headers: H });
+  const r = await fetch(`https://shopee.com.my${path}`, {
+    credentials: 'include',
+    headers: { 'x-api-source': 'pc', 'x-shopee-language': 'en', 'Accept': 'application/json', 'Referer': 'https://shopee.com.my/' }
+  });
   if (!r.ok) throw new Error(`Shopee API ${r.status}: ${path}`);
   return r.json();
 };
+
+// ── Scrape all products using 3 sort orders to bypass ~240 item cap ──
+async function scrapeAllProducts(shopid) {
+  const seenIds = new Set();
+  const prodsMap = {};
+  for (const sortBy of ['sales', 'ctime', 'price']) {
+    let offset = 0, sortCount = 0;
+    while (true) {
+      const d = await shopee(
+        `/api/v4/search/search_items?by=${sortBy}&limit=60&match_id=${shopid}` +
+        `&newest=${offset}&order=desc&page_type=shop&scenario=PAGE_OTHERS&version=2`
+      );
+      const batch = (d.items || []).map(i => i.item_basic).filter(Boolean);
+      if (!batch.length) break;
+      let newItems = 0;
+      batch.forEach(p => {
+        if (!seenIds.has(p.itemid)) { seenIds.add(p.itemid); prodsMap[p.itemid] = p; newItems++; }
+      });
+      sortCount += batch.length;
+      console.log(`  [${sortBy}] offset ${offset}: ${batch.length} items, ${newItems} new (total unique: ${seenIds.size})`);
+      if (batch.length < 60) break;
+      offset += 60;
+      await sleep(800);
+    }
+    console.log(`  [${sortBy}] done: ${sortCount} fetched`);
+    await sleep(1500); // pause between sort orders
+  }
+  return Object.values(prodsMap);
+}
 
 // ── Scrape one shop ──────────────────────────────────────────
 async function scrapeShop(username) {
@@ -36,24 +68,11 @@ async function scrapeShop(username) {
   const shopRes = await shopee(`/api/v4/shop/get_shop_detail?username=${username}`);
   if (!shopRes.data) throw new Error(`Shop not found: ${username}`);
   const shop = shopRes.data;
-  console.log(`✓ Shop: ${shop.name} | ${shop.item_count} items | ${shop.follower_count} followers`);
+  console.log(`✓ Shop: ${shop.name} | ${shop.item_count} actual items | ${shop.follower_count} followers`);
 
-  // 2. All product listings (paginated)
-  let items = [], offset = 0;
-  while (true) {
-    const d = await shopee(
-      `/api/v4/search/search_items?by=sales&limit=60&match_id=${shop.shopid}` +
-      `&newest=${offset}&order=desc&page_type=shop&scenario=PAGE_OTHERS&version=2`
-    );
-    const batch = d.items || [];
-    if (!batch.length) break;
-    items.push(...batch.map(i => i.item_basic));
-    console.log(`  ↳ fetched ${items.length} products...`);
-    if (batch.length < 60) break;
-    offset += 60;
-    await sleep(400);
-  }
-  console.log(`✓ Total: ${items.length} products`);
+  // 2. All products via 3-sort dedup strategy
+  const items = await scrapeAllProducts(shop.shopid);
+  console.log(`✓ Total scraped: ${items.length} / ${shop.item_count} (Shopee API cap may limit further)`);
 
   // 3. Save to Supabase via Vercel API
   const res = await fetch(`${VERCEL_URL}/api/save`, {
@@ -73,7 +92,7 @@ for (const username of SHOP_USERNAMES) {
   try {
     const r = await scrapeShop(username);
     results.push({ username, status: 'ok', saved: r.saved });
-    await sleep(1000); // be polite between shops
+    await sleep(8000); // 8s between shops to avoid CAPTCHA
   } catch (err) {
     console.error(`❌ Failed ${username}: ${err.message}`);
     results.push({ username, status: 'error', error: err.message });
@@ -82,4 +101,4 @@ for (const username of SHOP_USERNAMES) {
 
 console.log('\n📊 Scrape Summary:');
 console.table(results);
-return results;
+results;
