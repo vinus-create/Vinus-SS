@@ -1928,7 +1928,7 @@ function renderVelocity() {
     : data.some(v => (v.sold_1d||0)+(v.sold_3d||0)+(v.sold_7d||0)+(v.sold_14d||0)+(v.sold_30d||0) > 0);
 
   document.getElementById('vel-empty').style.display  = hasData ? 'none' : 'block';
-  const showNotice = hasData && !hasVel;
+  const showNotice = !hasVel; // show whenever velocity isn't ready yet
   document.getElementById('vel-notice').style.display = showNotice ? 'flex' : 'none';
   if (showNotice) updateVelCountdown();
   if (!hasData) return;
