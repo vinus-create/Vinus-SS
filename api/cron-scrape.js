@@ -2,6 +2,8 @@
 const S=process.env.SUPABASE_URL;
 const K=process.env.SUPABASE_SERVICE_KEY;
 const CRON_SECRET=process.env.CRON_SECRET||'';
+const PROXY_URL=process.env.PROXY_URL||''; // e.g. https://vinus-proxy.fly.dev
+const PROXY_SECRET=process.env.PROXY_SECRET||'';
 
 const FALLBACK_SHOPS=[
   {username:'buddysnack',        shopid:3693884},
@@ -53,6 +55,18 @@ const makeShopeeHeaders=(cookies)=>{
 };
 
 const shopee=async(path,cookies)=>{
+  if(PROXY_URL){
+    // Route through Singapore proxy to avoid Vercel US IP geo-block
+    const r=await fetch(`${PROXY_URL}/shopee`,{
+      method:'POST',
+      headers:{'Content-Type':'application/json',...(PROXY_SECRET?{'x-proxy-secret':PROXY_SECRET}:{})},
+      body:JSON.stringify({path,cookies}),
+      signal:AbortSignal.timeout(20000)
+    });
+    if(!r.ok)throw new Error(`Proxy ${r.status}: ${path}`);
+    return r.json();
+  }
+  // Fallback: direct (may 403 from non-MY IP)
   const r=await fetch(`https://shopee.com.my${path}`,{headers:makeShopeeHeaders(cookies),signal:AbortSignal.timeout(15000)});
   if(!r.ok)throw new Error(`${r.status}: ${path}`);
   return r.json();

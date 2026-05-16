@@ -3,6 +3,8 @@
 const S = process.env.SUPABASE_URL;
 const K = process.env.SUPABASE_SERVICE_KEY;
 const CRON_SECRET = process.env.CRON_SECRET || '';
+const PROXY_URL = process.env.PROXY_URL || '';
+const PROXY_SECRET = process.env.PROXY_SECRET || '';
 const H_SB = { 'apikey': K, 'Authorization': 'Bearer ' + K, 'Content-Type': 'application/json' };
 
 async function loadCookies() {
@@ -72,7 +74,19 @@ export default async function handler(req, res) {
       let offset = 0;
       for (let p = 0; p < maxPages; p++) {
         try {
-          const r = await fetch(`https://shopee.com.my/api/v4/search/search_items?by=sales&limit=60&match_id=${catid}&newest=${offset}&order=desc&page_type=search&scenario=PAGE_CATEGORY&version=2`, { headers: H, signal: AbortSignal.timeout(12000) });
+          const shopeePath = `/api/v4/search/search_items?by=sales&limit=60&match_id=${catid}&newest=${offset}&order=desc&page_type=search&scenario=PAGE_CATEGORY&version=2`;
+          let fetchRes;
+          if (PROXY_URL) {
+            fetchRes = await fetch(`${PROXY_URL}/shopee`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json', ...(PROXY_SECRET ? { 'x-proxy-secret': PROXY_SECRET } : {}) },
+              body: JSON.stringify({ path: shopeePath, cookies }),
+              signal: AbortSignal.timeout(20000)
+            });
+          } else {
+            fetchRes = await fetch(`https://shopee.com.my${shopeePath}`, { headers: H, signal: AbortSignal.timeout(12000) });
+          }
+          const r = fetchRes;
           if (!r.ok) { console.log(`Shopee returned ${r.status} for catid=${catid}`); break; }
           const d = await r.json();
           const items = (d.items || []).map(i => i.item_basic).filter(Boolean);
