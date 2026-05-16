@@ -297,18 +297,33 @@ tr:hover td{background:rgba(249,115,22,.04)}
   <!-- ======= OVERVIEW ======= -->
   <div class="sec on" id="sec-overview">
     <div class="kpi-row" id="kpiRow">
-      <div class="kpi" style="--accent-clr:var(--acc)"><div class="kpi-lbl">Products</div><div class="kpi-val" id="k-products">—</div><div class="kpi-sub">scraped listings</div></div>
-      <div class="kpi" style="--accent-clr:var(--acc2)"><div class="kpi-lbl">Total Sold</div><div class="kpi-val" id="k-sold">—</div><div class="kpi-sub">historical</div></div>
-      <div class="kpi" style="--accent-clr:var(--acc)"><div class="kpi-lbl">Avg Price</div><div class="kpi-val" id="k-price">—</div><div class="kpi-sub">median RM</div></div>
+      <div class="kpi" style="--accent-clr:var(--acc)"><div class="kpi-lbl">Products</div><div class="kpi-val" id="k-products">—</div><div class="kpi-sub" id="k-products-sub">scraped listings</div></div>
+      <div class="kpi" style="--accent-clr:var(--acc2)"><div class="kpi-lbl">Est. Revenue</div><div class="kpi-val" id="k-revenue">—</div><div class="kpi-sub">sold × price</div></div>
+      <div class="kpi" style="--accent-clr:var(--acc)"><div class="kpi-lbl">Median Price</div><div class="kpi-val" id="k-price">—</div><div class="kpi-sub" id="k-price-sub">RM</div></div>
       <div class="kpi" style="--accent-clr:var(--acc4)"><div class="kpi-lbl">Avg Rating</div><div class="kpi-val" id="k-rating">—</div><div class="kpi-sub">out of 5.0</div></div>
-      <div class="kpi" style="--accent-clr:var(--acc3)"><div class="kpi-lbl">Followers</div><div class="kpi-val" id="k-followers">—</div><div class="kpi-sub">shop fans</div></div>
-      <div class="kpi" style="--accent-clr:var(--danger)"><div class="kpi-lbl">Max Discount</div><div class="kpi-val" id="k-disc">—</div><div class="kpi-sub">deepest cut</div></div>
+      <div class="kpi" style="--accent-clr:var(--acc3)"><div class="kpi-lbl">Active Products</div><div class="kpi-val" id="k-active">—</div><div class="kpi-sub" id="k-active-sub">with recorded sales</div></div>
+      <div class="kpi" style="--accent-clr:var(--danger)"><div class="kpi-lbl">Max Discount</div><div class="kpi-val" id="k-disc">—</div><div class="kpi-sub" id="k-disc-sub">deepest cut</div></div>
     </div>
+
+    <!-- Quick Insights -->
+    <div class="card" id="insightsCard" style="display:none;margin-bottom:16px;border-left:3px solid var(--acc4)">
+      <div class="card-hdr" style="padding-bottom:0">
+        <span class="card-title">⚡ Quick Insights</span>
+        <span style="font-size:10px;color:var(--muted);font-family:'DM Mono',monospace" id="insightsShopName"></span>
+      </div>
+      <div class="card-body" style="padding-top:10px">
+        <div id="insightsList" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:8px"></div>
+      </div>
+    </div>
+
     <div class="g2">
       <div class="card"><div class="card-hdr"><span class="card-title">Top 20 by Sales</span></div><div class="card-body"><div class="chart-box"><canvas id="ch-sales"></canvas></div></div></div>
       <div class="card"><div class="card-hdr"><span class="card-title">Price Distribution</span></div><div class="card-body"><div class="chart-box"><canvas id="ch-price"></canvas></div></div></div>
     </div>
-    <div class="card"><div class="card-hdr"><span class="card-title">Products by Category</span></div><div class="card-body"><div class="chart-box tall"><canvas id="ch-cat"></canvas></div></div></div>
+    <div class="g2">
+      <div class="card"><div class="card-hdr"><span class="card-title">Products by Category</span></div><div class="card-body"><div class="chart-box"><canvas id="ch-cat"></canvas></div></div></div>
+      <div class="card"><div class="card-hdr"><span class="card-title">Sales Concentration</span><span style="font-size:10px;color:var(--muted)">% of total sold by top N products</span></div><div class="card-body"><div class="chart-box"><canvas id="ch-pareto"></canvas></div></div></div>
+    </div>
     <div id="overviewEmpty" class="empty"><div class="empty-ico">📡</div><div class="empty-h">No data yet</div><div class="empty-t">Select a shop above or click Demo</div></div>
   </div>
 
@@ -1148,6 +1163,7 @@ function loadDemo() {
 // ========================================================
 function renderAll() {
   renderKPIs();
+  renderInsights();
   renderCharts();
   renderTable([...ST.products].sort((a,b)=>b.historical_sold-a.historical_sold));
   renderPricing();
@@ -1155,24 +1171,118 @@ function renderAll() {
 }
 
 // ========================================================
+// QUICK INSIGHTS
+// ========================================================
+function renderInsights() {
+  const p = ST.products;
+  const card = document.getElementById('insightsCard');
+  if (!p.length) { card.style.display='none'; return; }
+  card.style.display='';
+
+  const shopName = ST.shopMeta.name || ST.shopMeta.username || '';
+  set('insightsShopName', shopName);
+
+  const sorted = [...p].sort((a,b)=>(b.historical_sold||0)-(a.historical_sold||0));
+  const totalSold = p.reduce((a,x)=>a+(x.historical_sold||0),0);
+  const active = p.filter(x=>(x.historical_sold||0)>0);
+
+  const insights = [];
+
+  // 1. Pareto — top 20% products drive X% of sales
+  const top20pct = sorted.slice(0, Math.max(1, Math.round(sorted.length*0.2)));
+  const top20sold = top20pct.reduce((a,x)=>a+(x.historical_sold||0),0);
+  const top20share = totalSold>0 ? Math.round(top20sold/totalSold*100) : 0;
+  if (top20share > 0) {
+    const emoji = top20share >= 80 ? '🎯' : top20share >= 60 ? '📊' : '📈';
+    insights.push({ emoji, text: `Top ${top20pct.length} products (20%) drive <strong>${top20share}%</strong> of all sales`, type: top20share>=80?'warn':'info' });
+  }
+
+  // 2. Top seller
+  if (sorted[0] && (sorted[0].historical_sold||0)>0) {
+    const topProd = sorted[0];
+    const topShare = totalSold>0 ? Math.round((topProd.historical_sold/totalSold)*100) : 0;
+    insights.push({ emoji: '🏆', text: `Best seller: <strong>${topProd.name.substring(0,40)}${topProd.name.length>40?'…':''}</strong> — ${fmtNum(topProd.historical_sold)} sold (${topShare}% of shop)`, type:'info' });
+  }
+
+  // 3. Price sweet spot (bucket with most sold)
+  const buckets = {'<RM10':{min:0,max:10},'RM10-50':{min:10,max:50},'RM50-100':{min:50,max:100},'RM100-200':{min:100,max:200},'>RM200':{min:200,max:Infinity}};
+  let bestBucket='',bestBucketSold=0;
+  Object.entries(buckets).forEach(([name,{min,max}])=>{
+    const bProds=p.filter(x=>{const r=x.price_min/1e5;return r>=min&&r<max;});
+    const bSold=bProds.reduce((a,x)=>a+(x.historical_sold||0),0);
+    if(bSold>bestBucketSold){bestBucketSold=bSold;bestBucket=name;}
+  });
+  if(bestBucket) insights.push({ emoji:'💰', text:`Price sweet spot: <strong>${bestBucket}</strong> — highest combined sales volume`, type:'success' });
+
+  // 4. Dead stock alert
+  const zeroSales = p.filter(x=>!(x.historical_sold||0));
+  const deadPct = Math.round(zeroSales.length/p.length*100);
+  if (deadPct>0) {
+    const type = deadPct>=50?'warn':deadPct>=30?'neutral':'info';
+    insights.push({ emoji: deadPct>=50?'⚠️':'📦', text: `<strong>${zeroSales.length} products (${deadPct}%)</strong> have zero recorded sales — potential dead stock`, type });
+  }
+
+  // 5. Discount usage
+  const discProds = p.filter(x=>(x.raw_discount||0)>0);
+  if (discProds.length>0) {
+    const avgDisc = Math.round(discProds.reduce((a,x)=>a+(x.raw_discount||0),0)/discProds.length);
+    insights.push({ emoji:'🏷️', text:`<strong>${discProds.length} products</strong> have active discounts, avg <strong>${avgDisc}%</strong> off`, type:'info' });
+  }
+
+  // 6. Most sold category
+  const catSales={};
+  p.forEach(x=>{ const c=x._cat||'Other'; catSales[c]=(catSales[c]||0)+(x.historical_sold||0); });
+  const topCat=Object.entries(catSales).sort((a,b)=>b[1]-a[1])[0];
+  if(topCat&&topCat[1]>0) insights.push({ emoji:'📂', text:`Top category: <strong>${topCat[0]}</strong> with ${fmtNum(topCat[1])} sales`, type:'info' });
+
+  const typeStyle = { info:'background:#f0f9ff;border:1px solid #bae6fd;color:#0369a1', warn:'background:#fffbeb;border:1px solid #fcd34d;color:#92400e', success:'background:#f0fdf4;border:1px solid #86efac;color:#166534', neutral:'background:#f9fafb;border:1px solid #e5e7eb;color:#374151' };
+  const el = document.getElementById('insightsList');
+  el.innerHTML = insights.map(ins=>`<div style="display:flex;align-items:flex-start;gap:8px;padding:9px 12px;border-radius:8px;font-size:12px;line-height:1.5;${typeStyle[ins.type]||typeStyle.info}"><span style="flex-shrink:0;font-size:15px">${ins.emoji}</span><span>${ins.text}</span></div>`).join('');
+}
+
+// ========================================================
 // KPIs
 // ========================================================
 function renderKPIs() {
   const p = ST.products;
-  const prices = p.map(x=>x.price_min/1e5);
-  const avgP = prices.length ? (prices.reduce((a,b)=>a+b,0)/prices.length).toFixed(2) : 0;
+  if (!p.length) return;
+
+  // Median price
+  const prices = [...p].map(x=>x.price_min/1e5).filter(v=>v>0).sort((a,b)=>a-b);
+  const medP = prices.length ? prices[Math.floor(prices.length/2)] : 0;
+
+  // Total sold & estimated revenue
   const totalSold = p.reduce((a,x)=>a+(x.historical_sold||0),0);
+  const estRevenue = p.reduce((a,x)=>a+(x.historical_sold||0)*(x.price_min/1e5||0),0);
+
+  // Active products (with any sales)
+  const active = p.filter(x=>(x.historical_sold||0)>0);
+  const activePct = p.length ? Math.round(active.length/p.length*100) : 0;
+
+  // Rating
   const ratings = p.filter(x=>x.rating_star>0).map(x=>x.rating_star);
   const avgR = ratings.length ? (ratings.reduce((a,b)=>a+b,0)/ratings.length).toFixed(1) : '—';
+
+  // Discount
   const maxDisc = Math.max(0,...p.map(x=>x.raw_discount||0));
-  const followers = ST.shopMeta.follower_count||ST.shopMeta.total_products;
+
+  // Revenue formatting
+  const fmtRev = v => {
+    if(v>=1000000) return 'RM'+(v/1000000).toFixed(1)+'M';
+    if(v>=1000) return 'RM'+(v/1000).toFixed(0)+'K';
+    return 'RM'+v.toFixed(0);
+  };
 
   set('k-products', p.length);
-  set('k-sold', fmtNum(totalSold));
-  set('k-price', 'RM '+avgP);
+  set('k-products-sub', active.length + ' with sales');
+  set('k-revenue', fmtRev(estRevenue));
+  set('k-price', 'RM '+medP.toFixed(0));
+  set('k-price-sub', 'avg RM '+(prices.reduce((a,b)=>a+b,0)/prices.length).toFixed(0));
   set('k-rating', avgR);
-  set('k-followers', fmtNum(followers||0));
+  set('k-active', activePct+'%');
+  set('k-active-sub', active.length+' of '+p.length+' products');
   set('k-disc', maxDisc ? maxDisc+'%' : '—');
+  set('k-disc-sub', maxDisc ? 'up to '+maxDisc+'% off' : 'no discounts');
 }
 
 // ========================================================
@@ -1224,6 +1334,37 @@ function renderCharts() {
       backgroundColor:['#e8eaf0','rgba(245,158,11,.2)','rgba(249,115,22,.2)','rgba(16,185,129,.2)','rgba(239,68,68,.2)'],
       borderColor:['#d0d3de','#f59e0b','#f97316','#10b981','#ef4444'],
       borderWidth:1, borderRadius:4 }]
+  });
+
+  // Sales Concentration (Pareto) chart
+  const sorted = [...p].filter(x=>(x.historical_sold||0)>0).sort((a,b)=>b.historical_sold-a.historical_sold);
+  const totalSold2 = sorted.reduce((a,x)=>a+(x.historical_sold||0),0);
+  const paretoPoints = [1,2,3,5,10,15,20,30,50].map(n=>{
+    const take=Math.round(sorted.length*n/100)||1;
+    const cumSold=sorted.slice(0,take).reduce((a,x)=>a+(x.historical_sold||0),0);
+    return { label:`Top ${n}%`, sold_pct: totalSold2>0?Math.round(cumSold/totalSold2*100):0, n_prods: take };
+  });
+  mkChart('ch-pareto','bar',{
+    labels: paretoPoints.map(x=>x.label),
+    datasets:[{
+      label:'% of Total Sales',
+      data: paretoPoints.map(x=>x.sold_pct),
+      backgroundColor: paretoPoints.map(x=>x.sold_pct>=80?'rgba(239,68,68,.25)':x.sold_pct>=60?'rgba(249,115,22,.25)':'rgba(16,185,129,.2)'),
+      borderColor: paretoPoints.map(x=>x.sold_pct>=80?'#ef4444':x.sold_pct>=60?'#f97316':'#10b981'),
+      borderWidth:1, borderRadius:4
+    }]
+  },{
+    scales:{
+      x:{...dkAxis()},
+      y:{...dkAxis(),min:0,max:100,ticks:{...dkAxis().ticks,callback:v=>v+'%'}}
+    },
+    plugins:{
+      legend:{display:false},
+      tooltip:{
+        backgroundColor:'#1a1d2e',titleColor:'#fff',bodyColor:'#9ca3af',
+        callbacks:{label:ctx=>`${ctx.parsed.y}% of all sales (${paretoPoints[ctx.dataIndex].n_prods} products)`}
+      }
+    }
   });
 }
 

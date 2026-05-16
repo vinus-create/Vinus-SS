@@ -1,8 +1,18 @@
 // POST: receives browser-crawled products from category discovery
-// Also supports GET for server-side category crawl (limited without cookies)
+// Also supports GET for server-side category crawl (uses stored cookies)
 const S = process.env.SUPABASE_URL;
 const K = process.env.SUPABASE_SERVICE_KEY;
 const CRON_SECRET = process.env.CRON_SECRET || '';
+const H_SB = { 'apikey': K, 'Authorization': 'Bearer ' + K, 'Content-Type': 'application/json' };
+
+async function loadCookies() {
+  try {
+    const r = await fetch(`${S}/rest/v1/config?key=eq.shopee_cookies&select=value`, { headers: H_SB });
+    const rows = await r.json();
+    if (Array.isArray(rows) && rows.length && rows[0].value) return rows[0].value;
+  } catch(e) {}
+  return null;
+}
 
 const sb = async (table, rows, conflict, mode = 'merge-duplicates') => {
   if (!rows.length) return 0;
@@ -44,11 +54,15 @@ export default async function handler(req, res) {
     const today = new Date().toISOString().split('T')[0];
     const sleep = ms => new Promise(r => setTimeout(r, ms));
 
+    // Load stored cookies from Supabase
+    const cookies = await loadCookies();
     const H = {
       'x-api-source': 'pc', 'x-shopee-language': 'en',
       'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
       'Referer': 'https://shopee.com.my/', 'Accept': 'application/json',
+      ...(cookies ? { 'Cookie': cookies } : {})
     };
+    console.log(`Discover: cookies ${cookies ? 'loaded' : 'NOT found'}, catids=${catList}, pages=${maxPages}`);
 
     const products = [];
     for (const catid of catList) {
@@ -56,20 +70,21 @@ export default async function handler(req, res) {
       for (let p = 0; p < maxPages; p++) {
         try {
           const r = await fetch(`https://shopee.com.my/api/v4/search/search_items?by=sales&limit=60&match_id=${catid}&newest=${offset}&order=desc&page_type=search&scenario=PAGE_CATEGORY&version=2`, { headers: H, signal: AbortSignal.timeout(12000) });
-          if (!r.ok) break;
+          if (!r.ok) { console.log(`Shopee returned ${r.status} for catid=${catid}`); break; }
           const d = await r.json();
-          const items = (d.items || []).map(i => i.item_basic);
+          const items = (d.items || []).map(i => i.item_basic).filter(Boolean);
           if (!items.length) break;
           products.push(...items);
+          console.log(`  catid ${catid} page ${p+1}: ${items.length} items (total: ${products.length})`);
           if (items.length < 60) break;
           offset += 60;
-          await sleep(600);
-        } catch (e) { break; }
+          await sleep(700);
+        } catch (e) { console.error(`Fetch error catid ${catid}:`, e.message); break; }
       }
-      await sleep(800);
+      await sleep(1000);
     }
 
-    if (!products.length) return res.status(200).json({ ok: true, message: 'No results from server-side (use browser trigger)', products_saved: 0, shops_discovered: 0 });
+    if (!products.length) return res.status(200).json({ ok: true, message: cookies ? 'Shopee returned 0 results — cookies may be expired. Refresh them in Setup Guide.' : 'No cookies saved yet. Go to Setup Guide → Cookie Setup to save your Shopee cookies.', products_saved: 0, shops_discovered: 0, cookies_loaded: !!cookies });
 
     return await saveDiscoveredProducts(res, products, catList, today);
   }
