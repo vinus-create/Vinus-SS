@@ -8,7 +8,7 @@ on:
 jobs:
   scrape:
     name: "Scrape ${{ matrix.shop }}"
-    runs-on: ubuntu-latest
+    runs-on: self-hosted
     timeout-minutes: 30
     strategy:
       fail-fast: false      # 一家失败不影响其他
