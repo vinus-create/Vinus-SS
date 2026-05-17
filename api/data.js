@@ -26,36 +26,63 @@ export default async function handler(req, res) {
 
     if (type === 'products' && shopid) {
       const data = await query(`latest_products?shopid=eq.${shopid}&order=historical_sold.desc&limit=${limit}`);
+      // If today's scrape returned historical_sold=0 (Shopee hides this for visitor sessions),
+      // fall back to the best known value from previous scrape dates
+      const hasZeroSold = data.some(p => !p.historical_sold);
+      let maxSold = {};
+      if (hasZeroSold) {
+        const hist = await query(`products?shopid=eq.${shopid}&historical_sold=gt.0&order=historical_sold.desc&limit=2000`);
+        hist.forEach(p => { if ((p.historical_sold||0) > (maxSold[p.itemid]||0)) maxSold[p.itemid] = p.historical_sold; });
+      }
       const enhanced = data.map(p => ({
         ...p,
+        historical_sold: maxSold[p.itemid] || p.historical_sold || 0,
         image_url: p.image ? `https://down-my.img.susercontent.com/file/${p.image}` : '',
         product_url: p.username && p.shopid && p.itemid
           ? `https://shopee.com.my/${p.username}-i.${p.shopid}.${p.itemid}` : ''
       }));
+      // Re-sort by best historical_sold after merge
+      enhanced.sort((a,b) => (b.historical_sold||0) - (a.historical_sold||0));
       return res.status(200).json(enhanced);
     }
 
     // Products by category across all shops
     if (type === 'category' && catid) {
       const data = await query(`latest_products?catid=eq.${catid}&order=historical_sold.desc&limit=${limit}`);
+      const hasZeroSold = data.some(p => !p.historical_sold);
+      let maxSold = {};
+      if (hasZeroSold) {
+        const hist = await query(`products?catid=eq.${catid}&historical_sold=gt.0&order=historical_sold.desc&limit=3000`);
+        hist.forEach(p => { if ((p.historical_sold||0) > (maxSold[p.itemid]||0)) maxSold[p.itemid] = p.historical_sold; });
+      }
       const enhanced = data.map(p => ({
         ...p,
+        historical_sold: maxSold[p.itemid] || p.historical_sold || 0,
         image_url: p.image ? `https://down-my.img.susercontent.com/file/${p.image}` : '',
         product_url: p.username && p.shopid && p.itemid
           ? `https://shopee.com.my/${p.username}-i.${p.shopid}.${p.itemid}` : ''
       }));
+      enhanced.sort((a,b) => (b.historical_sold||0) - (a.historical_sold||0));
       return res.status(200).json(enhanced);
     }
 
     // Top sellers across ALL shops (market-wide)
     if (type === 'top-products') {
       const data = await query(`latest_products?order=historical_sold.desc&limit=${limit}`);
+      const hasZeroSold = data.some(p => !p.historical_sold);
+      let maxSold = {};
+      if (hasZeroSold) {
+        const hist = await query(`products?historical_sold=gt.0&order=historical_sold.desc&limit=5000`);
+        hist.forEach(p => { if ((p.historical_sold||0) > (maxSold[p.itemid]||0)) maxSold[p.itemid] = p.historical_sold; });
+      }
       const enhanced = data.map(p => ({
         ...p,
+        historical_sold: maxSold[p.itemid] || p.historical_sold || 0,
         image_url: p.image ? `https://down-my.img.susercontent.com/file/${p.image}` : '',
         product_url: p.username && p.shopid && p.itemid
           ? `https://shopee.com.my/${p.username}-i.${p.shopid}.${p.itemid}` : ''
       }));
+      enhanced.sort((a,b) => (b.historical_sold||0) - (a.historical_sold||0));
       return res.status(200).json(enhanced);
     }
 
