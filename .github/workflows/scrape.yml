@@ -51,6 +51,7 @@ jobs:
         working-directory: scraper
         env:
           SHOP_NAME:           ${{ matrix.shop }}
+          SHOPEE_COOKIES:      ${{ secrets.SHOPEE_COOKIES }}
           SUPABASE_URL:        ${{ secrets.SUPABASE_URL }}
           SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
           VERCEL_URL:          ${{ secrets.VERCEL_URL }}
