@@ -937,6 +937,45 @@ tr:hover td{background:rgba(249,115,22,.04)}
       </div></div>
     </div>
 
+    <!-- One-Click Bookmarklet Card -->
+    <div class="card" style="border:2px solid #22c55e;margin-bottom:16px">
+      <div class="card-hdr" style="background:linear-gradient(135deg,#f0fdf4,#dcfce7)">
+        <span class="card-title">🔖 One-Click Bookmarklet Scraper</span>
+        <span style="font-size:11px;background:#22c55e;color:#fff;padding:2px 8px;border-radius:4px;font-weight:700;margin-left:8px">RECOMMENDED</span>
+      </div>
+      <div class="card-body">
+        <p style="font-size:12px;color:var(--muted);margin-bottom:14px">
+          Shopee blocks all servers (Vercel, Cloudflare, Supabase) from scraping — only your browser session works.
+          Drag this button to your bookmarks bar. Visit <strong>shopee.com.my</strong> → click it → all 13 shops scrape automatically. <strong>No code pasting needed.</strong>
+        </p>
+
+        <!-- Drag target -->
+        <div style="text-align:center;padding:20px;background:#f0fdf4;border:2px dashed #86efac;border-radius:10px;margin-bottom:16px">
+          <div style="font-size:11px;color:#15803d;font-weight:700;margin-bottom:12px;letter-spacing:.5px">⬇️ DRAG THIS TO YOUR CHROME BOOKMARKS BAR ⬇️</div>
+          <a id="ss-bookmarklet" href="#"
+             draggable="true"
+             style="display:inline-block;background:#f97316;color:#fff;padding:11px 28px;border-radius:8px;font-weight:700;font-size:15px;text-decoration:none;cursor:grab;box-shadow:0 4px 16px rgba(249,115,22,.35);border:none">
+            📊 ShopeeScope Scraper
+          </a>
+          <div style="font-size:10px;color:#6b7280;margin-top:10px">Or right-click → <strong>Bookmark link</strong></div>
+        </div>
+
+        <!-- Steps -->
+        <ol style="font-size:12px;color:var(--muted);padding-left:20px;line-height:2.3;margin-bottom:12px">
+          <li>Drag the orange button above to your <strong>Chrome bookmarks bar</strong> (View → Always Show Bookmarks Bar)</li>
+          <li>Open <a href="https://shopee.com.my" target="_blank" style="color:var(--acc)">shopee.com.my</a> — make sure you're <strong>logged in</strong></li>
+          <li>Click <strong>📊 ShopeeScope Scraper</strong> in your bookmarks bar</li>
+          <li>A progress overlay appears at top-right — scraping all 13 shops (~15 min)</li>
+          <li>Overlay turns <span style="color:#22c55e;font-weight:700">✅ green</span> when done → refresh this dashboard</li>
+        </ol>
+
+        <div style="background:#fef3c7;border:1px solid #fbbf24;border-radius:8px;padding:10px 12px;font-size:11px;color:#92400e">
+          💡 <strong>Why browser only?</strong> Shopee uses geo-IP + bot detection that blocks all datacenters. Your browser passes because it uses your real Shopee session cookies automatically.
+          If it fails (403), just log out and back into Shopee.
+        </div>
+      </div>
+    </div>
+
     <!-- Cookie Setup Card -->
     <div class="card" style="border:2px solid var(--acc);margin-bottom:16px">
       <div class="card-hdr" style="background:linear-gradient(135deg,#fff7ed,#ffedd5)">
@@ -3179,6 +3218,50 @@ function renderDiscoverResults(shopids) {
       </table></div>
     </div>`;
 }
+</script>
+
+<script>
+// ── Bookmarklet href setter ──────────────────────────────────────────────────
+(function(){
+  var code = '(async()=>{' +
+    'if(!location.hostname.includes(\'shopee.com.my\')){alert(\'⚠️ Please open shopee.com.my first!\');return;}' +
+    'var V=\'https://vinus-ss.vercel.app\';' +
+    'var SHOPS=[\'buddysnack\',\'winstartech\',\'1stopbatteries\',\'icare4allshop\',\'energizerbatteryhub\',\'gadgetspecialist\',\'gou.ori\',\'tenbucksfood\',\'dsconcept_store\',\'sxmixempire\',\'r_in_g\',\'nextgenhardware.os\',\'ham_radios.my\'];' +
+    'var sleep=function(ms){return new Promise(function(r){setTimeout(r,ms+~~(Math.random()*400));});};' +
+    'var api=async function(p){var r=await fetch(\'https://shopee.com.my\'+p,{credentials:\'include\',headers:{\'x-api-source\':\'pc\',\'x-shopee-language\':\'en\',\'Accept\':\'application/json\',\'Referer\':\'https://shopee.com.my/\'}});if(!r.ok)throw new Error(r.status+\':\'+p);return r.json();};' +
+    'async function allP(sid){var seen=new Set(),map={};for(var by of[\'sales\',\'ctime\',\'price\']){var off=0;while(1){var d=await api(\'/api/v4/search/search_items?by=\'+by+\'&limit=60&match_id=\'+sid+\'&newest=\'+off+\'&order=desc&page_type=shop&scenario=PAGE_OTHERS&version=2\');var b=(d.items||[]).map(function(i){return i.item_basic;}).filter(Boolean);if(!b.length)break;b.forEach(function(p){if(!seen.has(p.itemid)){seen.add(p.itemid);map[p.itemid]=p;}});if(b.length<60)break;off+=60;await sleep(800);}await sleep(1500);}return Object.values(map);}' +
+    'var el=document.createElement(\'div\');' +
+    'el.style.cssText=\'position:fixed;top:16px;right:16px;z-index:999999;background:#1e293b;color:#f8fafc;padding:14px 18px;border-radius:12px;font-family:sans-serif;font-size:13px;min-width:270px;max-width:340px;box-shadow:0 8px 32px rgba(0,0,0,.5);border:1px solid #334155\';' +
+    'var h=document.createElement(\'div\');h.style.cssText=\'font-weight:700;margin-bottom:8px;font-size:14px\';h.textContent=\'🔄 ShopeeScope Scraper\';' +
+    'var m=document.createElement(\'div\');m.style.cssText=\'font-size:12px;color:#cbd5e1;line-height:1.5\';m.textContent=\'Starting...\';' +
+    'el.appendChild(h);el.appendChild(m);document.body.appendChild(el);' +
+    'var msg=function(t){m.textContent=t;console.log(\'[ShopeeScope]\',t);};' +
+    'var res=[];' +
+    'for(var i=0;i<SHOPS.length;i++){' +
+      'var u=SHOPS[i];' +
+      'try{' +
+        'msg(\'[\'+(i+1)+\'/13] \'+u+\': getting shop...\');' +
+        'var sr=await api(\'/api/v4/shop/get_shop_detail?username=\'+u);' +
+        'if(!sr.data)throw new Error(\'not found\');' +
+        'var s=sr.data;' +
+        'msg(\'[\'+(i+1)+\'/13] \'+u+\': scraping \'+s.item_count+\' products...\');' +
+        'var items=await allP(s.shopid);' +
+        'msg(\'[\'+(i+1)+\'/13] \'+u+\': saving \'+items.length+\'...\');' +
+        'var rv=await(await fetch(V+\'/api/save\',{method:\'POST\',headers:{\'Content-Type\':\'application/json\'},body:JSON.stringify({shop:s,products:items,username:u})})).json();' +
+        'res.push({u:u,ok:1,n:rv.saved||0});' +
+        'msg(\'✅ \'+u+\': \'+rv.saved+\' saved\');' +
+        'if(i<12)await sleep(8000);' +
+      '}catch(e){res.push({u:u,ok:0});msg(\'❌ \'+u+\': \'+e.message);await sleep(2000);}' +
+    '}' +
+    'var ok=res.filter(function(r){return r.ok;}).length;' +
+    'el.style.border=\'1px solid \'+(ok===13?\'#22c55e\':\'#f97316\');' +
+    'h.textContent=(ok===13?\'✅\':\'⚠️\')+\' Done: \'+ok+\'/13 shops scraped!\';' +
+    'm.textContent=\'Refresh your dashboard! Click to close.\';' +
+    'el.style.cursor=\'pointer\';el.onclick=function(){el.remove();};' +
+  '})()';
+  var bm = document.getElementById('ss-bookmarklet');
+  if(bm) bm.href = 'javascript:' + code;
+})();
 </script>
 </body>
 </html>
