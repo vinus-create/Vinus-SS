@@ -120,7 +120,7 @@ async function main() {
       return r.json();
     };
 
-    async function allProds(shopid) {
+    async function allProds(shopid, username) {
       const seen = new Set(), map = {};
       for (const by of ['sales', 'ctime', 'price']) {
         let off = 0;
@@ -129,6 +129,10 @@ async function main() {
             `/api/v4/search/search_items?by=${by}&limit=60&match_id=${shopid}` +
             `&newest=${off}&order=desc&page_type=shop&scenario=PAGE_OTHERS&version=2`
           );
+          // Debug: log raw response info when no items
+          if (!d.items || d.items.length === 0) {
+            console.log(`  [${username}] by=${by} off=${off} → 0 items | error=${d.error||'none'} | keys=${Object.keys(d).join(',')}`);
+          }
           const b = (d.items || []).map(i => i.item_basic).filter(Boolean);
           if (!b.length) break;
           b.forEach(p => { if (!seen.has(p.itemid)) { seen.add(p.itemid); map[p.itemid] = p; } });
@@ -147,7 +151,9 @@ async function main() {
         const sr = await api(`/api/v4/shop/get_shop_detail?username=${username}`);
         if (!sr.data) throw new Error('shop not found');
         const shop  = sr.data;
-        const prods = await allProds(shop.shopid);
+        console.log(`  [${username}] shopid=${shop.shopid} item_count=${shop.item_count||'?'}`);
+        const prods = await allProds(shop.shopid, username);
+        console.log(`  [${username}] allProds returned ${prods.length}`);
         const rv = await (await fetch(`${vercelUrl}/api/save`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
