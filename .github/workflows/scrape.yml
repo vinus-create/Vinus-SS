@@ -50,11 +50,8 @@ jobs:
       - name: Scrape ${{ matrix.shop }}
         working-directory: scraper
         env:
-          SHOP_NAME:           ${{ matrix.shop }}
-          SHOPEE_COOKIES:      ${{ secrets.SHOPEE_COOKIES }}
-          SUPABASE_URL:        ${{ secrets.SUPABASE_URL }}
-          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
-          VERCEL_URL:          ${{ secrets.VERCEL_URL }}
+          SHOP_NAME:            ${{ matrix.shop }}
+          VERCEL_URL:           ${{ secrets.VERCEL_URL }}
         run: node scrape.js
 
       - name: Upload logs on failure
