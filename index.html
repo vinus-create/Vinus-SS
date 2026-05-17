@@ -881,10 +881,9 @@ tr:hover td{background:rgba(249,115,22,.04)}
         <div class="card">
           <div class="card-hdr"><span class="card-title">Requirements</span></div>
           <div class="card-body" style="font-size:11px;line-height:1.8;color:var(--muted)">
-            <div>✅ <strong>Fresh cookies</strong> — save via Setup Guide → Cookie Setup</div>
-            <div>✅ <strong>No browser needed</strong> — runs fully server-side on Vercel</div>
-            <div>✅ <strong>CSRF token</strong> — automatically extracted from saved cookies</div>
-            <div>⚠️ <strong>Cookies expire</strong> — refresh every 7–14 days if discovery fails</div>
+            <div>✅ <strong>POST mode</strong> — send products from browser via bookmarklet</div>
+            <div>⚠️ <strong>GET mode (server-side)</strong> — may get 403 due to Shopee IP block</div>
+            <div>✅ <strong>Browser mode is reliable</strong> — uses your live Shopee session</div>
           </div>
         </div>
       </div>
@@ -896,14 +895,14 @@ tr:hover td{background:rgba(249,115,22,.04)}
   <div class="sec" id="sec-framework">
     <div class="card" style="margin-bottom:16px"><div class="card-body">
       <h2 style="font-size:20px;font-weight:800;margin-bottom:6px">Full Setup Guide</h2>
-      <p style="color:var(--muted);font-size:12px">Supabase + Vercel + Claude in Chrome — complete production stack</p>
+      <p style="color:var(--muted);font-size:12px">Supabase + Vercel + Bookmarklet — one-click scraping, no server needed</p>
     </div></div>
 
     <div class="flow">
       <div class="fstep"><div class="fnum">1</div><div class="ftit">Supabase</div><div class="fdesc">Create project, run SQL schema, copy URL + service key</div></div>
       <div class="fstep"><div class="fnum">2</div><div class="ftit">GitHub</div><div class="fdesc">Push shopee-scope folder, connect repo to Vercel</div></div>
       <div class="fstep"><div class="fnum">3</div><div class="ftit">Vercel</div><div class="fdesc">Add env vars, deploy — get your live dashboard URL</div></div>
-      <div class="fstep"><div class="fnum">4</div><div class="ftit">Scrape</div><div class="fdesc">Open shopee.com.my in Chrome, run scraper.js via Claude</div></div>
+      <div class="fstep"><div class="fnum">4</div><div class="ftit">Scrape</div><div class="fdesc">Install bookmarklet → open shopee.com.my → one click</div></div>
       <div class="fstep"><div class="fnum">5</div><div class="ftit">Analyse</div><div class="fdesc">Open dashboard on phone, select shop, get insights</div></div>
     </div>
 
@@ -926,13 +925,12 @@ tr:hover td{background:rgba(249,115,22,.04)}
         </ul>
       </div></div>
 
-      <div class="card"><div class="card-hdr"><span class="card-title">3. Run Scraper</span></div><div class="card-body">
+      <div class="card"><div class="card-hdr"><span class="card-title">3. Scrape</span></div><div class="card-body">
         <ul class="ilist">
-          <li class="iitem"><div class="iico">1️⃣</div><div><div class="itxt">Open Chrome with Claude in Chrome extension</div></div></li>
-          <li class="iitem"><div class="iico">2️⃣</div><div><div class="itxt">Navigate to <code style="color:var(--acc2)">shopee.com.my</code></div></div></li>
-          <li class="iitem"><div class="iico">3️⃣</div><div><div class="itxt">Edit <code style="color:var(--acc2)">scraper.js</code> — set VERCEL_URL + shop usernames</div></div></li>
-          <li class="iitem"><div class="iico">4️⃣</div><div><div class="itxt">Ask Claude to run the scraper via javascript_tool</div></div></li>
-          <li class="iitem"><div class="iico">📱</div><div><div class="itxt">Open dashboard on phone → select shop → done!</div></div></li>
+          <li class="iitem"><div class="iico">🔖</div><div><div class="itxt">Drag the <strong>📊 ShopeeScope Scraper</strong> bookmarklet (below) to Chrome bookmarks bar</div></div></li>
+          <li class="iitem"><div class="iico">🌐</div><div><div class="itxt">Open <code style="color:var(--acc2)">shopee.com.my</code> — log in</div></div></li>
+          <li class="iitem"><div class="iico">👆</div><div><div class="itxt">Click the bookmarklet — all 13 shops scrape automatically (~15 min)</div></div></li>
+          <li class="iitem"><div class="iico">✅</div><div><div class="itxt">Overlay turns green → refresh dashboard → done!</div></div></li>
         </ul>
       </div></div>
     </div>
@@ -976,71 +974,11 @@ tr:hover td{background:rgba(249,115,22,.04)}
       </div>
     </div>
 
-    <!-- Cookie Setup Card -->
-    <div class="card" style="border:2px solid var(--acc);margin-bottom:16px">
-      <div class="card-hdr" style="background:linear-gradient(135deg,#fff7ed,#ffedd5)">
-        <span class="card-title">🍪 Cookie Setup (Required for Auto-Scrape)</span>
-        <span id="cookie-status" style="font-size:11px;color:var(--muted);margin-left:8px">checking...</span>
-      </div>
-      <div class="card-body">
-
-        <!-- Status panel -->
-        <div id="cookie-diag" style="background:#f1f5f9;border:1px solid #e2e8f0;border-radius:8px;padding:12px;margin-bottom:16px;display:none">
-          <div style="font-weight:700;font-size:12px;margin-bottom:6px">Current Cookie Status</div>
-          <div id="cookie-diag-body" style="font-size:11px;line-height:1.9;font-family:'DM Mono',monospace"></div>
-          <button onclick="checkCookieStatus(true)" style="margin-top:8px;padding:4px 12px;background:var(--s3);border:1px solid var(--border);border-radius:5px;font-size:11px;cursor:pointer">↻ Re-check</button>
-        </div>
-
-        <!-- Why old method failed -->
-        <div style="background:#fef2f2;border:1px solid #fca5a5;border-radius:8px;padding:10px 12px;margin-bottom:14px;font-size:11px;color:#991b1b">
-          ⚠️ <strong>Important:</strong> Browser-based cookie saving (bookmarklet / document.cookie) only captures ~1 cookie. Shopee's session cookies are <em>httpOnly</em> — invisible to JavaScript. You must copy from the <strong>Network tab</strong> to get all cookies.
-        </div>
-
-        <!-- Step 1 -->
-        <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:12px;margin-bottom:12px">
-          <div style="font-weight:700;font-size:12px;margin-bottom:8px;color:var(--acc)">STEP 1 — Open Shopee logged in</div>
-          <div style="font-size:12px;color:var(--muted)">Go to <a href="https://shopee.com.my" target="_blank" style="color:var(--acc)">shopee.com.my</a> and make sure you are <strong>logged in</strong> as vinusahboy.</div>
-        </div>
-
-        <!-- Step 2 -->
-        <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:12px;margin-bottom:12px">
-          <div style="font-weight:700;font-size:12px;margin-bottom:8px;color:var(--acc)">STEP 2 — Open DevTools Network tab &amp; copy cookies</div>
-          <ol style="font-size:12px;color:var(--muted);padding-left:18px;line-height:2">
-            <li>Press <strong>F12</strong> to open DevTools</li>
-            <li>Click the <strong>Network</strong> tab</li>
-            <li>Press <strong>F5</strong> to reload the page</li>
-            <li>Click on the first request named <strong>shopee.com.my</strong> (or any XHR)</li>
-            <li>In the right panel, click <strong>Headers</strong> tab</li>
-            <li>Scroll to <strong>Request Headers</strong> → find <strong>cookie:</strong></li>
-            <li>Right-click the long value → <strong>Copy value</strong></li>
-          </ol>
-          <div style="margin-top:8px;background:#1a1d2e;color:#a5f3fc;font-family:'DM Mono',monospace;font-size:10px;padding:8px 10px;border-radius:6px">
-            Network → click any request → Headers → Request Headers → cookie: → right-click → Copy value
-          </div>
-        </div>
-
-        <!-- Step 3 -->
-        <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:12px;margin-bottom:12px">
-          <div style="font-weight:700;font-size:12px;margin-bottom:6px;color:var(--acc)">STEP 3 — Paste &amp; Save</div>
-          <textarea id="cookie-input" placeholder="Paste the full cookie string here (should be very long — 500+ characters with SPC_U, SPC_F, SPC_CTOKEN etc.)" style="width:100%;height:90px;font-size:10px;font-family:'DM Mono',monospace;border:1px solid #e2e8f0;border-radius:6px;padding:8px;resize:vertical;box-sizing:border-box"></textarea>
-          <div style="display:flex;gap:8px;margin-top:8px;align-items:center">
-            <button onclick="saveCookiesManual()" style="background:var(--acc);color:#fff;border:none;padding:7px 18px;border-radius:6px;font-size:12px;font-weight:700;cursor:pointer">💾 Save Cookies</button>
-            <span id="save-cookie-msg" style="font-size:11px;color:var(--muted)"></span>
-          </div>
-        </div>
-
-        <div style="font-size:11px;color:var(--muted);line-height:1.7">
-          ✅ Cookies stored in Supabase — never exposed client-side.<br>
-          🔁 Refresh every <strong>14–30 days</strong> when cron starts failing (403 errors in Scrape Log).
-        </div>
-      </div>
-    </div>
-
     <div class="card"><div class="card-hdr"><span class="card-title">File Structure</span></div><div class="card-body">
       <pre style="font-family:'DM Mono',monospace;font-size:11px;color:var(--muted);line-height:1.8">
 shopee-scope/
 ├── <span style="color:var(--acc2)">index.html</span>              ← This dashboard (served by Vercel)
-├── <span style="color:var(--acc2)">scraper.js</span>              ← Run in Claude in Chrome
+├── <span style="color:var(--acc2)">scraper.js</span>              ← Bookmarklet source (reference only)
 ├── <span style="color:var(--acc2)">supabase_schema.sql</span>     ← Run once in Supabase SQL Editor
 ├── <span style="color:var(--acc2)">vercel.json</span>             ← Vercel routing config
 ├── api/
@@ -1119,120 +1057,8 @@ let CH = {};
 window.onload = async () => {
   initCols();
   buildColPanel();
-  initBookmarklet();
-  checkCookieStatus();
   await refreshShops();
 };
-
-// ========================================================
-// ========================================================
-// COOKIE SETUP
-// ========================================================
-const VERCEL_URL = 'https://vinus-ss.vercel.app';
-const CRON_SECRET = 'shopeescope2026';
-
-function initBookmarklet() {
-  const code = `(function(){
-    var s=document.cookie;
-    if(!s){alert('No cookies found. Make sure you are logged in to Shopee.');return;}
-    fetch('${VERCEL_URL}/api/save-config',{
-      method:'POST',
-      headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({key:'shopee_cookies',value:s,secret:'${CRON_SECRET}'})
-    }).then(r=>r.json()).then(d=>{
-      if(d.ok)alert('✅ Shopee cookies saved! Cron will now scrape automatically.');
-      else alert('❌ Error: '+JSON.stringify(d));
-    }).catch(e=>alert('❌ Failed: '+e.message));
-  })();`;
-  const el = document.getElementById('bookmarklet-link');
-  if (el) el.href = 'javascript:' + encodeURIComponent(code).replace(/%20/g, ' ');
-}
-
-async function checkCookieStatus(showDiag) {
-  const el = document.getElementById('cookie-status');
-  try {
-    // Quick test against Shopee to get real status
-    const r = await fetch(`${API}/api/test-shopee`);
-    const d = await r.json();
-    if (!el) return;
-
-    const loginOk = d.search_items?.status === 200;
-    const hasCookies = d.cookies_loaded;
-    const cookieCount = d.cookie_count || 0;
-    const hasSPCU = d.has_SPC_U;
-    const hasCsrf = d.has_csrf_token;
-
-    if (loginOk) {
-      el.textContent = `✅ Logged in (${cookieCount} cookies)`;
-      el.style.color = '#16a34a';
-    } else if (hasCookies && !hasSPCU) {
-      el.textContent = `❌ Incomplete cookies — only ${cookieCount} saved, missing SPC_U`;
-      el.style.color = '#dc2626';
-    } else if (!hasCookies) {
-      el.textContent = '❌ No cookies saved yet';
-      el.style.color = '#dc2626';
-    } else {
-      el.textContent = `⚠️ Cookies saved (${cookieCount}) but Shopee returned ${d.search_items?.status}`;
-      el.style.color = '#d97706';
-    }
-
-    // Show detailed panel if requested
-    if (showDiag || !loginOk) {
-      const diagEl = document.getElementById('cookie-diag');
-      const bodyEl = document.getElementById('cookie-diag-body');
-      if (diagEl && bodyEl) {
-        diagEl.style.display = '';
-        const ok = (v) => v ? '✅' : '❌';
-        bodyEl.innerHTML = `
-          ${ok(hasCookies)} Cookies saved: <strong>${cookieCount}</strong> (need 15+)<br>
-          ${ok(hasSPCU)} SPC_U (login session): <strong>${hasSPCU ? 'found' : 'MISSING — copy from Network tab'}</strong><br>
-          ${ok(d.has_SPC_F)} SPC_F (fingerprint): <strong>${d.has_SPC_F ? 'found' : 'missing'}</strong><br>
-          ${ok(hasCsrf)} SPC_CTOKEN (CSRF): <strong>${hasCsrf ? 'found' : 'missing'}</strong><br>
-          ${ok(d.shop_detail?.status===200)} Shop detail API: <strong>${d.shop_detail?.status}</strong><br>
-          ${ok(loginOk)} Search API (needs login): <strong>${d.search_items?.status}${!loginOk ? ' — ' + (JSON.parse(d.search_items?.body||'{}').is_login===false ? 'not logged in' : 'error') : ' ✓'}</strong>
-        `;
-      }
-    }
-  } catch(e) {
-    if (el) { el.textContent = 'Could not check'; el.style.color = 'var(--muted)'; }
-  }
-}
-
-async function saveCookiesManual() {
-  const val = document.getElementById('cookie-input').value.trim();
-  const msgEl = document.getElementById('save-cookie-msg');
-  if (!val) { if(msgEl) msgEl.textContent = '⚠️ Paste your cookie string first'; return; }
-
-  // Validate: must contain SPC_U (logged-in session cookie)
-  const count = val.split(';').length;
-  if (!val.includes('SPC_U=')) {
-    if (msgEl) msgEl.innerHTML = `❌ Cookie string has ${count} cookies but is missing <strong>SPC_U</strong> — you may not be logged in, or copied wrong. Re-copy from Network tab.`;
-    return;
-  }
-  if (count < 5) {
-    if (msgEl) msgEl.textContent = `⚠️ Only ${count} cookies — looks incomplete. Make sure to copy the full "cookie:" value from Network tab.`;
-    // allow save anyway
-  }
-
-  if (msgEl) msgEl.textContent = '💾 Saving...';
-  try {
-    const r = await fetch(`${API}/api/save-config`, {
-      method: 'POST',
-      headers: {'Content-Type':'application/json'},
-      body: JSON.stringify({key:'shopee_cookies', value: val, secret: CRON_SECRET})
-    });
-    const d = await r.json();
-    if (d.ok) {
-      if (msgEl) msgEl.innerHTML = `✅ Saved ${count} cookies! Testing with Shopee...`;
-      document.getElementById('cookie-input').value = '';
-      setTimeout(() => checkCookieStatus(true), 1500);
-    } else {
-      if (msgEl) msgEl.textContent = '❌ Error: ' + JSON.stringify(d);
-    }
-  } catch(e) {
-    if (msgEl) msgEl.textContent = '❌ Failed: ' + e.message;
-  }
-}
 
 // ========================================================
 // TABS
@@ -3184,7 +3010,7 @@ async function runDiscovery() {
       }
     } else {
       discLog(`❌ Error: ${result.error || result.message || 'Unknown error'}`);
-      if (result.cookies_loaded === false) discLog(`⚠️ No cookies saved yet — go to Setup Guide → Cookie Setup to save your Shopee cookies.`);
+      if (result.cookies_loaded === false) discLog(`⚠️ Server-side discovery blocked by Shopee IP filter. Use the bookmarklet on shopee.com.my instead.`);
     }
   } catch(e) {
     if (e.name === 'TimeoutError' || e.name === 'AbortError') {
