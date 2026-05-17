@@ -1,30 +1,22 @@
 // ShopeeScope — Playwright scraper for GitHub Actions
-// No login required — uses stealth Chromium from 2 parallel jobs (different IPs)
-// SHOP_BATCH=0 → shops 0-6, SHOP_BATCH=1 → shops 7-12
+// Each shop runs in its own job with its own IP — no rate limits, no account needed.
+// Usage: SHOP_NAME=buddysnack node scrape.js
 
 const { chromium } = require('playwright-extra');
 const StealthPlugin = require('puppeteer-extra-plugin-stealth');
 chromium.use(StealthPlugin());
 
 const VERCEL_URL = process.env.VERCEL_URL || 'https://vinus-ss.vercel.app';
-const BATCH      = parseInt(process.env.SHOP_BATCH ?? '0', 10);
+const SHOP_NAME  = process.env.SHOP_NAME;
 
-const ALL_SHOPS = [
-  'buddysnack','winstartech','1stopbatteries','icare4allshop',
-  'energizerbatteryhub','gadgetspecialist','gou.ori',
-  'tenbucksfood','dsconcept_store','sxmixempire',
-  'r_in_g','nextgenhardware.os','ham_radios.my'
-];
+if (!SHOP_NAME) {
+  console.error('❌ SHOP_NAME env var is required');
+  process.exit(1);
+}
 
-// Split into 2 batches of ~6-7 shops each
-const BATCHES = [ALL_SHOPS.slice(0, 7), ALL_SHOPS.slice(7)];
-const SHOPS   = BATCHES[BATCH] ?? ALL_SHOPS;
-
-// ── Main ──────────────────────────────────────────────────────────────────────
 async function main() {
-  console.log(`🗂️  Batch ${BATCH}: scraping ${SHOPS.length} shops → [${SHOPS.join(', ')}]`);
+  console.log(`🏪 Scraping: ${SHOP_NAME}`);
 
-  console.log('🌐 Launching Chromium (stealth, no cookies)...');
   const browser = await chromium.launch({
     headless: true,
     args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage'],
@@ -40,21 +32,19 @@ async function main() {
 
   const page = await context.newPage();
 
-  // Warm up — visit Shopee homepage first to establish session
-  console.log('🏠 Warming up on shopee.com.my...');
+  // Warm up — visit Shopee homepage first
+  console.log('🏠 Warming up...');
   await page.goto('https://shopee.com.my', { waitUntil: 'domcontentloaded', timeout: 30000 });
-  await page.waitForTimeout(5000);
+  await page.waitForTimeout(4000);
 
-  const finalUrl = page.url();
-  console.log('   Final URL:', finalUrl);
-  if (finalUrl.includes('verify/traffic')) {
+  if (page.url().includes('verify/traffic')) {
     await browser.close();
-    throw new Error('Bot detection on warmup. Try again later.');
+    throw new Error('Bot detection triggered on warmup.');
   }
 
   // ── Scrape inside browser context ─────────────────────────────────────────
-  const results = await page.evaluate(async ({ shops, vercelUrl, batchNum }) => {
-    const sleep = ms => new Promise(r => setTimeout(r, ms + Math.floor(Math.random() * ms * 0.3)));
+  const result = await page.evaluate(async ({ shopName, vercelUrl }) => {
+    const sleep = ms => new Promise(r => setTimeout(r, ms + Math.floor(Math.random() * 1000)));
 
     const api = async path => {
       const r = await fetch('https://shopee.com.my' + path, {
@@ -67,74 +57,62 @@ async function main() {
         }
       });
       const json = await r.json();
-      if (json.error && json.error !== 0) throw new Error(`API error ${json.error}: ${path}`);
-      if (!r.ok) throw new Error(`HTTP ${r.status}: ${path}`);
+      if (json.error && json.error !== 0) throw new Error(`Shopee API error ${json.error}`);
       return json;
     };
 
-    async function allProds(shopid, username) {
-      const seen = new Set(), map = {};
-      for (const by of ['sales', 'ctime', 'price']) {
-        let off = 0;
-        while (true) {
-          let d;
-          try {
-            d = await api(
-              `/api/v4/search/search_items?by=${by}&limit=60&match_id=${shopid}` +
-              `&newest=${off}&order=desc&page_type=shop&scenario=PAGE_OTHERS&version=2`
-            );
-          } catch(e) {
-            console.log(`  [${username}] by=${by}: ${e.message}`);
-            break;
-          }
-          const b = (d.items || []).map(i => i.item_basic).filter(Boolean);
-          if (!b.length) break;
-          b.forEach(p => { if (!seen.has(p.itemid)) { seen.add(p.itemid); map[p.itemid] = p; } });
-          if (b.length < 60) break;
-          off += 60;
-          await sleep(1500);
+    // Get shop detail
+    const sr = await api(`/api/v4/shop/get_shop_detail?username=${shopName}`);
+    if (!sr.data) throw new Error('shop not found');
+    const shop = sr.data;
+    console.log(`shopid=${shop.shopid} declared_items=${shop.item_count || '?'}`);
+
+    // Fetch all products via 3 sort orders
+    const seen = new Set(), map = {};
+    for (const by of ['sales', 'ctime', 'price']) {
+      let off = 0;
+      while (true) {
+        let d;
+        try {
+          d = await api(
+            `/api/v4/search/search_items?by=${by}&limit=60&match_id=${shop.shopid}` +
+            `&newest=${off}&order=desc&page_type=shop&scenario=PAGE_OTHERS&version=2`
+          );
+        } catch (e) {
+          console.log(`by=${by} off=${off} error: ${e.message}`);
+          break;
         }
-        await sleep(2000);
+        const batch = (d.items || []).map(i => i.item_basic).filter(Boolean);
+        if (!batch.length) break;
+        batch.forEach(p => { if (!seen.has(p.itemid)) { seen.add(p.itemid); map[p.itemid] = p; } });
+        if (batch.length < 60) break;
+        off += 60;
+        await sleep(1500);
       }
-      return Object.values(map);
+      await sleep(2000);
     }
 
-    const results = [];
-    for (const username of shops) {
-      try {
-        const sr = await api(`/api/v4/shop/get_shop_detail?username=${username}`);
-        if (!sr.data) throw new Error('shop not found');
-        const shop = sr.data;
-        console.log(`  [${username}] shopid=${shop.shopid} declared_items=${shop.item_count||'?'}`);
+    const prods = Object.values(map);
+    console.log(`fetched ${prods.length} unique products`);
 
-        const prods = await allProds(shop.shopid, username);
-        console.log(`  [${username}] fetched ${prods.length} products`);
+    // Save to Supabase via Vercel API
+    const rv = await (await fetch(`${vercelUrl}/api/save`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ shop, products: prods, username: shopName }),
+    })).json();
 
-        const rv = await (await fetch(`${vercelUrl}/api/save`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ shop, products: prods, username }),
-        })).json();
-
-        results.push({ username, ok: true, saved: rv.saved || 0, fetched: prods.length });
-        await sleep(20000); // 20s between shops to avoid rate limit
-      } catch(e) {
-        console.log(`  [${username}] ERROR: ${e.message}`);
-        results.push({ username, ok: false, error: e.message });
-        await sleep(5000);
-      }
-    }
-    return results;
-  }, { shops: SHOPS, vercelUrl: VERCEL_URL, batchNum: BATCH });
+    return { shopid: shop.shopid, fetched: prods.length, saved: rv.saved || 0, shop: shop.name };
+  }, { shopName: SHOP_NAME, vercelUrl: VERCEL_URL });
 
   await browser.close();
 
-  // ── Summary ───────────────────────────────────────────────────────────────
-  const ok = results.filter(r => r.ok && r.fetched > 0).length;
-  console.log(`\n📊 Batch ${BATCH} done: ${ok}/${SHOPS.length} shops with data`);
-  console.table(results);
+  console.log(`✅ ${SHOP_NAME} (${result.shop}): fetched=${result.fetched} saved=${result.saved}`);
 
-  if (results.every(r => !r.ok)) process.exit(1);
+  if (result.fetched === 0) {
+    console.error('❌ 0 products fetched — possible IP block or shop closed');
+    process.exit(1);
+  }
 }
 
 main().catch(e => {
