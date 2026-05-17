@@ -32,14 +32,22 @@ async function main() {
 
   const page = await context.newPage();
 
-  // Warm up — visit Shopee homepage first
-  console.log('🏠 Warming up...');
-  await page.goto('https://shopee.com.my', { waitUntil: 'domcontentloaded', timeout: 30000 });
-  await page.waitForTimeout(4000);
+  // Warm up — go directly to the shop page (less guarded than homepage)
+  console.log(`🏠 Warming up on shop page: ${SHOP_NAME}...`);
+  await page.goto(`https://shopee.com.my/${SHOP_NAME}`, { waitUntil: 'domcontentloaded', timeout: 30000 });
+  await page.waitForTimeout(5000);
 
-  if (page.url().includes('verify/traffic')) {
-    await browser.close();
-    throw new Error('Bot detection triggered on warmup.');
+  const warmupUrl = page.url();
+  console.log('   Landed on:', warmupUrl);
+  if (warmupUrl.includes('verify/traffic') || warmupUrl.includes('/login')) {
+    // Try falling back to homepage
+    console.log('   Shop page blocked, trying homepage fallback...');
+    await page.goto('https://shopee.com.my', { waitUntil: 'domcontentloaded', timeout: 30000 });
+    await page.waitForTimeout(5000);
+    if (page.url().includes('verify/traffic')) {
+      await browser.close();
+      throw new Error('Bot detection triggered — IP blocked by Shopee.');
+    }
   }
 
   // ── Scrape inside browser context ─────────────────────────────────────────
