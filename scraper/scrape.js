@@ -41,7 +41,14 @@ function parseCookies(str) {
         sameSite: 'Lax',
       };
     })
-    .filter(c => c && c.name && c.value);
+    .filter(c => {
+      if (!c || !c.name || !c.value) return false;
+      // Skip cookies with non-ASCII values (e.g. AC_CERT_D) — Playwright rejects them
+      for (let i = 0; i < c.value.length; i++) {
+        if (c.value.charCodeAt(i) > 255) return false;
+      }
+      return true;
+    });
 }
 
 // ── Main ──────────────────────────────────────────────────────────────────────
