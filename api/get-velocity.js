@@ -13,7 +13,7 @@ export default async function handler(req,res){
       return res.status(200).json(await r.json());
     }
     // Default: use pre-computed view
-    let url=`${S}/rest/v1/variant_velocity?order=sold_7d.desc&limit=${limit}`;
+    let url=`${S}/rest/v1/variant_velocity?order=sold_1d.desc,sold_7d.desc,sold_total.desc&limit=${limit}`;
     if(shopid)url+=`&shopid=eq.${shopid}`;
     const r=await fetch(url,{headers:H});
     return res.status(200).json(await r.json());

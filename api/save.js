@@ -76,6 +76,20 @@ export default async function handler(req, res) {
       await supabase('products?on_conflict=shopid,itemid,scraped_date', 'POST', rows.slice(i, i + BATCH));
     }
 
+    // Auto-save product-level snapshots for velocity tracking
+    const snapshots = rows.map(p => ({
+      shopid: p.shopid, itemid: p.itemid, model_id: 0, username: p.username,
+      product_name: p.name, variant_name: 'Default', variant_sku: '',
+      variation_type: 'product',
+      price: (p.price_min || 0) / 100000,
+      stock: p.stock || 0,
+      sold: p.historical_sold || 0,
+      scraped_date: today, scraped_at: new Date().toISOString()
+    }));
+    for (let i = 0; i < snapshots.length; i += BATCH) {
+      await supabase('snapshots?on_conflict=shopid,itemid,model_id,scraped_date', 'POST', snapshots.slice(i, i + BATCH));
+    }
+
     await supabase('scrape_log', 'POST', {
       username, shopid: shop.shopid,
       total_items: products.length,
