@@ -10,11 +10,12 @@ export default async function handler(req,res){
   const{date,shopid}=req.query;
   const today=date||new Date().toISOString().split('T')[0];
   try{
-    let url=`${S}/rest/v1/products?scraped_date=eq.${today}&select=shopid,itemid,username,name,price_min,stock,historical_sold&limit=2000`;
+    // Use latest_products view — picks most recent data regardless of scraped_date
+    let url=`${S}/rest/v1/latest_products?select=shopid,itemid,username,name,price_min,stock,historical_sold&limit=2000`;
     if(shopid)url+=`&shopid=eq.${shopid}`;
     const r=await fetch(url,{headers:H});
     const prods=await r.json();
-    if(!Array.isArray(prods)||!prods.length)return res.status(200).json({ok:true,saved:0,date:today,msg:'No products found for this date'});
+    if(!Array.isArray(prods)||!prods.length)return res.status(200).json({ok:true,saved:0,date:today,msg:'No products found'});
 
     const snaps=prods.map(p=>({
       shopid:p.shopid,itemid:p.itemid,model_id:0,username:p.username,
