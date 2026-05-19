@@ -131,6 +131,28 @@ export default async function handler(req, res) {
       } catch(e) { return res.status(500).json({ error: e.message }); }
     }
 
+    // Active sellers — products where historical_sold increased since yesterday
+    // Used by active-enricher.js to identify which products need item/get today
+    if (type === 'active-sellers' && shopid) {
+      const today     = new Date().toISOString().split('T')[0];
+      const yesterday = new Date(Date.now() - 86400000).toISOString().split('T')[0];
+      const [todayRows, yestRows] = await Promise.all([
+        query(`products?shopid=eq.${shopid}&scraped_date=eq.${today}&select=itemid,name,historical_sold,price_min,stock,image&limit=2000`),
+        query(`products?shopid=eq.${shopid}&scraped_date=eq.${yesterday}&select=itemid,historical_sold&limit=2000`)
+      ]);
+      const yMap = {};
+      if (Array.isArray(yestRows)) yestRows.forEach(p => { yMap[p.itemid] = p.historical_sold || 0; });
+      const active = Array.isArray(todayRows) ? todayRows.filter(p => {
+        const delta = (p.historical_sold || 0) - (yMap[p.itemid] || 0);
+        return delta > 0;
+      }).map(p => ({
+        ...p,
+        sold_today_est: (p.historical_sold || 0) - (yMap[p.itemid] || 0),
+        image_url: p.image ? `https://down-my.img.susercontent.com/file/${p.image}` : ''
+      })) : [];
+      return res.status(200).json({ today, yesterday, total: Array.isArray(todayRows) ? todayRows.length : 0, active });
+    }
+
     // Category intelligence — cross-shop category breakdown
     if (type === 'category-intel') {
       const data = await query('latest_products?select=catid,shopid,itemid,price_min,historical_sold,raw_discount&limit=5000');

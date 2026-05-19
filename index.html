@@ -657,8 +657,15 @@ tr:hover td{background:rgba(249,115,22,.04)}
       <span id="vel-notice-text"></span>
     </div>
     <div class="kpi-row" id="vel-kpis"></div>
-    <div style="display:flex;gap:8px;margin-bottom:16px;align-items:center">
-      <span style="font-size:12px;font-weight:600;color:var(--muted)">View by:</span>
+    <!-- Source toggle: All Products vs Variants Only -->
+    <div style="display:flex;gap:8px;margin-bottom:10px;align-items:center;flex-wrap:wrap">
+      <span style="font-size:12px;font-weight:600;color:var(--muted)">Data:</span>
+      <button class="vel-src-btn vel-period-btn on" onclick="switchVelocitySource('variant',this)" title="Exact stock delta per variant from item/get — most accurate">🧬 Variants (Exact)</button>
+      <button class="vel-src-btn vel-period-btn" onclick="switchVelocitySource('product',this)" title="historical_sold delta — approximate, but covers ALL products as activity filter">📦 All Products (Approx)</button>
+      <span style="font-size:11px;color:var(--muted);margin-left:4px" id="vel-src-note">Stock delta per variant · enriched by active-enricher.js</span>
+    </div>
+    <div style="display:flex;gap:8px;margin-bottom:16px;align-items:center;flex-wrap:wrap">
+      <span style="font-size:12px;font-weight:600;color:var(--muted)">Period:</span>
       <button class="vel-period-btn" onclick="switchVelocityView('1d',this)">1 Day</button>
       <button class="vel-period-btn" onclick="switchVelocityView('3d',this)">3 Days</button>
       <button class="vel-period-btn on" onclick="switchVelocityView('7d',this)">7 Days</button>
@@ -675,26 +682,26 @@ tr:hover td{background:rgba(249,115,22,.04)}
       <span id="vel-custom-status" style="font-size:11px;color:var(--muted)"></span>
     </div>
     <div class="card">
-      <div class="card-hdr"><span class="card-title">Top 15 Fastest-Selling Variants</span><span id="vel-chart-label" style="font-size:11px;color:var(--muted)"></span></div>
+      <div class="card-hdr"><span class="card-title" id="vel-chart-title">Top 15 Fastest-Selling Products</span><span id="vel-chart-label" style="font-size:11px;color:var(--muted)"></span></div>
       <div class="card-body"><div class="chart-box tall"><canvas id="ch-velocity"></canvas></div></div>
     </div>
     <div class="card">
       <div class="card-hdr">
-        <span class="card-title">All Variants Ranked</span>
+        <span class="card-title" id="vel-tbl-title">All Products Ranked</span>
         <span id="vel-tbl-label" style="font-size:11px;color:var(--muted)"></span>
       </div>
       <div class="tbl-wrap">
         <table><thead><tr>
-          <th>#</th><th>Product</th><th>Variant</th><th>Price</th>
+          <th>#</th><th>Product</th><th id="th-vel-variant" style="display:none">Variant</th><th>Price</th>
           <th id="th-custom" style="display:none">Custom</th><th id="th-1d">1d Sold</th><th id="th-3d">3d Sold</th><th id="th-7d">7d Sold</th><th id="th-14d">14d Sold</th><th id="th-30d">30d Sold</th>
-          <th>Stock</th><th>Velocity</th>
+          <th id="th-vel-stock" style="display:none">Stock</th><th>Velocity</th>
         </tr></thead><tbody id="vel-body"></tbody></table>
       </div>
     </div>
     <div id="vel-empty" class="empty" style="display:none">
       <div class="empty-ico">📈</div>
-      <div class="empty-h">No snapshot data yet</div>
-      <div class="empty-t">Select a shop that has been scraped with daily snapshots</div>
+      <div class="empty-h">No velocity data yet</div>
+      <div class="empty-t">Select a shop — data accumulates from the first daily scrape</div>
     </div>
   </div>
 
@@ -2215,21 +2222,43 @@ function selectComp(el, shopid) {
 // ========================================================
 // VELOCITY
 // ========================================================
-let VEL = { data:[], period:'7d', loaded:false, customData:[] };
+let VEL = { data:[], productData:[], period:'7d', source:'variant', loaded:false, customData:[] };
 
 async function loadVelocity() {
   if (!ST.activeShopid) return;
   setStatus('Loading velocity data...');
   try {
-    const res = await fetch(`${API}/api/get-velocity?shopid=${ST.activeShopid}&limit=500`);
-    if (!res.ok) throw new Error('API '+res.status);
-    VEL.data = await res.json();
+    // Fetch both in parallel: product velocity (ALL products) + variant velocity (enriched only)
+    const [prodRes, varRes] = await Promise.all([
+      fetch(`${API}/api/get-velocity?type=product&shopid=${ST.activeShopid}&limit=2000`),
+      fetch(`${API}/api/get-velocity?shopid=${ST.activeShopid}&limit=1000`)
+    ]);
+    VEL.productData = prodRes.ok ? await prodRes.json() : [];
+    VEL.data        = varRes.ok  ? await varRes.json()  : [];
     VEL.loaded = true;
     renderVelocity();
-    setStatus(`✓ ${VEL.data.length} variants tracked`);
+    const src = VEL.source === 'product';
+    setStatus(`✓ ${VEL.productData.length} products tracked (all) · ${VEL.data.length} variants (enriched)`);
   } catch(e) {
     setStatus('Velocity error: '+e.message);
   }
+}
+
+function switchVelocitySource(src, el) {
+  document.querySelectorAll('.vel-src-btn').forEach(b=>b.classList.remove('on'));
+  if (el) el.classList.add('on');
+  VEL.source = src;
+  // Update note
+  const note = document.getElementById('vel-src-note');
+  if (note) note.textContent = src === 'variant'
+    ? 'Stock delta per variant · enriched by active-enricher.js'
+    : 'historical_sold delta · approximate · useful as activity filter';
+  // Update card titles
+  const ct = document.getElementById('vel-chart-title');
+  const tt = document.getElementById('vel-tbl-title');
+  if (ct) ct.textContent = src === 'product' ? 'Top 15 Fastest-Selling Products' : 'Top 15 Fastest-Selling Variants';
+  if (tt) tt.textContent = src === 'product' ? 'All Products Ranked' : 'All Variants Ranked';
+  renderVelocity();
 }
 
 function updateVelCountdown() {
@@ -2256,9 +2285,10 @@ function updateVelCountdown() {
 }
 
 function renderVelocity() {
-  const { period } = VEL;
+  const { period, source } = VEL;
   const isCustom = period === 'custom';
-  const data = Array.isArray(isCustom ? VEL.customData : VEL.data) ? (isCustom ? VEL.customData : VEL.data) : [];
+  const rawData  = source === 'product' ? VEL.productData : VEL.data;
+  const data = Array.isArray(isCustom ? VEL.customData : rawData) ? (isCustom ? VEL.customData : rawData) : [];
   const field = isCustom ? 'sold_custom' : period==='1d' ? 'sold_1d' : period==='3d' ? 'sold_3d' : period==='7d' ? 'sold_7d' : period==='14d' ? 'sold_14d' : 'sold_30d';
   const hasData = data.length > 0;
   const hasVel  = isCustom
@@ -2277,26 +2307,30 @@ function renderVelocity() {
   const top14   = isCustom ? null      : [...data].sort((a,b) => (b.sold_14d||0)-(a.sold_14d||0))[0];
 
   // KPIs
+  const nameKey = source === 'product' ? 'product_name' : 'variant_name';
+  const tracked = source === 'product'
+    ? { lbl:'Products Tracked', val: fmtNum(data.length), sub: 'all products · historical_sold delta', clr:'var(--acc3)' }
+    : { lbl:'Variants Tracked', val: fmtNum(data.length), sub: 'enriched via item/get API', clr:'var(--acc3)' };
   const kpis = isCustom ? [
-    { lbl:'Top Variant (Custom)',
+    { lbl:'Top Product (Custom)',
       val: (top1?.sold_custom||0) > 0 ? top1.sold_custom : '—',
-      sub: (top1?.sold_custom||0) > 0 ? (top1.variant_name||'').substring(0,24) : 'No data yet',
+      sub: (top1?.sold_custom||0) > 0 ? (top1[nameKey]||'').substring(0,24) : 'No data yet',
       clr:'#8b5cf6' },
-    { lbl:'Variants Tracked', val: fmtNum(data.length), sub: 'in range', clr:'var(--acc3)' },
+    tracked,
   ] : [
-    { lbl:'Top 1-Day Variant',
+    { lbl: source==='product' ? 'Top 1-Day Product' : 'Top 1-Day Variant',
       val: (top1?.sold_1d||0) > 0 ? top1.sold_1d : '—',
-      sub: (top1?.sold_1d||0) > 0 ? (top1.variant_name||'').substring(0,24) : 'Data from 2026-05-16',
+      sub: (top1?.sold_1d||0) > 0 ? (top1[nameKey]||'').substring(0,24) : 'Data from 2026-05-16',
       clr:'#8b5cf6' },
-    { lbl:'Top 7-Day Variant',
+    { lbl: source==='product' ? 'Top 7-Day Product' : 'Top 7-Day Variant',
       val: (top7?.sold_7d||0) > 0 ? top7.sold_7d : '—',
-      sub: (top7?.sold_7d||0) > 0 ? (top7.variant_name||'').substring(0,24) : 'Data from 2026-05-22',
+      sub: (top7?.sold_7d||0) > 0 ? (top7[nameKey]||'').substring(0,24) : 'Data from 2026-05-22',
       clr:'var(--acc)' },
-    { lbl:'Top 14-Day Variant',
+    { lbl: source==='product' ? 'Top 14-Day Product' : 'Top 14-Day Variant',
       val: (top14?.sold_14d||0) > 0 ? top14.sold_14d : '—',
-      sub: (top14?.sold_14d||0) > 0 ? (top14.variant_name||'').substring(0,24) : 'Data from 2026-05-29',
+      sub: (top14?.sold_14d||0) > 0 ? (top14[nameKey]||'').substring(0,24) : 'Data from 2026-05-29',
       clr:'var(--acc2)' },
-    { lbl:'Variants Tracked', val: fmtNum(data.length), sub: 'in snapshot table', clr:'var(--acc3)' },
+    tracked,
   ];
   document.getElementById('vel-kpis').innerHTML = kpis.map(k=>`<div class="kpi" style="--accent-clr:${k.clr}"><div class="kpi-lbl">${k.lbl}</div><div class="kpi-val">${k.val}</div><div class="kpi-sub">${k.sub}</div></div>`).join('');
 
@@ -2312,7 +2346,7 @@ function renderVelocity() {
     CH['ch-velocity'] = new Chart(ctx, {
       type:'bar',
       data:{
-        labels: top15.map(v=>(v.variant_name||'').substring(0,22)),
+        labels: top15.map(v=>((source==='product'?v.product_name:v.variant_name)||'').substring(0,22)),
         datasets:[{ label:period+' Sold',
           data: top15.map(v=>v[field]||0),
           backgroundColor: top15.map((_,i)=>clrFn(i)),
@@ -2331,7 +2365,8 @@ function renderVelocity() {
 }
 
 function renderVelocityTable(sorted) {
-  const { period } = VEL;
+  const { period, source } = VEL;
+  const isProd = source === 'product';
   const field  = period==='1d' ? 'sold_1d' : period==='3d' ? 'sold_3d' : period==='7d' ? 'sold_7d' : period==='14d' ? 'sold_14d' : 'sold_30d';
   const maxVel = Math.max(...sorted.map(v=>v[field]||0), 1);
 
@@ -2340,9 +2375,15 @@ function renderVelocityTable(sorted) {
     const th = document.getElementById('th-'+p);
     if (th) th.style.color = p===period ? '#c2410c' : '';
   });
-  document.getElementById('vel-tbl-label').textContent = `${sorted.length} variants · sorted by ${period}`;
+  const noun = isProd ? 'products' : 'variants';
+  document.getElementById('vel-tbl-label').textContent = `${sorted.length} ${noun} · sorted by ${period}`;
+  // Show/hide variant+stock columns
+  const thStock = document.getElementById('th-vel-stock');
+  const thVar   = document.getElementById('th-vel-variant');
+  if (thStock) thStock.style.display = isProd ? 'none' : '';
+  if (thVar)   thVar.style.display   = isProd ? 'none' : '';
 
-  document.getElementById('vel-body').innerHTML = sorted.slice(0,150).map((v,i) => {
+  document.getElementById('vel-body').innerHTML = sorted.slice(0,200).map((v,i) => {
     const velVal = v[field]||0;
     const barPct = (velVal/maxVel*100).toFixed(0);
     const isCustom = period === 'custom';
@@ -2351,17 +2392,23 @@ function renderVelocityTable(sorted) {
     const fmtV = n => n>0 ? `<span class="sold-val">${n}</span>` : `<span style="color:var(--muted2)">—</span>`;
     const rk   = i===0?'g':i===1?'s':i===2?'b':'';
     const hl   = (p) => p===period ? 'style="background:rgba(249,115,22,.06)"' : '';
-    const img = v.image_url ? `<img src="${v.image_url}" style="width:32px;height:32px;object-fit:cover;border-radius:4px;margin-right:6px;flex-shrink:0" onerror="this.style.display='none'">` : '';
+    // Image: variant_velocity has image_url; product_velocity has image hash → build CDN URL
+    const imgSrc = v.image_url || (v.image ? `https://down-my.img.susercontent.com/file/${v.image}` : '');
+    const img = imgSrc ? `<img src="${imgSrc}" style="width:32px;height:32px;object-fit:cover;border-radius:4px;margin-right:6px;flex-shrink:0" onerror="this.style.display='none'" loading="lazy">` : '';
     const pname = v.product_name || '';
-    const plink = v.product_url ? `<a href="${v.product_url}" target="_blank" style="color:var(--fg);text-decoration:none;font-weight:600;font-size:11px;" title="${pname.replace(/"/g,'')}">${pname.substring(0,28)}${pname.length>28?'…':''}</a>` : `<span style="font-weight:600;font-size:11px">${pname.substring(0,28)}${pname.length>28?'…':''}</span>`;
+    // product_velocity has shopid+itemid, build Shopee URL directly
+    const shopeeUrl = v.product_url || (isProd && v.shopid && v.itemid ? `https://shopee.com.my/product/${v.shopid}/${v.itemid}` : '');
+    const plink = shopeeUrl ? `<a href="${shopeeUrl}" target="_blank" style="color:var(--fg);text-decoration:none;font-weight:600;font-size:11px;" title="${pname.replace(/"/g,'')}">${pname.substring(0,28)}${pname.length>28?'…':''}</a>` : `<span style="font-weight:600;font-size:11px">${pname.substring(0,28)}${pname.length>28?'…':''}</span>`;
+    // Shop badge (useful in cross-shop view)
+    const shopBadge = !v.shopid && isProd ? '' : `<span style="font-size:9px;color:var(--muted2);background:var(--s3);padding:1px 5px;border-radius:3px;margin-top:2px;display:inline-block">${v.username||''}</span>`;
     return `<tr>
       <td><span class="rank ${rk}">${i+1}</span></td>
-      <td><div style="display:flex;align-items:center;max-width:200px">${img}<div style="overflow:hidden">${plink}</div></div></td>
-      <td><div style="font-size:11px;color:var(--muted);max-width:130px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${(v.variant_name||'—').substring(0,28)}</div></td>
+      <td><div style="display:flex;align-items:center;max-width:200px">${img}<div style="overflow:hidden">${plink}${shopBadge}</div></div></td>
+      ${!isProd ? `<td><div style="font-size:11px;color:var(--muted);max-width:130px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${(v.variant_name||'—').substring(0,28)}</div></td>` : ''}
       <td><span class="pricetag">RM ${(v.price||0).toFixed(2)}</span></td>
       ${isCustom ? `<td style="background:rgba(249,115,22,.06)">${fmtV(dc)}</td>` : ''}
       ${!isCustom ? `<td ${hl('1d')}>${fmtV(d1)}</td><td ${hl('3d')}>${fmtV(d3)}</td><td ${hl('7d')}>${fmtV(d7)}</td><td ${hl('14d')}>${fmtV(d14)}</td><td ${hl('30d')}>${fmtV(d30)}</td>` : ''}
-      <td style="font-family:'DM Mono',monospace;font-size:11px;color:var(--muted)">${v.stock??'—'}</td>
+      ${!isProd ? `<td style="font-family:'DM Mono',monospace;font-size:11px;color:var(--muted)">${v.stock??'—'}</td>` : ''}
       <td style="min-width:90px">
         <div class="vel-bar"><div class="vel-fill" style="width:${barPct}%"></div></div>
         <span style="font-size:9px;color:var(--muted);font-family:'DM Mono',monospace">${velVal>0?velVal+' sold':'no data'}</span>
