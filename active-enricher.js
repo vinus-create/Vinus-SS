@@ -80,7 +80,9 @@ const SHOPS = [
       total  = d.total || 0;
       grandTotal += total;
       grandActive += active.length;
-      log(`  ${total} products checked → ${active.length} active sellers (sold today)`);
+      const byDelta  = active.filter(p => p.needs_enrich_reason === 'delta').length;
+      const byForce  = active.filter(p => p.needs_enrich_reason === 'high_volume_force').length;
+      log(`  ${total} products checked → ${active.length} to enrich (${byDelta} delta, ${byForce} high-vol force)`);
     } catch(e) {
       log(`  ❌ Failed to load: ${e.message}`);
       continue;

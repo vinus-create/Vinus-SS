@@ -131,23 +131,39 @@ export default async function handler(req, res) {
       } catch(e) { return res.status(500).json({ error: e.message }); }
     }
 
-    // Active sellers — products where historical_sold increased since yesterday
-    // Used by active-enricher.js to identify which products need item/get today
+    // Active sellers — products needing item/get enrichment today
+    // Rules:
+    //   1. historical_sold delta > 0  → definitely selling (exact for <1000, rounded for >=1000)
+    //   2. historical_sold >= 1000 AND last enriched > 2 days ago → force-include
+    //      (Shopee rounds 1000+ so delta can be 0 even when sales occurred)
     if (type === 'active-sellers' && shopid) {
       const today     = new Date().toISOString().split('T')[0];
       const yesterday = new Date(Date.now() - 86400000).toISOString().split('T')[0];
-      const [todayRows, yestRows] = await Promise.all([
+      const twoDaysAgo= new Date(Date.now() - 2*86400000).toISOString().split('T')[0];
+      const [todayRows, yestRows, recentEnriched] = await Promise.all([
         query(`products?shopid=eq.${shopid}&scraped_date=eq.${today}&select=itemid,name,historical_sold,price_min,stock,image&limit=2000`),
-        query(`products?shopid=eq.${shopid}&scraped_date=eq.${yesterday}&select=itemid,historical_sold&limit=2000`)
+        query(`products?shopid=eq.${shopid}&scraped_date=eq.${yesterday}&select=itemid,historical_sold&limit=2000`),
+        // Products enriched in the last 2 days (already have recent variant data)
+        query(`product_variants?shopid=eq.${shopid}&scraped_date=gte.${twoDaysAgo}&select=itemid&limit=2000`)
       ]);
       const yMap = {};
       if (Array.isArray(yestRows)) yestRows.forEach(p => { yMap[p.itemid] = p.historical_sold || 0; });
+      const enrichedRecently = new Set();
+      if (Array.isArray(recentEnriched)) recentEnriched.forEach(p => enrichedRecently.add(p.itemid));
+
       const active = Array.isArray(todayRows) ? todayRows.filter(p => {
-        const delta = (p.historical_sold || 0) - (yMap[p.itemid] || 0);
-        return delta > 0;
+        const hs    = p.historical_sold || 0;
+        const delta = hs - (yMap[p.itemid] || 0);
+        // Rule 1: delta > 0 (new sales detected — always accurate for <1000)
+        if (delta > 0) return true;
+        // Rule 2: high-volume product (>=1000) not enriched in last 2 days
+        // Shopee rounds these so delta=0 may hide real sales
+        if (hs >= 1000 && !enrichedRecently.has(p.itemid)) return true;
+        return false;
       }).map(p => ({
         ...p,
         sold_today_est: (p.historical_sold || 0) - (yMap[p.itemid] || 0),
+        needs_enrich_reason: ((p.historical_sold||0) - (yMap[p.itemid]||0)) > 0 ? 'delta' : 'high_volume_force',
         image_url: p.image ? `https://down-my.img.susercontent.com/file/${p.image}` : ''
       })) : [];
       return res.status(200).json({ today, yesterday, total: Array.isArray(todayRows) ? todayRows.length : 0, active });
