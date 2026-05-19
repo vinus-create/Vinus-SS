@@ -1950,9 +1950,12 @@ function renderVelocityTable(sorted) {
     const fmtV = n => n>0 ? `<span class="sold-val">${n}</span>` : `<span style="color:var(--muted2)">—</span>`;
     const rk   = i===0?'g':i===1?'s':i===2?'b':'';
     const hl   = (p) => p===period ? 'style="background:rgba(249,115,22,.06)"' : '';
+    const img = v.image_url ? `<img src="${v.image_url}" style="width:32px;height:32px;object-fit:cover;border-radius:4px;margin-right:6px;flex-shrink:0" onerror="this.style.display='none'">` : '';
+    const pname = v.product_name || '';
+    const plink = v.product_url ? `<a href="${v.product_url}" target="_blank" style="color:var(--fg);text-decoration:none;font-weight:600;font-size:11px;" title="${pname.replace(/"/g,'')}">${pname.substring(0,28)}${pname.length>28?'…':''}</a>` : `<span style="font-weight:600;font-size:11px">${pname.substring(0,28)}${pname.length>28?'…':''}</span>`;
     return `<tr>
       <td><span class="rank ${rk}">${i+1}</span></td>
-      <td><div style="font-size:11px;font-weight:600;max-width:160px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis" title="${(v.product_name||'').replace(/"/g,'')}">${(v.product_name||'').substring(0,32)}${(v.product_name||'').length>32?'…':''}</div></td>
+      <td><div style="display:flex;align-items:center;max-width:200px">${img}<div style="overflow:hidden">${plink}</div></div></td>
       <td><div style="font-size:11px;color:var(--muted);max-width:130px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${(v.variant_name||'—').substring(0,28)}</div></td>
       <td><span class="pricetag">RM ${(v.price||0).toFixed(2)}</span></td>
       ${isCustom ? `<td style="background:rgba(249,115,22,.06)">${fmtV(dc)}</td>` : ''}
