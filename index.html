@@ -43,11 +43,32 @@ body{background:var(--bg);color:var(--text);font-family:'Inter',sans-serif;min-h
 .tb-status{font-family:'DM Mono',monospace;font-size:10px;color:var(--muted);background:var(--s3);padding:6px 12px;border-radius:4px;border-left:2px solid var(--acc2);flex:1;min-width:200px;max-width:400px}
 
 /* TABS */
-.tabs{background:var(--s1);border-bottom:1px solid var(--border);padding:0 20px;display:flex;gap:0;overflow-x:auto;scrollbar-width:none}
+.tabs{background:var(--s1);border-bottom:1px solid var(--border);padding:0 12px;display:flex;gap:0;overflow-x:auto;scrollbar-width:none;align-items:stretch}
 .tabs::-webkit-scrollbar{display:none}
-.tab{padding:12px 16px;font-size:12px;font-weight:700;color:var(--muted);cursor:pointer;border-bottom:2px solid transparent;white-space:nowrap;transition:.2s;user-select:none}
+.tab{padding:12px 14px;font-size:12px;font-weight:700;color:var(--muted);cursor:pointer;border-bottom:2px solid transparent;white-space:nowrap;transition:.2s;user-select:none;position:relative;display:flex;align-items:center;gap:4px}
 .tab:hover{color:var(--text)}
 .tab.on{color:var(--acc);border-bottom-color:var(--acc)}
+.tab.dragging{opacity:.4;border:1px dashed var(--acc);border-bottom:2px solid var(--acc)}
+.tab.drag-over{border-left:2px solid var(--acc3)}
+.tab-hide-btn{display:none;font-size:9px;color:var(--muted2);cursor:pointer;padding:1px 3px;border-radius:2px;line-height:1;margin-left:1px}
+.tab:hover .tab-hide-btn{display:inline}
+.tab-hide-btn:hover{background:var(--danger);color:#fff}
+.tab-manage-btn{padding:10px 10px;font-size:14px;color:var(--muted2);cursor:pointer;border-bottom:2px solid transparent;white-space:nowrap;transition:.2s;display:flex;align-items:center;flex-shrink:0}
+.tab-manage-btn:hover{color:var(--acc3)}
+/* Tab manage panel */
+.tab-panel{display:none;position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);background:var(--s1);border:1px solid var(--border2);border-radius:12px;padding:20px;z-index:999;width:320px;max-height:80vh;overflow-y:auto;box-shadow:0 8px 32px rgba(0,0,0,.18)}
+.tab-panel.open{display:block}
+.tab-panel-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.3);z-index:998}
+.tab-panel-overlay.open{display:block}
+.tab-panel h3{font-size:12px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:var(--muted);margin-bottom:14px}
+.tab-row{display:flex;align-items:center;gap:8px;padding:8px 6px;border-radius:6px;cursor:grab;margin-bottom:4px;border:1px solid transparent}
+.tab-row:hover{background:var(--s2);border-color:var(--border)}
+.tab-row.dragging-row{opacity:.4}
+.tab-row.drag-over-row{border-top:2px solid var(--acc)}
+.tab-row-handle{color:var(--muted2);font-size:14px;cursor:grab}
+.tab-row-name{flex:1;font-size:13px;font-weight:600;cursor:text;padding:2px 4px;border-radius:3px;border:1px solid transparent;outline:none;background:transparent}
+.tab-row-name:focus{border-color:var(--acc2);background:var(--s3)}
+.tab-row-vis{cursor:pointer;font-size:14px;flex-shrink:0}
 
 /* CONTENT */
 .wrap{padding:20px;position:relative;z-index:1;max-width:1400px;margin:0 auto}
@@ -275,20 +296,15 @@ tr:hover td{background:rgba(249,115,22,.04)}
 </div>
 
 <!-- TABS -->
-<div class="tabs">
-  <div class="tab on"  onclick="tab('overview')">📊 Overview</div>
-  <div class="tab"     onclick="tab('bestsellers')">🏆 Best Sellers</div>
-  <div class="tab"     onclick="tab('variants')">🧬 Variants</div>
-  <div class="tab"     onclick="tab('pricing')">💰 Pricing</div>
-  <div class="tab"     onclick="tab('keywords')">🔑 Keywords</div>
-  <div class="tab"     onclick="tab('reviews')">⭐ Reviews</div>
-  <div class="tab"     onclick="tab('velocity')">📈 Velocity</div>
-  <div class="tab"     onclick="tab('compare')">🔀 Compare</div>
-  <div class="tab"     onclick="tab('competitors')">🏪 Competitors</div>
-  <div class="tab"     onclick="tab('log')">📋 Scrape Log</div>
-  <div class="tab"     onclick="tab('market')">🌐 Market</div>
-  <div class="tab"     onclick="tab('discover')">🔍 Discover</div>
-  <div class="tab"     onclick="tab('framework')">⚙️ Setup Guide</div>
+<div class="tabs" id="tabBar"></div>
+<div class="tab-panel-overlay" id="tabOverlay" onclick="closeTabPanel()"></div>
+<div class="tab-panel" id="tabPanel">
+  <h3>⚙ Manage Tabs</h3>
+  <div id="tabPanelRows"></div>
+  <div style="margin-top:14px;display:flex;gap:8px;justify-content:flex-end">
+    <button onclick="resetTabDefaults()" style="padding:6px 12px;font-size:11px;border:1px solid var(--border2);background:transparent;border-radius:6px;cursor:pointer;color:var(--muted)">Reset</button>
+    <button onclick="closeTabPanel()" style="padding:6px 14px;font-size:11px;background:var(--acc);color:#fff;border:none;border-radius:6px;cursor:pointer;font-weight:700">Done</button>
+  </div>
 </div>
 
 <div class="wrap">
@@ -1055,17 +1071,171 @@ let CH = {};
 // INIT
 // ========================================================
 window.onload = async () => {
+  loadTabState();
+  renderTabBar();
   initCols();
   buildColPanel();
   await refreshShops();
 };
 
 // ========================================================
-// TABS
+// TABS — editable names, draggable order, hideable
 // ========================================================
+const TAB_DEFAULTS = [
+  {id:'overview',   label:'📊 Overview'},
+  {id:'bestsellers',label:'🏆 Best Sellers'},
+  {id:'variants',   label:'🧬 Variants'},
+  {id:'pricing',    label:'💰 Pricing'},
+  {id:'keywords',   label:'🔑 Keywords'},
+  {id:'reviews',    label:'⭐ Reviews'},
+  {id:'velocity',   label:'📈 Velocity'},
+  {id:'compare',    label:'🔀 Compare'},
+  {id:'competitors',label:'🏪 Competitors'},
+  {id:'log',        label:'📋 Scrape Log'},
+  {id:'market',     label:'🌐 Market'},
+  {id:'discover',   label:'🔍 Discover'},
+  {id:'framework',  label:'⚙️ Setup Guide'},
+];
+let TAB_STATE = [];   // {id, label, hidden}
+let currentTab = 'overview';
+
+function loadTabState() {
+  try {
+    const saved = localStorage.getItem('ss_tabs');
+    if (saved) {
+      TAB_STATE = JSON.parse(saved);
+      // add any new tabs not yet in saved state
+      TAB_DEFAULTS.forEach(d => {
+        if (!TAB_STATE.find(t => t.id === d.id))
+          TAB_STATE.push({...d, hidden:false});
+      });
+    } else {
+      TAB_STATE = TAB_DEFAULTS.map(d => ({...d, hidden:false}));
+    }
+  } catch(e) {
+    TAB_STATE = TAB_DEFAULTS.map(d => ({...d, hidden:false}));
+  }
+}
+
+function saveTabState() {
+  localStorage.setItem('ss_tabs', JSON.stringify(TAB_STATE));
+}
+
+function resetTabDefaults() {
+  TAB_STATE = TAB_DEFAULTS.map(d => ({...d, hidden:false}));
+  saveTabState();
+  renderTabBar();
+  buildTabPanel();
+}
+
+function renderTabBar() {
+  const bar = document.getElementById('tabBar');
+  bar.innerHTML = '';
+  TAB_STATE.forEach(t => {
+    if (t.hidden) return;
+    const el = document.createElement('div');
+    el.className = 'tab' + (t.id === currentTab ? ' on' : '');
+    el.dataset.id = t.id;
+    el.draggable = true;
+    el.innerHTML = `<span class="tab-label">${t.label}</span><span class="tab-hide-btn" title="Hide tab" onclick="event.stopPropagation();hideTab('${t.id}')">✕</span>`;
+    el.addEventListener('click', () => tab(t.id));
+    // drag reorder directly on bar
+    el.addEventListener('dragstart', e => { e.dataTransfer.setData('tabId', t.id); el.classList.add('dragging'); });
+    el.addEventListener('dragend',   () => el.classList.remove('dragging'));
+    el.addEventListener('dragover',  e => { e.preventDefault(); el.classList.add('drag-over'); });
+    el.addEventListener('dragleave', () => el.classList.remove('drag-over'));
+    el.addEventListener('drop', e => {
+      e.preventDefault(); el.classList.remove('drag-over');
+      const fromId = e.dataTransfer.getData('tabId');
+      if (fromId === t.id) return;
+      const fromIdx = TAB_STATE.findIndex(x=>x.id===fromId);
+      const toIdx   = TAB_STATE.findIndex(x=>x.id===t.id);
+      const [moved] = TAB_STATE.splice(fromIdx, 1);
+      TAB_STATE.splice(toIdx, 0, moved);
+      saveTabState(); renderTabBar(); buildTabPanel();
+    });
+    bar.appendChild(el);
+  });
+  // manage button
+  const mgr = document.createElement('div');
+  mgr.className = 'tab-manage-btn';
+  mgr.title = 'Manage tabs';
+  mgr.textContent = '⚙';
+  mgr.onclick = openTabPanel;
+  bar.appendChild(mgr);
+}
+
+function hideTab(id) {
+  const t = TAB_STATE.find(x=>x.id===id);
+  if (t) { t.hidden = true; saveTabState(); renderTabBar(); buildTabPanel(); }
+  // if hiding current tab, switch to first visible
+  if (id === currentTab) {
+    const first = TAB_STATE.find(x=>!x.hidden);
+    if (first) tab(first.id);
+  }
+}
+
+function openTabPanel() {
+  buildTabPanel();
+  document.getElementById('tabPanel').classList.add('open');
+  document.getElementById('tabOverlay').classList.add('open');
+}
+function closeTabPanel() {
+  document.getElementById('tabPanel').classList.remove('open');
+  document.getElementById('tabOverlay').classList.remove('open');
+}
+
+let panelDragId = null;
+function buildTabPanel() {
+  const container = document.getElementById('tabPanelRows');
+  container.innerHTML = '';
+  TAB_STATE.forEach(t => {
+    const row = document.createElement('div');
+    row.className = 'tab-row';
+    row.draggable = true;
+    row.dataset.id = t.id;
+    row.innerHTML = `
+      <span class="tab-row-handle">⠿</span>
+      <input class="tab-row-name" value="${t.label}" data-id="${t.id}" title="Double-click to rename">
+      <span class="tab-row-vis" title="${t.hidden?'Show':'Hide'}" onclick="toggleTabVis('${t.id}')">${t.hidden?'👁️‍🗨️':'👁️'}</span>
+    `;
+    // rename on change
+    row.querySelector('input').addEventListener('change', e => {
+      const tx = TAB_STATE.find(x=>x.id===e.target.dataset.id);
+      if (tx) { tx.label = e.target.value; saveTabState(); renderTabBar(); }
+    });
+    // panel drag reorder
+    row.addEventListener('dragstart', e => { panelDragId = t.id; row.classList.add('dragging-row'); });
+    row.addEventListener('dragend',   () => { row.classList.remove('dragging-row'); panelDragId = null; });
+    row.addEventListener('dragover',  e => { e.preventDefault(); row.classList.add('drag-over-row'); });
+    row.addEventListener('dragleave', () => row.classList.remove('drag-over-row'));
+    row.addEventListener('drop', e => {
+      e.preventDefault(); row.classList.remove('drag-over-row');
+      if (!panelDragId || panelDragId===t.id) return;
+      const fromIdx = TAB_STATE.findIndex(x=>x.id===panelDragId);
+      const toIdx   = TAB_STATE.findIndex(x=>x.id===t.id);
+      const [moved] = TAB_STATE.splice(fromIdx, 1);
+      TAB_STATE.splice(toIdx, 0, moved);
+      saveTabState(); renderTabBar(); buildTabPanel();
+    });
+    container.appendChild(row);
+  });
+}
+
+function toggleTabVis(id) {
+  const t = TAB_STATE.find(x=>x.id===id);
+  if (!t) return;
+  t.hidden = !t.hidden;
+  saveTabState(); renderTabBar(); buildTabPanel();
+  if (t.hidden && id === currentTab) {
+    const first = TAB_STATE.find(x=>!x.hidden);
+    if (first) tab(first.id);
+  }
+}
+
 function tab(name) {
-  const names = ['overview','bestsellers','variants','pricing','keywords','reviews','velocity','compare','competitors','log','market','discover','framework'];
-  document.querySelectorAll('.tab').forEach((t,i) => t.classList.toggle('on', names[i]===name));
+  currentTab = name;
+  renderTabBar();
   document.querySelectorAll('.sec').forEach(s => s.classList.remove('on'));
   document.getElementById('sec-'+name).classList.add('on');
   if (name==='log')      loadLog();
