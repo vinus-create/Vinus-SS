@@ -10,9 +10,9 @@
 // All 3 run simultaneously — ~3× faster, separate rate limit counters.
 // ============================================================
 
-const SHARD  = 0;     // ← CHANGE THIS: 0, 1, or 2
+const SHARD  = 'all'; // ← CHANGE THIS: 'all' (single browser) or 0 / 1 / 2 (parallel)
 const VERCEL = 'https://vinus-ss.vercel.app';
-const DELAY  = 3500;  // ms between item/get — each profile has its own counter
+const DELAY  = 3500;  // ms between item/get calls
 const BATCH  = 60;    // variants per save call
 
 // ── Shop list split into 3 shards ────────────────────────────
@@ -36,7 +36,7 @@ const ALL_SHOPS = [
 ];
 
 const SHARD_RANGES = { 0: [0, 5], 1: [5, 9], 2: [9, 13] };
-const [from, to] = SHARD_RANGES[SHARD] || [0, ALL_SHOPS.length];
+const [from, to] = SHARD === 'all' ? [0, ALL_SHOPS.length] : (SHARD_RANGES[SHARD] || [0, ALL_SHOPS.length]);
 const SHOPS = ALL_SHOPS.slice(from, to);
 
 // ── Helpers ──────────────────────────────────────────────────
