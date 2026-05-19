@@ -1,20 +1,45 @@
 // ============================================================
-// ShopeeScope — Active Seller Enricher
-// Run via Claude in Chrome javascript_tool (on any shopee.com.my tab)
+// ShopeeScope — Active Seller Enricher (Multi-Profile)
+// Run via Claude in Chrome javascript_tool (shopee.com.my tab)
 //
-// Strategy:
-//   1. /api/data?type=active-sellers → products with historical_sold delta > 0 today
-//   2. item/get for each active seller → exact variant stock (no rounding)
-//   3. Save to product_variants → variant_velocity view shows precise stock delta
+// 3 Chrome profiles, each logged into a different Shopee account:
+//   Profile 1 → set SHARD = 0  (shops 0–4)
+//   Profile 2 → set SHARD = 1  (shops 5–8)
+//   Profile 3 → set SHARD = 2  (shops 9–12)
 //
-// Coverage: ALL products are checked. Only active sellers get item/get.
-// Accuracy: stock delta (not historical_sold) → exact units sold per SKU.
+// All 3 run simultaneously — ~3× faster, separate rate limit counters.
 // ============================================================
 
-const VERCEL  = 'https://vinus-ss.vercel.app';
-const DELAY   = 4200;  // ms between item/get calls — adjust up if you get 90309999
-const BATCH   = 60;    // variants per save call
+const SHARD  = 0;     // ← CHANGE THIS: 0, 1, or 2
+const VERCEL = 'https://vinus-ss.vercel.app';
+const DELAY  = 3500;  // ms between item/get — each profile has its own counter
+const BATCH  = 60;    // variants per save call
 
+// ── Shop list split into 3 shards ────────────────────────────
+const ALL_SHOPS = [
+  // Shard 0 — Profile 1
+  { username: 'buddysnack',           shopid: 3693884 },
+  { username: 'winstartech',          shopid: 65231794 },
+  { username: '1stopbatteries',       shopid: 436346628 },
+  { username: 'icare4allshop',        shopid: 101702703 },
+  { username: 'energizerbatteryhub', shopid: 1616613112 },
+  // Shard 1 — Profile 2
+  { username: 'gadgetspecialist',     shopid: 57639219 },
+  { username: 'gou.ori',             shopid: 3614138 },
+  { username: 'tenbucksfood',         shopid: 299773965 },
+  { username: 'dsconcept_store',      shopid: 1494888251 },
+  // Shard 2 — Profile 3
+  { username: 'sxmixempire',          shopid: 902193943 },
+  { username: 'r_in_g',              shopid: 1421385614 },
+  { username: 'nextgenhardware.os',   shopid: 1088905843 },
+  { username: 'ham_radios.my',        shopid: 1231953709 },
+];
+
+const SHARD_RANGES = { 0: [0, 5], 1: [5, 9], 2: [9, 13] };
+const [from, to] = SHARD_RANGES[SHARD] || [0, ALL_SHOPS.length];
+const SHOPS = ALL_SHOPS.slice(from, to);
+
+// ── Helpers ──────────────────────────────────────────────────
 const sleep = ms => new Promise(r => setTimeout(r, ms + Math.floor(Math.random() * 1000)));
 
 const shopeeItem = async (itemid, shopid) => {
@@ -40,37 +65,24 @@ const saveBatch = async (variants) => {
   return j.saved || variants.length;
 };
 
-// Track in window for monitoring
-window._AE = { running: true, shop: '', i: 0, n: 0, variants: 0, errors: 0, skipped: 0, shops: [] };
-const log = (...a) => { console.log(...a); };
+// ── Progress monitor ──────────────────────────────────────────
+window._AE = window._AE || {};
+window._AE[`shard${SHARD}`] = { running: true, shop: '', i: 0, n: 0, variants: 0, errors: 0, shops: [] };
+const W = window._AE[`shard${SHARD}`];
+const log = (...a) => console.log(`[S${SHARD}]`, ...a);
 
-const SHOPS = [
-  { username: 'buddysnack',           shopid: 3693884 },
-  { username: 'winstartech',          shopid: 65231794 },
-  { username: '1stopbatteries',       shopid: 436346628 },
-  { username: 'icare4allshop',        shopid: 101702703 },
-  { username: 'energizerbatteryhub', shopid: 1616613112 },
-  { username: 'gadgetspecialist',     shopid: 57639219 },
-  { username: 'gou.ori',             shopid: 3614138 },
-  { username: 'tenbucksfood',         shopid: 299773965 },
-  { username: 'dsconcept_store',      shopid: 1494888251 },
-  { username: 'sxmixempire',          shopid: 902193943 },
-  { username: 'r_in_g',              shopid: 1421385614 },
-  { username: 'nextgenhardware.os',   shopid: 1088905843 },
-  { username: 'ham_radios.my',        shopid: 1231953709 },
-];
-
+// ── Main ──────────────────────────────────────────────────────
 (async () => {
   const today = new Date().toISOString().split('T')[0];
-  log(`\n🚀 Active Enricher — ${today} | delay: ${DELAY}ms`);
+  log(`🚀 Shard ${SHARD} started — ${today} | shops: ${SHOPS.map(s=>s.username).join(', ')}`);
+  log(`⚙️  Delay: ${DELAY}ms | ${SHOPS.length} shops`);
 
   let grandTotal = 0, grandActive = 0, grandVariants = 0, grandErrors = 0;
 
   for (const shop of SHOPS) {
-    window._AE.shop = shop.username;
+    W.shop = shop.username;
     log(`\n📡 ${shop.username}`);
 
-    // 1. Get active sellers for this shop
     let active = [], total = 0;
     try {
       const r = await fetch(`${VERCEL}/api/data?type=active-sellers&shopid=${shop.shopid}`);
@@ -78,32 +90,30 @@ const SHOPS = [
       const d = await r.json();
       active = d.active || [];
       total  = d.total || 0;
-      grandTotal += total;
+      grandTotal  += total;
       grandActive += active.length;
-      const byDelta  = active.filter(p => p.needs_enrich_reason === 'delta').length;
-      const byForce  = active.filter(p => p.needs_enrich_reason === 'high_volume_force').length;
-      log(`  ${total} products checked → ${active.length} to enrich (${byDelta} delta, ${byForce} high-vol force)`);
+      const byDelta = active.filter(p => p.needs_enrich_reason === 'delta').length;
+      const byForce = active.filter(p => p.needs_enrich_reason === 'high_volume_force').length;
+      log(`  ${total} products → ${active.length} to enrich (${byDelta} delta + ${byForce} high-vol)`);
     } catch(e) {
-      log(`  ❌ Failed to load: ${e.message}`);
+      log(`  ❌ Load failed: ${e.message}`);
       continue;
     }
 
     if (!active.length) {
-      log(`  ⏭️ No sales today — skipping`);
-      window._AE.shops.push({ shop: shop.username, total, active: 0, variants: 0 });
-      window._AE.skipped++;
-      await sleep(1000);
+      log(`  ⏭️ No active sellers — skip`);
+      W.shops.push({ shop: shop.username, total, active: 0, variants: 0 });
+      await sleep(800);
       continue;
     }
 
-    // 2. item/get for each active seller
     const buf = [];
     let shopVars = 0, shopErrs = 0;
-    window._AE.n = active.length;
+    W.n = active.length;
 
     for (let i = 0; i < active.length; i++) {
       const p = active[i];
-      window._AE.i = i + 1;
+      W.i = i + 1;
 
       try {
         await sleep(DELAY);
@@ -136,49 +146,45 @@ const SHOPS = [
           });
         }
 
-        if (i % 10 === 9) log(`  [${i+1}/${active.length}] buffered ${buf.length} variants`);
+        if (i % 10 === 9) log(`  [${i+1}/${active.length}] ${shop.username} — ${buf.length} variants buffered`);
 
-        // Flush buffer every BATCH variants
         if (buf.length >= BATCH) {
-          const chunk = buf.splice(0, BATCH);
-          shopVars += await saveBatch(chunk);
-          window._AE.variants = grandVariants + shopVars;
+          shopVars += await saveBatch(buf.splice(0, BATCH));
+          W.variants = grandVariants + shopVars;
         }
 
       } catch(e) {
         shopErrs++;
         grandErrors++;
         const msg = e.message;
-        // Rate limit: wait and retry
         if (msg.includes('90309999') || msg.includes('429') || msg.includes('403')) {
-          log(`  ⚠️ Rate limit at [${i+1}/${active.length}] — cooling 90s...`);
+          log(`  ⚠️ Rate limit [${i+1}/${active.length}] — cooling 90s...`);
           await sleep(90000);
-          i--; // retry
+          i--;
           continue;
         }
-        if (i % 20 === 0) log(`  ✗ ${p.itemid}: ${msg}`);
+        if (shopErrs % 5 === 1) log(`  ✗ ${p.itemid}: ${msg}`);
       }
     }
 
-    // Flush remaining
     if (buf.length > 0) shopVars += await saveBatch(buf);
     grandVariants += shopVars;
-    window._AE.variants = grandVariants;
+    W.variants = grandVariants;
+    W.errors   = grandErrors;
 
-    log(`  ✅ ${shop.username}: ${active.length} enriched → ${shopVars} variants saved | ${shopErrs} errors`);
-    window._AE.shops.push({ shop: shop.username, total, active: active.length, variants: shopVars, errors: shopErrs });
-    window._AE.errors = grandErrors;
-    await sleep(6000); // pause between shops
+    log(`  ✅ ${shop.username}: ${active.length} enriched → ${shopVars} variants | ${shopErrs} err`);
+    W.shops.push({ shop: shop.username, total, active: active.length, variants: shopVars, errors: shopErrs });
+    await sleep(5000);
   }
 
-  window._AE.running = false;
-  log(`\n📊 Done — ${today}`);
-  log(`  Products checked:   ${grandTotal}`);
-  log(`  Active sellers:     ${grandActive} (${grandTotal ? (grandActive/grandTotal*100).toFixed(1) : 0}%)`);
-  log(`  Variants saved:     ${grandVariants}`);
-  log(`  Errors:             ${grandErrors}`);
-  console.table(window._AE.shops);
+  W.running = false;
+  log(`\n📊 Shard ${SHARD} done`);
+  log(`  Products checked: ${grandTotal}`);
+  log(`  Active sellers:   ${grandActive}`);
+  log(`  Variants saved:   ${grandVariants}`);
+  log(`  Errors:           ${grandErrors}`);
+  console.table(W.shops);
 })();
 
-// To monitor:  window._AE
-'✅ Enricher launched — window._AE for progress';
+// Monitor: window._AE.shard0 / shard1 / shard2
+`✅ Shard ${SHARD} launched — window._AE.shard${SHARD} for progress`;
