@@ -23,6 +23,20 @@ export default async function handler(req, res) {
   if (req.method === 'OPTIONS') return res.status(200).end();
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
 
+  // Generic enriched upsert (replaces /api/save-enriched)
+  // Body: { type: 'table_name', data: [...rows] }
+  if (req.body.type && !req.body.shop) {
+    const { type, data } = req.body;
+    if (!type || !data?.length) return res.status(400).json({ error: 'Missing type or data' });
+    const BATCH = 25;
+    try {
+      for (let i = 0; i < data.length; i += BATCH) {
+        await supabase(type, 'POST', data.slice(i, i + BATCH));
+      }
+      return res.status(200).json({ ok: true, saved: data.length, type });
+    } catch(err) { return res.status(500).json({ error: err.message }); }
+  }
+
   const start = Date.now();
   try {
     const { shop, products, username } = req.body;

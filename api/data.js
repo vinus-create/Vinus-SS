@@ -1,12 +1,20 @@
 const SUPABASE_URL = process.env.SUPABASE_URL;
 const SUPABASE_KEY = process.env.SUPABASE_SERVICE_KEY;
+const H_SB = { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY };
 
 const query = async (path) => {
-  const res = await fetch(`${SUPABASE_URL}/rest/v1/${path}`, {
-    headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY }
-  });
+  const res = await fetch(`${SUPABASE_URL}/rest/v1/${path}`, { headers: H_SB });
   return res.json();
 };
+
+async function loadCookies() {
+  try {
+    const r = await fetch(`${SUPABASE_URL}/rest/v1/config?key=eq.shopee_cookies&select=value`, { headers: H_SB });
+    const rows = await r.json();
+    if (Array.isArray(rows) && rows.length && rows[0].value) return rows[0].value;
+  } catch(e) {}
+  return null;
+}
 
 export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
@@ -89,6 +97,63 @@ export default async function handler(req, res) {
     if (type === 'log') {
       const data = await query('scrape_log?order=scraped_at.desc&limit=50');
       return res.status(200).json(data);
+    }
+
+    // Shop profile — live fetch from Shopee (replaces /api/shop-profile)
+    if (type === 'shop-profile') {
+      const { username } = req.query;
+      if (!username) return res.status(400).json({ error: 'username required' });
+      const cookies = await loadCookies();
+      const csrf = cookies ? (cookies.match(/SPC_CTOKEN=([^;]+)/)||[])[1] : null;
+      const headers = {
+        'x-api-source':'pc','x-shopee-language':'en',
+        'User-Agent':'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
+        'Referer':'https://shopee.com.my/','Accept':'application/json',
+        ...(cookies?{'Cookie':cookies}:{}),
+        ...(csrf?{'x-csrftoken':decodeURIComponent(csrf)}:{})
+      };
+      try {
+        const r = await fetch(`https://shopee.com.my/api/v4/shop/get_shop_detail?username=${encodeURIComponent(username)}`,{headers,signal:AbortSignal.timeout(10000)});
+        if (!r.ok) return res.status(502).json({ error: `Shopee ${r.status}` });
+        const d = await r.json();
+        if (!d.data) return res.status(404).json({ error: 'Shop not found' });
+        const sd = d.data;
+        return res.status(200).json({
+          ok:true, username, name:sd.name, shopid:sd.shopid, ctime:sd.ctime,
+          avatar:sd.account?.portrait||sd.icon||'', follower_count:sd.follower_count||0,
+          response_rate:sd.response_rate??null, response_time:sd.response_time_computed??sd.response_time??null,
+          shop_location:sd.shop_location||'', rating_star:sd.overall_star||0,
+          rating_good:sd.rating_good||0, rating_normal:sd.rating_normal||0, rating_bad:sd.rating_bad||0,
+          is_shopee_verified:!!sd.is_shopee_verified, is_preferred_plus:!!sd.is_preferred_plus_seller,
+          is_official_shop:!!sd.is_official_shop, item_count:sd.item_count||0,
+          description:(sd.description||'').substring(0,200)
+        });
+      } catch(e) { return res.status(500).json({ error: e.message }); }
+    }
+
+    // Category intelligence — cross-shop category breakdown
+    if (type === 'category-intel') {
+      const data = await query('latest_products?select=catid,shopid,itemid,price_min,historical_sold,raw_discount&limit=5000');
+      if (!Array.isArray(data)) return res.status(200).json([]);
+      const cats = {};
+      data.forEach(p => {
+        const c = p.catid || 0;
+        if (!cats[c]) cats[c] = { catid:c, shops:new Set(), products:0, total_sold:0, prices:[], max_discount:0 };
+        cats[c].shops.add(p.shopid);
+        cats[c].products++;
+        cats[c].total_sold += p.historical_sold||0;
+        if (p.price_min) cats[c].prices.push(p.price_min/100000);
+        cats[c].max_discount = Math.max(cats[c].max_discount, p.raw_discount||0);
+      });
+      const result = Object.values(cats).map(c => ({
+        catid: c.catid,
+        shop_count: c.shops.size,
+        product_count: c.products,
+        total_sold: c.total_sold,
+        avg_price_rm: c.prices.length ? +(c.prices.reduce((a,b)=>a+b,0)/c.prices.length).toFixed(2) : 0,
+        max_discount: c.max_discount
+      })).sort((a,b) => b.total_sold - a.total_sold).slice(0, 50);
+      return res.status(200).json(result);
     }
 
     return res.status(400).json({ error: 'Invalid type' });

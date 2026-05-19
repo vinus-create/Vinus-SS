@@ -396,6 +396,7 @@ tr:hover td{background:rgba(249,115,22,.04)}
             <span class="sort-btn" onclick="sortTbl('liked_count',this)">Likes</span>
             <span class="sort-btn" onclick="sortTbl('raw_discount',this)">Discount</span>
           </div>
+          <button class="col-sel-btn" onclick="exportProductsCSV()" title="Export to CSV" style="background:var(--s3);border:1px solid var(--border2);color:var(--muted);padding:6px 12px;border-radius:6px;font-size:11px;font-weight:700;cursor:pointer">⬇ CSV</button>
           <button class="col-sel-btn" onclick="toggleColPanel(event)" title="Show/Hide Columns">⚙ Columns</button>
         </div>
       </div>
@@ -407,6 +408,29 @@ tr:hover td{background:rgba(249,115,22,.04)}
       </div>
       <div class="tbl-wrap">
         <table id="bs-table"><thead><tr id="bs-thead"></tr></thead><tbody id="tbl-body"></tbody></table>
+      </div>
+    </div>
+
+    <!-- Price History — collapsible section below product table -->
+    <div class="card" id="ph-card" style="display:none;margin-bottom:0">
+      <div class="card-hdr" style="cursor:pointer" onclick="togglePriceHistoryBody()">
+        <span class="card-title">📈 Price History</span>
+        <div style="display:flex;gap:8px;align-items:center">
+          <span id="ph-status" style="font-family:'DM Mono',monospace;font-size:10px;color:var(--muted)">Avg price over time</span>
+          <span id="ph-changes-badge" style="display:none;background:var(--danger);color:#fff;border-radius:4px;padding:2px 7px;font-size:10px;font-weight:700"></span>
+          <span id="ph-toggle" style="font-size:12px;color:var(--muted)">▼</span>
+        </div>
+      </div>
+      <div id="ph-body">
+        <div class="card-body">
+          <div class="g2" style="margin-bottom:0">
+            <div><div style="font-size:9px;font-weight:700;letter-spacing:1.5px;color:var(--muted);text-transform:uppercase;margin-bottom:8px">Daily Avg Price Trend</div><div style="position:relative;height:180px"><canvas id="ch-pricehist"></canvas></div></div>
+            <div>
+              <div style="font-size:9px;font-weight:700;letter-spacing:1.5px;color:var(--muted);text-transform:uppercase;margin-bottom:8px">Price Changes (≥5%)</div>
+              <div id="ph-changes-list" style="max-height:180px;overflow-y:auto;font-size:12px"></div>
+            </div>
+          </div>
+        </div>
       </div>
     </div>
   </div>
@@ -423,6 +447,7 @@ tr:hover td{background:rgba(249,115,22,.04)}
           <span class="sort-btn"   onclick="switchVarView('stock',this)">⚠️ Stock Alerts</span>
           <span class="sort-btn"   onclick="switchVarView('pack',this)">🔢 Pack Analysis</span>
         </div>
+        <button onclick="exportVariantsCSV()" style="background:var(--s3);border:1px solid var(--border2);color:var(--muted);padding:5px 10px;border-radius:6px;font-size:11px;font-weight:700;cursor:pointer">⬇ CSV</button>
       </div>
       <div class="card-body" style="padding-bottom:8px;display:flex;gap:8px;flex-wrap:wrap">
         <input id="var-search" type="text" placeholder="Search products or variants..."
@@ -909,6 +934,29 @@ tr:hover td{background:rgba(249,115,22,.04)}
 
   <!-- ======= SETUP GUIDE ======= -->
   <div class="sec" id="sec-framework">
+    <!-- TRACKED SHOPS MANAGER -->
+    <div class="card" style="margin-bottom:16px;border:2px solid var(--acc2)">
+      <div class="card-hdr" style="background:linear-gradient(135deg,#f0fdf4,#dcfce7)">
+        <span class="card-title">🏪 Tracked Shops Manager</span>
+        <span style="font-family:'DM Mono',monospace;font-size:10px;color:var(--muted)" id="trackedShopCount">Loading...</span>
+      </div>
+      <div class="card-body">
+        <!-- Add new shop -->
+        <div style="display:flex;gap:8px;align-items:center;margin-bottom:16px;flex-wrap:wrap">
+          <input id="addShopInput" type="text" placeholder="Shop username or shopee.com.my/username URL"
+            style="flex:1;min-width:200px;background:var(--s3);border:1px solid var(--border2);color:var(--text);padding:9px 14px;border-radius:7px;font-size:13px;font-family:'Inter',sans-serif;outline:none"
+            onkeydown="if(event.key==='Enter')addShop()">
+          <button onclick="addShop()" id="addShopBtn"
+            style="padding:9px 18px;background:var(--acc2);color:#fff;border:none;border-radius:7px;font-size:12px;font-weight:700;cursor:pointer;white-space:nowrap">
+            + Add & Scrape
+          </button>
+        </div>
+        <div id="addShopStatus" style="font-size:11px;color:var(--muted);font-family:'DM Mono',monospace;margin-bottom:12px;display:none"></div>
+        <!-- Shop list -->
+        <div id="trackedShopList" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:8px"></div>
+      </div>
+    </div>
+
     <div class="card" style="margin-bottom:16px"><div class="card-body">
       <h2 style="font-size:20px;font-weight:800;margin-bottom:6px">Full Setup Guide</h2>
       <p style="color:var(--muted);font-size:12px">Supabase + Vercel + Bookmarklet — one-click scraping, no server needed</p>
@@ -1068,6 +1116,167 @@ function initCols() {
 let CH = {};
 
 // ========================================================
+// CSV EXPORT
+// ========================================================
+function exportProductsCSV() {
+  const p = ST.products;
+  if (!p?.length) return alert('No product data to export');
+  const cols = ['itemid','name','price_min','raw_discount','historical_sold','liked_count','stock','rating_star','catid','brand','scraped_date'];
+  const header = ['Product ID','Name','Price (RM raw)','Discount %','Total Sold','Likes','Stock','Rating','Category ID','Brand','Date'];
+  const rows = p.map(r => cols.map(c => {
+    const v = r[c]; return typeof v==='string' ? `"${v.replace(/"/g,'""')}"` : (v??'');
+  }).join(','));
+  const csv = [header.join(','), ...rows].join('\n');
+  const blob = new Blob([csv], {type:'text/csv'});
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = `shopeescope_products_${ST.activeShopid}_${new Date().toISOString().split('T')[0]}.csv`;
+  a.click();
+}
+
+function exportVariantsCSV() {
+  const v = ST.variants;
+  if (!v?.length) return alert('No variant data to export');
+  const cols = ['shopid','itemid','product_name','variant_name','price','stock','sold','variation_type','scraped_date'];
+  const header = ['Shop ID','Item ID','Product Name','Variant','Price RM','Stock','Sold','Type','Date'];
+  const rows = v.map(r => cols.map(c => {
+    const val = r[c]; return typeof val==='string' ? `"${val.replace(/"/g,'""')}"` : (val??'');
+  }).join(','));
+  const csv = [header.join(','), ...rows].join('\n');
+  const blob = new Blob([csv], {type:'text/csv'});
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = `shopeescope_variants_${ST.activeShopid}_${new Date().toISOString().split('T')[0]}.csv`;
+  a.click();
+}
+
+// ========================================================
+// PRICE HISTORY
+// ========================================================
+let PH = { loaded: false, collapsed: false };
+
+async function loadPriceHistory() {
+  if (!ST.activeShopid) return;
+  const card = document.getElementById('ph-card');
+  if (card) card.style.display = '';
+  try {
+    const [histRes, chgRes] = await Promise.all([
+      fetch(`${API}/api/get-price-history?shopid=${ST.activeShopid}&type=history`),
+      fetch(`${API}/api/get-price-history?shopid=${ST.activeShopid}&type=changes&threshold=0.05`)
+    ]);
+    const hist = histRes.ok ? await histRes.json() : [];
+    const changes = chgRes.ok ? await chgRes.json() : [];
+    PH.loaded = true;
+
+    // Price trend chart
+    if (hist.length > 1) {
+      mkChart('ch-pricehist','line',{
+        labels: hist.map(d=>d.date),
+        datasets:[
+          {label:'Avg RM',data:hist.map(d=>d.avg),borderColor:'var(--acc)',backgroundColor:'rgba(249,115,22,.1)',fill:true,tension:.4,pointRadius:2},
+          {label:'Min RM',data:hist.map(d=>d.min),borderColor:'var(--acc2)',borderDash:[4,4],fill:false,tension:.4,pointRadius:0},
+          {label:'Max RM',data:hist.map(d=>d.max),borderColor:'var(--acc3)',borderDash:[4,4],fill:false,tension:.4,pointRadius:0},
+        ]
+      },{scales:{y:{ticks:{callback:v=>'RM'+v.toFixed(0)}}}});
+      const set = (id,v) => { const e=document.getElementById(id); if(e) e.textContent=v; };
+      set('ph-status', `${hist.length} days tracked · RM${hist[0]?.avg} → RM${hist[hist.length-1]?.avg}`);
+    }
+
+    // Price changes list
+    const badge = document.getElementById('ph-changes-badge');
+    const list = document.getElementById('ph-changes-list');
+    if (changes.length && badge && list) {
+      badge.style.display = '';
+      badge.textContent = changes.length + ' price changes';
+      list.innerHTML = changes.slice(0,20).map(c => `
+        <div style="display:flex;justify-content:space-between;align-items:center;padding:6px 0;border-bottom:1px solid var(--border);gap:8px">
+          <div style="font-size:11px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:55%">${c.name.substring(0,40)}</div>
+          <div style="flex-shrink:0;font-family:'DM Mono',monospace;font-size:11px">
+            RM${c.old_price} → RM${c.new_price}
+            <span style="color:${c.direction==='up'?'var(--danger)':'var(--acc2)'};font-weight:700;margin-left:4px">
+              ${c.direction==='up'?'↑':'↓'}${Math.abs(c.change_pct)}%
+            </span>
+          </div>
+        </div>`).join('');
+    }
+  } catch(e) { console.warn('Price history error:', e.message); }
+}
+
+function togglePriceHistoryBody() {
+  const body = document.getElementById('ph-body');
+  const tog = document.getElementById('ph-toggle');
+  if (!body) return;
+  PH.collapsed = !PH.collapsed;
+  body.style.display = PH.collapsed ? 'none' : '';
+  if (tog) tog.textContent = PH.collapsed ? '▶' : '▼';
+}
+
+// ========================================================
+// ADD / MANAGE TRACKED SHOPS
+// ========================================================
+async function renderTrackedShops() {
+  const container = document.getElementById('trackedShopList');
+  const countEl = document.getElementById('trackedShopCount');
+  if (!container) return;
+  const shops = ST.shops || [];
+  if (countEl) countEl.textContent = `${shops.length} shops tracked`;
+  container.innerHTML = shops.map(s => `
+    <div style="background:var(--s2);border:1px solid var(--border);border-radius:8px;padding:12px">
+      <div style="font-size:13px;font-weight:700;margin-bottom:4px">${s.username}</div>
+      <div style="font-size:10px;color:var(--muted);font-family:'DM Mono',monospace;margin-bottom:8px">${(s.total_products||s.item_count||0).toLocaleString()} products · ${(s.total_sold||0).toLocaleString()} sold</div>
+      <div style="display:flex;gap:6px">
+        <button onclick="scrapeNow('${s.username}')" style="flex:1;padding:5px 0;background:var(--acc);color:#fff;border:none;border-radius:5px;font-size:11px;font-weight:700;cursor:pointer">↻ Scrape Now</button>
+        <a href="https://shopee.com.my/${s.username}" target="_blank" style="flex:1;padding:5px 0;background:var(--s3);color:var(--muted);border:1px solid var(--border2);border-radius:5px;font-size:11px;font-weight:700;cursor:pointer;text-align:center;text-decoration:none">↗ View Shop</a>
+      </div>
+    </div>`).join('');
+}
+
+async function addShop() {
+  const input = document.getElementById('addShopInput');
+  const statusEl = document.getElementById('addShopStatus');
+  const btn = document.getElementById('addShopBtn');
+  if (!input) return;
+  let username = input.value.trim();
+  // Extract username from URL if pasted (e.g. https://shopee.com.my/buddysnack)
+  const m = username.match(/shopee\.com\.my\/([^/?#]+)/);
+  if (m) username = m[1];
+  if (!username) return;
+  if (statusEl) { statusEl.style.display=''; statusEl.textContent = `⏳ Scraping ${username}... (may take 2-3 min)`; }
+  if (btn) btn.disabled = true;
+  try {
+    const r = await fetch(`${API}/api/trigger-scrape?username=${encodeURIComponent(username)}&secret=shopeescope2026`);
+    const d = await r.json();
+    if (d.ok) {
+      if (statusEl) statusEl.textContent = `✅ ${username} added — ${d.products} products saved in ${d.duration_seconds}s`;
+      input.value = '';
+      await refreshShops(); // refresh dropdown + shop list
+      renderTrackedShops();
+    } else {
+      if (statusEl) statusEl.textContent = `❌ Error: ${d.error}`;
+    }
+  } catch(e) {
+    if (statusEl) statusEl.textContent = `❌ Network error: ${e.message}`;
+  } finally {
+    if (btn) btn.disabled = false;
+  }
+}
+
+async function scrapeNow(username) {
+  const statusEl = document.getElementById('addShopStatus');
+  if (statusEl) { statusEl.style.display=''; statusEl.textContent = `⏳ Scraping ${username}...`; }
+  try {
+    const r = await fetch(`${API}/api/trigger-scrape?username=${encodeURIComponent(username)}&secret=shopeescope2026`);
+    const d = await r.json();
+    if (statusEl) statusEl.textContent = d.ok
+      ? `✅ ${username} — ${d.products} products refreshed in ${d.duration_seconds}s`
+      : `❌ ${d.error}`;
+    if (d.ok) { await refreshShops(); renderTrackedShops(); }
+  } catch(e) {
+    if (statusEl) statusEl.textContent = `❌ ${e.message}`;
+  }
+}
+
+// ========================================================
 // INIT
 // ========================================================
 window.onload = async () => {
@@ -1076,6 +1285,7 @@ window.onload = async () => {
   initCols();
   buildColPanel();
   await refreshShops();
+  renderTrackedShops();
 };
 
 // ========================================================
@@ -1238,12 +1448,14 @@ function tab(name) {
   renderTabBar();
   document.querySelectorAll('.sec').forEach(s => s.classList.remove('on'));
   document.getElementById('sec-'+name).classList.add('on');
-  if (name==='log')      loadLog();
-  if (name==='market'   && !MKT.loaded)  loadMarket();
-  if (name==='variants' && ST.activeShopid) loadVariants();
-  if (name==='reviews'  && ST.activeShopid && !RV.loaded)  loadReviews();
-  if (name==='velocity' && ST.activeShopid && !VEL.loaded) loadVelocity();
-  if (name==='compare'  && !CMP.loaded) loadCompare();
+  if (name==='log')         loadLog();
+  if (name==='market'      && !MKT.loaded)  loadMarket();
+  if (name==='variants'    && ST.activeShopid) loadVariants();
+  if (name==='reviews'     && ST.activeShopid && !RV.loaded)  loadReviews();
+  if (name==='velocity'    && ST.activeShopid && !VEL.loaded) loadVelocity();
+  if (name==='compare'     && !CMP.loaded) loadCompare();
+  if (name==='bestsellers' && ST.activeShopid && !PH.loaded)  loadPriceHistory();
+  if (name==='framework')  renderTrackedShops();
 }
 
 // ========================================================
@@ -1285,7 +1497,7 @@ async function loadShopData() {
       fetch(`${API}/api/data?type=products&shopid=${shopid}&limit=300`),
       fetch(`${API}/api/get-variants?shopid=${shopid}&limit=2000`),
       fetch(`${API}/api/get-velocity?shopid=${shopid}&limit=2000`),
-      fetch(`${API}/api/shop-profile?username=${encodeURIComponent(username)}`).catch(()=>null)
+      fetch(`${API}/api/data?type=shop-profile&username=${encodeURIComponent(username)}`).catch(()=>null)
     ]);
     const products = prodRes.ok ? await prodRes.json() : [];
     const variants = varRes.ok ? await varRes.json() : [];
@@ -1315,6 +1527,7 @@ async function loadShopData() {
     }
     RV.loaded = false;
     VEL.loaded = false;
+    PH.loaded = false; // reset price history for new shop
     VAR.data = []; // reset so variants always re-renders fresh for new shop
     ST.shopMeta = ST.shops.find(s => s.shopid == shopid) || {};
     prog(true, 90);
@@ -1592,7 +1805,25 @@ function renderKPIs() {
 
   set('k-products', p.length);
   set('k-products-sub', active.length + ' with sales');
-  set('k-revenue', fmtRev(estRevenue));
+  // Try to compute monthly revenue estimate from velocity data (sold_7d * price * 30/7)
+  let monthlyRevSub = 'lifetime × price';
+  if (ST.velByItemId && Object.keys(ST.velByItemId).length > 0) {
+    const monthlyRev = p.reduce((a, x) => {
+      const vel = ST.velByItemId[x.itemid];
+      if (!vel || !vel.sold_7d) return a;
+      return a + vel.sold_7d * (30/7) * (x.price_min/1e5||0);
+    }, 0);
+    if (monthlyRev > 0) {
+      set('k-revenue', fmtRev(monthlyRev));
+      monthlyRevSub = '7d velocity × 30 days';
+    } else {
+      set('k-revenue', fmtRev(estRevenue));
+    }
+  } else {
+    set('k-revenue', fmtRev(estRevenue));
+  }
+  document.querySelector('#k-revenue')?.closest('.kpi')?.querySelector('.kpi-sub') &&
+    (document.querySelector('[id="k-revenue"]').closest('.kpi').querySelector('.kpi-sub').textContent = monthlyRevSub);
   set('k-price', 'RM '+medP.toFixed(0));
   set('k-price-sub', 'avg RM '+(prices.reduce((a,b)=>a+b,0)/prices.length).toFixed(0));
   set('k-rating', avgR);

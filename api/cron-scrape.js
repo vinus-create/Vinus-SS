@@ -23,8 +23,18 @@ const FALLBACK_SHOPS=[
 
 const H_SB={'apikey':K,'Authorization':'Bearer '+K,'Content-Type':'application/json'};
 
+// Rotating User-Agents — cycle through real browser UAs to reduce fingerprinting
+const UAS=[
+  'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
+  'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/123.0.0.0 Safari/537.36',
+  'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
+  'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:125.0) Gecko/20100101 Firefox/125.0',
+  'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.4.1 Safari/605.1.15',
+];
+const randUA=()=>UAS[Math.floor(Math.random()*UAS.length)];
+
 // Sleep with ±30% random jitter to avoid pattern detection
-const sleep=ms=>new Promise(r=>setTimeout(r,ms+Math.floor(Math.random()*ms*0.3)));
+const sleep=ms=>new Promise(r=>setTimeout(r,Math.round(ms*(0.7+Math.random()*0.6))));
 
 // Load Shopee cookies from Supabase config table
 async function loadCookies(){
@@ -46,7 +56,7 @@ const makeShopeeHeaders=(cookies)=>{
   const csrf=extractCsrf(cookies);
   return {
     'x-api-source':'pc','x-shopee-language':'en',
-    'User-Agent':'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
+    'User-Agent':randUA(),
     'Referer':'https://shopee.com.my/','Accept':'application/json',
     'Accept-Language':'en-MY,en;q=0.9,ms;q=0.8',
     'sec-ch-ua':'"Chromium";v="124", "Google Chrome";v="124", "Not-A.Brand";v="99"',
@@ -264,6 +274,22 @@ export default async function handler(req,res){
     results.push(r);
     await sleep(5000);
   }
+
+  // Auto-generate product-level snapshots from latest_products for today
+  // This ensures velocity tracking works even if full variant enrichment wasn't run
+  try{
+    const prodsForSnap=await sbQuery(`latest_products?select=shopid,itemid,username,name,price_min,stock,historical_sold&limit=2000`);
+    if(Array.isArray(prodsForSnap)&&prodsForSnap.length){
+      const snapFromProds=prodsForSnap.map(p=>({
+        shopid:p.shopid,itemid:p.itemid,model_id:0,username:p.username,
+        product_name:p.name,variant_name:'Default',variant_sku:'',variation_type:'product',
+        price:(p.price_min||0)/100000,stock:p.stock||0,sold:p.historical_sold||0,
+        scraped_date:today,scraped_at:new Date().toISOString()
+      }));
+      await sb('snapshots?on_conflict=shopid,itemid,model_id,scraped_date',snapFromProds);
+      console.log(`📸 Auto-snapshot: ${snapFromProds.length} product-level snapshots saved for ${today}`);
+    }
+  }catch(e){console.warn('Auto-snapshot failed:',e.message);}
 
   const duration=Math.round((Date.now()-startAll)/1000);
   console.log(`🏁 Cron done in ${duration}s. Scraped ${results.reduce((a,r)=>a+r.products,0)} products total.`);
