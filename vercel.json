@@ -1,4 +1,5 @@
 {
+  "outputDirectory": ".",
   "functions": {
     "api/cron-scrape.js": { "maxDuration": 300 }
   },
