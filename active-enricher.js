@@ -149,8 +149,10 @@ const log = (...a) => console.log(`[S${SHARD}]`, ...a);
         if (i % 10 === 9) log(`  [${i+1}/${active.length}] ${shop.username} — ${buf.length} variants buffered`);
 
         if (buf.length >= BATCH) {
-          shopVars += await saveBatch(buf.splice(0, BATCH));
-          W.variants = grandVariants + shopVars;
+          try {
+            shopVars += await saveBatch(buf.splice(0, BATCH));
+            W.variants = grandVariants + shopVars;
+          } catch(e) { log(`  ❌ saveBatch error: ${e.message}`); }
         }
 
       } catch(e) {
@@ -167,7 +169,10 @@ const log = (...a) => console.log(`[S${SHARD}]`, ...a);
       }
     }
 
-    if (buf.length > 0) shopVars += await saveBatch(buf);
+    if (buf.length > 0) {
+      try { shopVars += await saveBatch(buf); }
+      catch(e) { log(`  ❌ Final saveBatch failed: ${e.message}`); grandErrors += buf.length; }
+    }
     grandVariants += shopVars;
     W.variants = grandVariants;
     W.errors   = grandErrors;

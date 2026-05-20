@@ -15,10 +15,5 @@
       ]
     }
   ],
-  "crons": [
-    {
-      "path": "/api/cron-scrape",
-      "schedule": "0 0 * * *"
-    }
-  ]
+  "crons": []
 }
