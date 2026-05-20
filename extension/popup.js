@@ -170,7 +170,7 @@ async function loadShopCards() {
         .map(l => l.username)
     );
 
-    const shops = Array.isArray(statsArr) ? statsArr : [];
+    const shops = (Array.isArray(statsArr) ? statsArr : []).filter(s => s.username && s.shopid);
     if (!shops.length) {
       container.innerHTML = '<div class="idle-msg" style="grid-column:1/-1">暂无数据</div>';
       return;

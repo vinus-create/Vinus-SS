@@ -53,6 +53,13 @@
   rdSend();
 
   if (prods.length) {
+    // Upsert minimal shop record so it appears in shop_stats (which JOINs the shops table)
+    await fetch(`${V}/api/save`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ type: 'shops?on_conflict=username', data: [{ username: u, shopid: sid }] })
+    });
+
     const rows = prods.map(p => ({
       shopid: sid, itemid: p.itemid, username: u, name: p.name,
       price_min: p.price_min || 0, price_max: p.price_max || p.price_min || 0,

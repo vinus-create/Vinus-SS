@@ -94,6 +94,13 @@ const saveProducts = async (shop, products, today) => {
     scraped_date: today, scraped_at: new Date().toISOString()
   }));
 
+  // Upsert minimal shop record so it appears in shop_stats (which JOINs the shops table)
+  await fetch(`${VERCEL}/api/save`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ type: 'shops?on_conflict=username', data: [{ username: shop.username, shopid: shop.shopid }] })
+  });
+
   const SAVE_BATCH = 50;
   for (let i = 0; i < rows.length; i += SAVE_BATCH) {
     const r = await fetch(`${VERCEL}/api/save`, {
