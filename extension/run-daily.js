@@ -206,6 +206,7 @@ for (let si = 0; si < SHOPS.length; si++) {
         batch.forEach(p => {
           if (!seenIds.has(p.itemid)) { seenIds.add(p.itemid); prodsMap[p.itemid] = p; newCount++; }
         });
+        W.products = grandProducts + seenIds.size; // show found count during search
         if (batch.length < 60 || newCount === 0) break; // stop if last page or all duplicates
         offset += 60;
       }
