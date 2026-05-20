@@ -12,7 +12,7 @@ export default async function handler(req, res) {
     const { variants } = req.body;
     if (!variants?.length) return res.status(400).json({ error: 'No variants' });
 
-    const res2 = await fetch(`${SUPABASE_URL}/rest/v1/product_variants`, {
+    const res2 = await fetch(`${SUPABASE_URL}/rest/v1/product_variants?on_conflict=shopid,itemid,variant_name,scraped_date`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
