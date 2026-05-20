@@ -202,10 +202,11 @@ for (let si = 0; si < SHOPS.length; si++) {
         }
         const batch = (d.items || []).map(i => i.item_basic).filter(Boolean);
         if (!batch.length) break;
+        let newCount = 0;
         batch.forEach(p => {
-          if (!seenIds.has(p.itemid)) { seenIds.add(p.itemid); prodsMap[p.itemid] = p; }
+          if (!seenIds.has(p.itemid)) { seenIds.add(p.itemid); prodsMap[p.itemid] = p; newCount++; }
         });
-        if (batch.length < 60) break;
+        if (batch.length < 60 || newCount === 0) break; // stop if last page or all duplicates
         offset += 60;
       }
       log(`  [${sortBy}] ${seenIds.size} 个唯一产品`);
