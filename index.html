@@ -1593,12 +1593,12 @@ async function loadShopData() {
     renderAll();
     // If a data tab is already active, reload it now (tab() won't re-fire on shop change)
     const activeTab = document.querySelector('.tab.on');
-    if (activeTab && activeTab.getAttribute('onclick')) {
-      const oc = activeTab.getAttribute('onclick');
-      if (oc.includes('variants')) loadVariants();
-      if (oc.includes('velocity')) loadVelocity();
-      if (oc.includes('reviews'))  { RV.loaded = false;  loadReviews(); }
-      if (oc.includes('bestsellers')) { PH.loaded = false; loadPriceHistory(); }
+    if (activeTab?.dataset?.id) {
+      const id = activeTab.dataset.id;
+      if (id === 'variants')    loadVariants();
+      if (id === 'velocity')    loadVelocity();
+      if (id === 'reviews')     { RV.loaded = false; loadReviews(); }
+      if (id === 'bestsellers') { PH.loaded = false; loadPriceHistory(); }
     }
     prog(false);
     setStatus(`✓ ${products.length} products · ${variants.length||0} variants — ${ST.shopMeta.username||''}`);
