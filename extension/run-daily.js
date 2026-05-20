@@ -162,27 +162,19 @@ window._rdWatcher = setInterval(() => {
   }
 }, 15000);
 
-// 等待 CAPTCHA 解决（导航到 shopee 首页让用户看到验证）
-async function waitCaptcha(reason) {
-  log(`⚠️ ${reason} — 导航到 Shopee 等待解决...`);
-  document.title = '⚠️ CAPTCHA — 请解完后继续！';
+// CAPTCHA 检测到 → 停止 run，通知 popup 显示警告
+function checkCaptcha() {
+  const onCaptcha = location.href.includes('captcha') || location.href.includes('/verify/');
+  if (!onCaptcha) return;
+  W.running = false;
+  document.title = '⚠️ CAPTCHA — 已停止';
   window.postMessage({ type: 'CAPTCHA_DETECTED', shop: W.shop }, '*');
-  // 导航到 shopee 首页，让 CAPTCHA 弹出来
-  location.href = 'https://shopee.com.my';
-  await new Promise(r => setTimeout(r, 3000)); // 等页面加载
-  // 轮询直到 URL 不再含 captcha/verify（说明用户已解决或页面正常）
-  while (location.href.includes('captcha') || location.href.includes('verify')) {
-    document.title = '⚠️ CAPTCHA — 请解完后继续！';
-    await new Promise(r => setTimeout(r, 2000));
-  }
-  log('✅ CAPTCHA 已解决，5秒后继续...');
-  document.title = '✅ CAPTCHA solved — resuming...';
-  await new Promise(r => setTimeout(r, 5000));
+  log('🛑 CAPTCHA 检测到 — 停止。换账号登录后重新运行会自动跳过已完成的店。');
+  throw new Error('CAPTCHA_STOP');
 }
 
-function checkCaptcha() {
-  if (!location.href.includes('captcha') && !location.href.includes('/verify/')) return;
-  throw new Error('CAPTCHA_DETECTED');
+async function waitCaptcha(reason) {
+  checkCaptcha(); // 实际上只在 URL 含 captcha/verify 时才触发
 }
 
 // ── Main ──────────────────────────────────────────────────────
@@ -234,7 +226,7 @@ for (let si = 0; si < SHOPS.length; si++) {
         let d;
         try { d = await shopeeSearch(shop.shopid, sortBy, offset); }
         catch(e) {
-          if (e.message === 'CAPTCHA_DETECTED') { await waitCaptcha('搜索时检测到CAPTCHA'); continue; }
+          if (e.message === 'CAPTCHA_STOP') { throw e; } // 向上冒泡退出 shop 循环
           if (e.message.includes('429') || e.message.includes('403')) {
             rateRetries++;
             if (rateRetries >= 3) { log(`  ⚠️ search [${sortBy}] 限流超3次，跳过此排序`); break; }
@@ -274,6 +266,7 @@ for (let si = 0; si < SHOPS.length; si++) {
     log(`  ✅ Phase 1: ${saved} 个产品已保存`);
 
   } catch(e) {
+    if (e.message === 'CAPTCHA_STOP') break; // 停止整个 run
     log(`  ❌ Phase 1 失败: ${e.message}`);
     W.shops.push({ shop: shop.username, products: 0, active: 0, variants: 0, error: e.message });
     grandErrors++;
@@ -353,7 +346,7 @@ for (let si = 0; si < SHOPS.length; si++) {
       }
 
     } catch(e) {
-      if (e.message === 'CAPTCHA_DETECTED') { await waitCaptcha('Enrich时检测到CAPTCHA'); i--; continue; }
+      if (e.message === 'CAPTCHA_STOP') break;
       shopErrs++; grandErrors++;
       if (e.message.includes('90309999') || e.message.includes('429') || e.message.includes('403')) {
         log(`  ⚠️ 限流 [${i+1}/${active.length}] — 冷却90s...`);
