@@ -1,17 +1,19 @@
-// ============================================================
-// ShopeeScope — Daily Runner (Browser版，整合产品爬取 + Variant Enrichment)
-// 在 shopee.com.my 标签页运行（需要登录）
-//
-// 每个店流程：
-//   Phase 1 → search_items (3 sort orders) → 存 products 表
-//   Phase 2 → active-sellers API → 找今日有销量的产品
-//   Phase 3 → item/get → 存 product_variants 表
-// ============================================================
+// ShopeeScope — Daily Runner
+// Wrapped in IIFE so re-injection doesn't throw "already declared" errors
+
+;(async () => {
+
+// Guard: don't re-run if already running
+if (window._RD?.running) { console.log('[RD] already running'); return; }
+
+// Clear old intervals from any previous run
+if (window._rdRelay)   { clearInterval(window._rdRelay);   window._rdRelay = null; }
+if (window._rdWatcher) { clearInterval(window._rdWatcher); window._rdWatcher = null; }
 
 const VERCEL       = 'https://vinus-ss.vercel.app';
-const DELAY_SEARCH = 800;   // ms between search_items pages
-const DELAY_ITEM   = 3500;  // ms between item/get calls
-const BATCH        = 60;    // variants per save call
+const DELAY_SEARCH = 800;
+const DELAY_ITEM   = 3500;
+const BATCH        = 60;
 
 const SHOPS = [
   { username: 'buddysnack',           shopid: 3693884 },
@@ -91,7 +93,7 @@ const saveProducts = async (shop, products, today) => {
     if (!j.ok) throw new Error(j.error || 'save products failed');
   }
 
-  // 同时存 snapshots（用于 product_velocity）
+  // 同时存 snapshots
   const snaps = rows.map(p => ({
     shopid: p.shopid, itemid: p.itemid, model_id: 0, username: p.username,
     product_name: p.name, variant_name: 'Default', variant_sku: '',
@@ -124,7 +126,7 @@ const saveVariants = async (variants) => {
   return j.saved || variants.length;
 };
 
-// ── Progress monitor ──────────────────────────────────────────
+// ── Progress state ────────────────────────────────────────────
 window._RD = {
   running: true, phase: '', shop: '', shopIdx: 0, shopTotal: SHOPS.length,
   searchPage: 0, itemI: 0, itemN: 0,
@@ -134,7 +136,7 @@ window._RD = {
 const W = window._RD;
 const log = (...a) => console.log('[RD]', ...a);
 
-// Direct relay to background every 3s (don't rely on content.js seeing window._RD)
+// Direct relay to background every 3s
 function _rdSend() {
   try { chrome.runtime.sendMessage({ type: 'RD_UPDATE', data: { ...W } }); } catch(e) {}
 }
@@ -145,7 +147,7 @@ window._rdRelay = setInterval(() => {
   document.title = `[${W.shop} ${ph} | ${W.products}p ${W.variants}v] RD`;
 }, 3000);
 
-// CAPTCHA 检测
+// CAPTCHA 检测 (every 20s)
 let _lastI = 0, _lastProg = Date.now();
 window._rdWatcher = setInterval(() => {
   if (!W.running) { clearInterval(window._rdWatcher); return; }
@@ -165,171 +167,166 @@ window._rdWatcher = setInterval(() => {
 }, 20000);
 
 // ── Main ──────────────────────────────────────────────────────
-(async () => {
-  const today = new Date().toISOString().split('T')[0];
-  log(`🚀 run-daily 开始 — ${today} | ${SHOPS.length} 个店`);
-  let grandProducts = 0, grandVariants = 0, grandErrors = 0;
+const today = new Date().toISOString().split('T')[0];
+log(`🚀 run-daily 开始 — ${today} | ${SHOPS.length} 个店`);
+let grandProducts = 0, grandVariants = 0, grandErrors = 0;
 
-  for (let si = 0; si < SHOPS.length; si++) {
-    const shop = SHOPS[si];
-    W.shop = shop.username;
-    W.shopIdx = si + 1;
-    W.phase = 'search';
-    log(`\n${'─'.repeat(50)}`);
-    log(`📡 [${si+1}/${SHOPS.length}] ${shop.username}`);
+for (let si = 0; si < SHOPS.length; si++) {
+  const shop = SHOPS[si];
+  W.shop = shop.username;
+  W.shopIdx = si + 1;
+  W.phase = 'search';
+  log(`\n${'─'.repeat(50)}`);
+  log(`📡 [${si+1}/${SHOPS.length}] ${shop.username}`);
 
-    // ── Phase 1: 爬产品列表 ──────────────────────────────────
-    let products = [];
-    try {
-      const seenIds = new Set();
-      const prodsMap = {};
+  // ── Phase 1: 爬产品列表 ──────────────────────────────────
+  let products = [];
+  try {
+    const seenIds = new Set();
+    const prodsMap = {};
 
-      for (const sortBy of ['sales', 'ctime', 'price']) {
-        let offset = 0, pageCount = 0;
-        while (true) {
-          W.searchPage = ++pageCount;
-          await sleep(DELAY_SEARCH);
-          let d;
-          try { d = await shopeeSearch(shop.shopid, sortBy, offset); }
-          catch(e) {
-            if (e.message.includes('429') || e.message.includes('403')) {
-              log(`  ⚠️ search 限流 — 冷却60s...`);
-              await sleep(60000);
-              continue;
-            }
-            throw e;
+    for (const sortBy of ['sales', 'ctime', 'price']) {
+      let offset = 0, pageCount = 0;
+      while (true) {
+        W.searchPage = ++pageCount;
+        await sleep(DELAY_SEARCH);
+        let d;
+        try { d = await shopeeSearch(shop.shopid, sortBy, offset); }
+        catch(e) {
+          if (e.message.includes('429') || e.message.includes('403')) {
+            log(`  ⚠️ search 限流 — 冷却60s...`);
+            await sleep(60000);
+            continue;
           }
-          const batch = (d.items || []).map(i => i.item_basic).filter(Boolean);
-          if (!batch.length) break;
-          let newCount = 0;
-          batch.forEach(p => {
-            if (!seenIds.has(p.itemid)) { seenIds.add(p.itemid); prodsMap[p.itemid] = p; newCount++; }
-          });
-          if (batch.length < 60) break;
-          offset += 60;
+          throw e;
         }
-        log(`  [${sortBy}] ${seenIds.size} 个唯一产品`);
-        await sleep(1500);
+        const batch = (d.items || []).map(i => i.item_basic).filter(Boolean);
+        if (!batch.length) break;
+        batch.forEach(p => {
+          if (!seenIds.has(p.itemid)) { seenIds.add(p.itemid); prodsMap[p.itemid] = p; }
+        });
+        if (batch.length < 60) break;
+        offset += 60;
       }
-
-      products = Object.values(prodsMap);
-      if (!products.length) throw new Error('0 products — 可能需要登录或已被限流');
-
-      // 保存产品
-      const saved = await saveProducts(shop, products, today);
-      grandProducts += saved;
-      W.products = grandProducts;
-      log(`  ✅ Phase 1: ${saved} 个产品已保存`);
-
-    } catch(e) {
-      log(`  ❌ Phase 1 失败: ${e.message}`);
-      W.shops.push({ shop: shop.username, products: 0, active: 0, variants: 0, error: e.message });
-      grandErrors++;
-      await sleep(5000);
-      continue;
+      log(`  [${sortBy}] ${seenIds.size} 个唯一产品`);
+      await sleep(1500);
     }
 
-    // ── Phase 2: 获取需要 enrich 的产品 ─────────────────────
-    W.phase = 'enrich';
-    let active = [];
-    try {
-      await sleep(2000); // 等 DB 写入完成
-      const r = await fetch(`${VERCEL}/api/data?type=active-sellers&shopid=${shop.shopid}`);
-      const d = await r.json();
-      active = d.active || [];
-      const byDelta = active.filter(p => p.needs_enrich_reason === 'delta').length;
-      const byForce = active.filter(p => p.needs_enrich_reason === 'high_volume_force').length;
-      log(`  Phase 2: ${products.length} 产品 → ${active.length} 需要 enrich (${byDelta} delta + ${byForce} 高量)`);
-    } catch(e) {
-      log(`  ❌ Phase 2 失败: ${e.message}`);
-    }
+    products = Object.values(prodsMap);
+    if (!products.length) throw new Error('0 products — 可能需要登录或已被限流');
 
-    // ── Phase 3: item/get Enrichment ─────────────────────────
-    if (!active.length) {
-      log(`  ⏭️ 无活跃产品，跳过 enrich`);
-      W.shops.push({ shop: shop.username, products: products.length, active: 0, variants: 0 });
-      await sleep(3000);
-      continue;
-    }
+    const saved = await saveProducts(shop, products, today);
+    grandProducts += saved;
+    W.products = grandProducts;
+    log(`  ✅ Phase 1: ${saved} 个产品已保存`);
 
-    const buf = [];
-    let shopVars = 0, shopErrs = 0;
-    W.itemN = active.length;
-    W.itemI = 0;
-
-    for (let i = 0; i < active.length; i++) {
-      const p = active[i];
-      W.itemI = i + 1;
-      try {
-        await sleep(DELAY_ITEM);
-        const d = await shopeeItem(p.itemid, shop.shopid);
-        if (!d.data) { shopErrs++; continue; }
-        const item = d.data;
-        const vt = (item.tier_variations || []).map(v => v.name).join(' / ') || 'single';
-
-        if (item.models && item.models.length > 0) {
-          item.models.forEach(m => buf.push({
-            shopid: shop.shopid, itemid: p.itemid, model_id: m.modelid || 0,
-            username: shop.username, product_name: p.name,
-            variant_name: m.name || 'Default', variant_sku: m.model_sku || '',
-            variation_type: vt,
-            price: (m.price || 0) / 100000,
-            stock: m.stock || 0, sold: m.sold || 0,
-            scraped_date: today, scraped_at: new Date().toISOString()
-          }));
-        } else {
-          buf.push({
-            shopid: shop.shopid, itemid: p.itemid, model_id: 0,
-            username: shop.username, product_name: p.name,
-            variant_name: 'Default', variant_sku: '', variation_type: 'single',
-            price: (p.price_min || 0) / 100000,
-            stock: item.stock_info?.summary_info?.total_available_stock ?? p.stock ?? 0,
-            sold: item.sold || 0,
-            scraped_date: today, scraped_at: new Date().toISOString()
-          });
-        }
-
-        if (i % 10 === 9) log(`  [${i+1}/${active.length}] ${shop.username} — ${buf.length} variants buffered`);
-
-        if (buf.length >= BATCH) {
-          try { shopVars += await saveVariants(buf.splice(0, BATCH)); W.variants = grandVariants + shopVars; }
-          catch(e) { log(`  ❌ saveVariants: ${e.message}`); }
-        }
-
-      } catch(e) {
-        shopErrs++; grandErrors++;
-        if (e.message.includes('90309999') || e.message.includes('429') || e.message.includes('403')) {
-          log(`  ⚠️ 限流 [${i+1}/${active.length}] — 冷却90s...`);
-          await sleep(90000); i--; continue;
-        }
-        if (shopErrs % 5 === 1) log(`  ✗ ${p.itemid}: ${e.message}`);
-      }
-    }
-
-    if (buf.length > 0) {
-      try { shopVars += await saveVariants(buf); }
-      catch(e) { log(`  ❌ 最终 saveVariants: ${e.message}`); }
-    }
-
-    grandVariants += shopVars;
-    W.variants = grandVariants;
-    W.errors = grandErrors;
-
-    log(`  ✅ ${shop.username}: ${products.length} 产品 | ${active.length} enrich | ${shopVars} variants | ${shopErrs} err`);
-    W.shops.push({ shop: shop.username, products: products.length, active: active.length, variants: shopVars, errors: shopErrs });
+  } catch(e) {
+    log(`  ❌ Phase 1 失败: ${e.message}`);
+    W.shops.push({ shop: shop.username, products: 0, active: 0, variants: 0, error: e.message });
+    grandErrors++;
     await sleep(5000);
+    continue;
   }
 
-  W.running = false;
-  clearInterval(window._rdWatcher);
-  document.title = `✅ RD done — ${grandProducts}p ${grandVariants}v`;
-  log(`\n${'═'.repeat(50)}`);
-  log(`📊 run-daily 完成`);
-  log(`  产品保存: ${grandProducts}`);
-  log(`  Variants: ${grandVariants}`);
-  log(`  错误:     ${grandErrors}`);
-  console.table(W.shops);
-})();
+  // ── Phase 2: 获取需要 enrich 的产品 ─────────────────────
+  W.phase = 'enrich';
+  let active = [];
+  try {
+    await sleep(2000);
+    const r = await fetch(`${VERCEL}/api/data?type=active-sellers&shopid=${shop.shopid}`);
+    const d = await r.json();
+    active = d.active || [];
+    const byDelta = active.filter(p => p.needs_enrich_reason === 'delta').length;
+    const byForce = active.filter(p => p.needs_enrich_reason === 'high_volume_force').length;
+    log(`  Phase 2: ${products.length} 产品 → ${active.length} 需要 enrich (${byDelta} delta + ${byForce} 高量)`);
+  } catch(e) {
+    log(`  ❌ Phase 2 失败: ${e.message}`);
+  }
 
-// 进度监控: window._RD
-`✅ run-daily 已启动 — window._RD 查进度`;
+  // ── Phase 3: item/get Enrichment ─────────────────────────
+  if (!active.length) {
+    log(`  ⏭️ 无活跃产品，跳过 enrich`);
+    W.shops.push({ shop: shop.username, products: products.length, active: 0, variants: 0 });
+    await sleep(3000);
+    continue;
+  }
+
+  const buf = [];
+  let shopVars = 0, shopErrs = 0;
+  W.itemN = active.length;
+  W.itemI = 0;
+
+  for (let i = 0; i < active.length; i++) {
+    const p = active[i];
+    W.itemI = i + 1;
+    try {
+      await sleep(DELAY_ITEM);
+      const d = await shopeeItem(p.itemid, shop.shopid);
+      if (!d.data) { shopErrs++; continue; }
+      const item = d.data;
+      const vt = (item.tier_variations || []).map(v => v.name).join(' / ') || 'single';
+
+      if (item.models && item.models.length > 0) {
+        item.models.forEach(m => buf.push({
+          shopid: shop.shopid, itemid: p.itemid, model_id: m.modelid || 0,
+          username: shop.username, product_name: p.name,
+          variant_name: m.name || 'Default', variant_sku: m.model_sku || '',
+          variation_type: vt,
+          price: (m.price || 0) / 100000,
+          stock: m.stock || 0, sold: m.sold || 0,
+          scraped_date: today, scraped_at: new Date().toISOString()
+        }));
+      } else {
+        buf.push({
+          shopid: shop.shopid, itemid: p.itemid, model_id: 0,
+          username: shop.username, product_name: p.name,
+          variant_name: 'Default', variant_sku: '', variation_type: 'single',
+          price: (p.price_min || 0) / 100000,
+          stock: item.stock_info?.summary_info?.total_available_stock ?? p.stock ?? 0,
+          sold: item.sold || 0,
+          scraped_date: today, scraped_at: new Date().toISOString()
+        });
+      }
+
+      if (i % 10 === 9) log(`  [${i+1}/${active.length}] ${shop.username} — ${buf.length} variants buffered`);
+
+      if (buf.length >= BATCH) {
+        try { shopVars += await saveVariants(buf.splice(0, BATCH)); W.variants = grandVariants + shopVars; }
+        catch(e) { log(`  ❌ saveVariants: ${e.message}`); }
+      }
+
+    } catch(e) {
+      shopErrs++; grandErrors++;
+      if (e.message.includes('90309999') || e.message.includes('429') || e.message.includes('403')) {
+        log(`  ⚠️ 限流 [${i+1}/${active.length}] — 冷却90s...`);
+        await sleep(90000); i--; continue;
+      }
+      if (shopErrs % 5 === 1) log(`  ✗ ${p.itemid}: ${e.message}`);
+    }
+  }
+
+  if (buf.length > 0) {
+    try { shopVars += await saveVariants(buf); }
+    catch(e) { log(`  ❌ 最终 saveVariants: ${e.message}`); }
+  }
+
+  grandVariants += shopVars;
+  W.variants = grandVariants;
+  W.errors = grandErrors;
+
+  log(`  ✅ ${shop.username}: ${products.length} 产品 | ${active.length} enrich | ${shopVars} variants | ${shopErrs} err`);
+  W.shops.push({ shop: shop.username, products: products.length, active: active.length, variants: shopVars, errors: shopErrs });
+  await sleep(5000);
+}
+
+W.running = false;
+clearInterval(window._rdWatcher);
+document.title = `✅ RD done — ${grandProducts}p ${grandVariants}v`;
+log(`\n${'═'.repeat(50)}`);
+log(`📊 run-daily 完成`);
+log(`  产品保存: ${grandProducts}`);
+log(`  Variants: ${grandVariants}`);
+log(`  错误:     ${grandErrors}`);
+console.table(W.shops);
+
+})(); // end IIFE
