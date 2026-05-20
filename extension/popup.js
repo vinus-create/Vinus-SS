@@ -88,9 +88,19 @@ function updateRunUI(rd) {
   const phaseTag = document.getElementById('phaseTag');
   if (rd.running && rd.phase) {
     phaseTag.style.display = 'inline-block';
-    phaseTag.textContent = rd.phase === 'search'
-      ? `🔍 搜索产品 (第${rd.searchPage||1}页)`
-      : `⚡ Enrich ${rd.itemI||0}/${rd.itemN||0}`;
+    if (rd.phase === 'search') {
+      phaseTag.textContent = `🔍 搜索产品 (第${rd.searchPage||1}页)`;
+      phaseTag.style.background = '#fff7ed'; phaseTag.style.color = '#c2410c';
+    } else if (rd.phase?.startsWith('rest:')) {
+      const secs = parseInt(rd.phase.split(':')[1]) || 0;
+      const mm = String(Math.floor(secs / 60)).padStart(2, '0');
+      const ss = String(secs % 60).padStart(2, '0');
+      phaseTag.textContent = `⏸ 休息 ${mm}:${ss}`;
+      phaseTag.style.background = '#f0fdf4'; phaseTag.style.color = '#166534';
+    } else {
+      phaseTag.textContent = `⚡ Enrich ${rd.itemI||0}/${rd.itemN||0}`;
+      phaseTag.style.background = '#fff7ed'; phaseTag.style.color = '#c2410c';
+    }
   } else {
     phaseTag.style.display = 'none';
   }
@@ -197,14 +207,16 @@ async function scrapeShopNow(username, shopid) {
   if (badge) { badge.classList.add('show'); }
 
   try {
-    // Set params, then inject scrape-single.js (no inline scripts — avoids CSP violations)
+    // Set params, then inject scrape-single.js in MAIN world so fetch uses shopee.com.my origin
     await chrome.scripting.executeScript({
       target: { tabId: shopeeTabId },
+      world:  'MAIN',
       func: (u, sid, vercel) => { window._SS_params = { username: u, shopid: sid, vercel }; },
       args: [username, shopid, VERCEL]
     });
     await chrome.scripting.executeScript({
       target: { tabId: shopeeTabId },
+      world:  'MAIN',
       files: ['scrape-single.js']
     });
   } catch(e) {
@@ -258,9 +270,10 @@ async function runDaily() {
   btn.textContent = '注入中...';
 
   try {
-    // Clear any stuck previous run first
+    // Clear any stuck previous run first (must run in MAIN world to reach main-world intervals)
     await chrome.scripting.executeScript({
       target: { tabId: shopeeTabId },
+      world:  'MAIN',
       func: () => {
         if (window._rdRelay)   { clearInterval(window._rdRelay);   window._rdRelay = null; }
         if (window._rdWatcher) { clearInterval(window._rdWatcher); window._rdWatcher = null; }
@@ -269,6 +282,7 @@ async function runDaily() {
     });
     const results = await chrome.scripting.executeScript({
       target: { tabId: shopeeTabId },
+      world:  'MAIN',
       files:  ['run-daily.js']
     });
     // Check if script threw on injection
@@ -287,6 +301,7 @@ async function stopDaily() {
   if (!shopeeTabId) return;
   await chrome.scripting.executeScript({
     target: { tabId: shopeeTabId },
+    world:  'MAIN',
     func: () => {
       if (window._rdRelay)   { clearInterval(window._rdRelay);   window._rdRelay = null; }
       if (window._rdWatcher) { clearInterval(window._rdWatcher); window._rdWatcher = null; }

@@ -11,8 +11,10 @@ if (window._rdRelay)   { clearInterval(window._rdRelay);   window._rdRelay = nul
 if (window._rdWatcher) { clearInterval(window._rdWatcher); window._rdWatcher = null; }
 
 const VERCEL       = 'https://vinus-ss.vercel.app';
-const DELAY_SEARCH = 800;
-const DELAY_ITEM   = 3500;
+const DELAY_SEARCH = 2000;   // between search pages
+const DELAY_ITEM   = 5000;   // between item/get calls
+const MAX_ENRICH   = 50;     // max enrich per shop per run
+const SHOP_REST    = 180000; // 3 min rest between shops
 const BATCH        = 60;
 
 const SHOPS = [
@@ -136,9 +138,9 @@ window._RD = {
 const W = window._RD;
 const log = (...a) => console.log('[RD]', ...a);
 
-// Direct relay to background every 3s
+// Direct relay via postMessage → content.js → background → popup
 function _rdSend() {
-  try { chrome.runtime.sendMessage({ type: 'RD_UPDATE', data: { ...W } }); } catch(e) {}
+  window.postMessage({ type: 'RD_UPDATE', data: { ...W } }, '*');
 }
 window._rdRelay = setInterval(() => {
   if (!W.running) { clearInterval(window._rdRelay); _rdSend(); return; }
@@ -147,36 +149,40 @@ window._rdRelay = setInterval(() => {
   document.title = `[${W.shop} ${ph} | ${W.products}p ${W.variants}v] RD`;
 }, 3000);
 
-// CAPTCHA 检测 (every 20s)
+// ── CAPTCHA 检测与处理 ────────────────────────────────────────
 let _lastI = 0, _lastProg = Date.now();
 window._rdWatcher = setInterval(() => {
   if (!W.running) { clearInterval(window._rdWatcher); return; }
   if (W.itemI !== _lastI) { _lastI = W.itemI; _lastProg = Date.now(); }
-  const stuck = W.phase === 'enrich' && (Date.now() - _lastProg > 70000);
+  // stuck > 120s (above 90s rate-limit cooldown) OR URL has captcha
+  const stuck = W.phase === 'enrich' && (Date.now() - _lastProg > 120000);
   const onCaptcha = location.href.includes('captcha') || location.href.includes('verify');
   if (stuck || onCaptcha) {
-    document.title = '⚠️ CAPTCHA NEEDED';
-    try { new Notification('ShopeeScope', { body: `${W.shop} — 请解CAPTCHA！` }); } catch(e){}
-    try { chrome.runtime.sendMessage({ type: 'CAPTCHA_DETECTED', shop: W.shop }); } catch(e) {}
-    const ctx = new AudioContext();
-    [880, 1100].forEach((f, i) => setTimeout(() => {
-      const o = ctx.createOscillator(); o.connect(ctx.destination);
-      o.frequency.value = f; o.start(); setTimeout(()=>o.stop(), 300);
-    }, i * 400));
+    window.postMessage({ type: 'CAPTCHA_DETECTED', shop: W.shop }, '*');
   }
-}, 20000);
+}, 15000);
 
-// ── CAPTCHA wait helper ───────────────────────────────────────
-async function waitIfCaptcha() {
-  if (!location.href.includes('captcha') && !location.href.includes('/verify/')) return;
-  document.title = '⚠️ CAPTCHA — 请解完后继续';
-  try { chrome.runtime.sendMessage({ type: 'CAPTCHA_DETECTED', shop: W.shop }); } catch(e) {}
-  log('⚠️ CAPTCHA 检测到，等待解决...');
-  while (location.href.includes('captcha') || location.href.includes('/verify/')) {
-    await sleep(2000);
+// 等待 CAPTCHA 解决（导航到 shopee 首页让用户看到验证）
+async function waitCaptcha(reason) {
+  log(`⚠️ ${reason} — 导航到 Shopee 等待解决...`);
+  document.title = '⚠️ CAPTCHA — 请解完后继续！';
+  window.postMessage({ type: 'CAPTCHA_DETECTED', shop: W.shop }, '*');
+  // 导航到 shopee 首页，让 CAPTCHA 弹出来
+  location.href = 'https://shopee.com.my';
+  await new Promise(r => setTimeout(r, 3000)); // 等页面加载
+  // 轮询直到 URL 不再含 captcha/verify（说明用户已解决或页面正常）
+  while (location.href.includes('captcha') || location.href.includes('verify')) {
+    document.title = '⚠️ CAPTCHA — 请解完后继续！';
+    await new Promise(r => setTimeout(r, 2000));
   }
-  log('✅ CAPTCHA 已解决，继续...');
-  await sleep(3000); // cooldown after captcha
+  log('✅ CAPTCHA 已解决，5秒后继续...');
+  document.title = '✅ CAPTCHA solved — resuming...';
+  await new Promise(r => setTimeout(r, 5000));
+}
+
+function checkCaptcha() {
+  if (!location.href.includes('captcha') && !location.href.includes('/verify/')) return;
+  throw new Error('CAPTCHA_DETECTED');
 }
 
 // ── Main ──────────────────────────────────────────────────────
@@ -184,8 +190,30 @@ const today = new Date().toLocaleDateString('en-CA');
 log(`🚀 run-daily 开始 — ${today} | ${SHOPS.length} 个店`);
 let grandProducts = 0, grandVariants = 0, grandErrors = 0;
 
+// 加载今日已采集的店：查数据库（最可靠）+ localStorage（当前会话缓存）
+const LS_KEY = `SS_done_${today}`;
+const _doneList = JSON.parse(localStorage.getItem(LS_KEY) || '[]');
+const scrapedToday = new Set(_doneList);
+try {
+  const r = await fetch(`${VERCEL}/api/data?type=scraped-today`);
+  const d = await r.json();
+  (d.shops || []).forEach(u => { scrapedToday.add(u); if (!_doneList.includes(u)) _doneList.push(u); });
+  localStorage.setItem(LS_KEY, JSON.stringify(_doneList));
+} catch(e) {}
+if (scrapedToday.size) log(`⏭️ 今日已完成，跳过: ${[...scrapedToday].join(', ')}`);
+
 for (let si = 0; si < SHOPS.length; si++) {
+  if (!W.running) break; // 停止信号（CAPTCHA/用户手动停止）
   const shop = SHOPS[si];
+
+  // 跳过今日已成功采集的店
+  if (scrapedToday.has(shop.username)) {
+    log(`  ⏭️ ${shop.username} 今日已采集，跳过`);
+    W.shopIdx = si + 1;
+    W.shops.push({ shop: shop.username, products: 0, variants: 0, skipped: true });
+    continue;
+  }
+
   W.shop = shop.username;
   W.shopIdx = si + 1;
   W.phase = 'search';
@@ -199,22 +227,26 @@ for (let si = 0; si < SHOPS.length; si++) {
     const prodsMap = {};
 
     for (const sortBy of ['sales', 'ctime', 'price']) {
-      let offset = 0, pageCount = 0;
+      let offset = 0, pageCount = 0, rateRetries = 0;
       while (true) {
         W.searchPage = ++pageCount;
         await sleep(DELAY_SEARCH);
         let d;
         try { d = await shopeeSearch(shop.shopid, sortBy, offset); }
         catch(e) {
-          await waitIfCaptcha();
+          if (e.message === 'CAPTCHA_DETECTED') { await waitCaptcha('搜索时检测到CAPTCHA'); continue; }
           if (e.message.includes('429') || e.message.includes('403')) {
-            log(`  ⚠️ search 限流 — 冷却60s...`);
-            await sleep(60000);
+            rateRetries++;
+            if (rateRetries >= 3) { log(`  ⚠️ search [${sortBy}] 限流超3次，跳过此排序`); break; }
+            log(`  ⚠️ search 限流 (${rateRetries}/3) — 冷却90s...`);
+            await sleep(90000);
+            pageCount--; // don't count rate-limit retries as page advances
             continue;
           }
           throw e;
         }
-        await waitIfCaptcha(); // check after every successful fetch too
+        rateRetries = 0; // reset on success
+        if (location.href.includes('captcha') || location.href.includes('/verify/')) { await waitCaptcha('搜索后检测到CAPTCHA'); }
         const batch = (d.items || []).map(i => i.item_basic).filter(Boolean);
         if (!batch.length) break;
         let newCount = 0;
@@ -235,6 +267,10 @@ for (let si = 0; si < SHOPS.length; si++) {
     const saved = await saveProducts(shop, products, today);
     grandProducts += saved;
     W.products = grandProducts;
+    // 记录已完成，下次重跑（包括换账号后）会跳过
+    scrapedToday.add(shop.username);
+    _doneList.push(shop.username);
+    localStorage.setItem(LS_KEY, JSON.stringify(_doneList));
     log(`  ✅ Phase 1: ${saved} 个产品已保存`);
 
   } catch(e) {
@@ -253,9 +289,13 @@ for (let si = 0; si < SHOPS.length; si++) {
     const r = await fetch(`${VERCEL}/api/data?type=active-sellers&shopid=${shop.shopid}`);
     const d = await r.json();
     active = d.active || [];
-    const byDelta = active.filter(p => p.needs_enrich_reason === 'delta').length;
-    const byForce = active.filter(p => p.needs_enrich_reason === 'high_volume_force').length;
-    log(`  Phase 2: ${products.length} 产品 → ${active.length} 需要 enrich (${byDelta} delta + ${byForce} 高量)`);
+    // Sort by delta desc, cap at MAX_ENRICH to avoid account bans
+    active.sort((a, b) => (b.sold_today_est || 0) - (a.sold_today_est || 0));
+    if (active.length > MAX_ENRICH) {
+      log(`  ⚡ ${active.length} active → 限制为 ${MAX_ENRICH}`);
+      active = active.slice(0, MAX_ENRICH);
+    }
+    log(`  Phase 2: ${products.length} 产品 → ${active.length} enrich`);
   } catch(e) {
     log(`  ❌ Phase 2 失败: ${e.message}`);
   }
@@ -313,7 +353,7 @@ for (let si = 0; si < SHOPS.length; si++) {
       }
 
     } catch(e) {
-      await waitIfCaptcha();
+      if (e.message === 'CAPTCHA_DETECTED') { await waitCaptcha('Enrich时检测到CAPTCHA'); i--; continue; }
       shopErrs++; grandErrors++;
       if (e.message.includes('90309999') || e.message.includes('429') || e.message.includes('403')) {
         log(`  ⚠️ 限流 [${i+1}/${active.length}] — 冷却90s...`);
@@ -334,7 +374,15 @@ for (let si = 0; si < SHOPS.length; si++) {
 
   log(`  ✅ ${shop.username}: ${products.length} 产品 | ${active.length} enrich | ${shopVars} variants | ${shopErrs} err`);
   W.shops.push({ shop: shop.username, products: products.length, active: active.length, variants: shopVars, errors: shopErrs });
-  await sleep(5000);
+  if (!W.running) break;
+  if (si < SHOPS.length - 1) {
+    log(`  ⏸️ 店间休息 3 分钟...`);
+    const restSec = Math.round(SHOP_REST / 1000);
+    for (let t = restSec; t > 0 && W.running; t--) {
+      W.phase = `rest:${t}`;
+      await new Promise(r => setTimeout(r, 1000));
+    }
+  }
 }
 
 W.running = false;

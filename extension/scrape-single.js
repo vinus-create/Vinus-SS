@@ -16,7 +16,7 @@
   window._SS_single = { running: true, shop: u, phase: 'search', products: 0, variants: 0, errors: 0 };
 
   function rdSend() {
-    try { chrome.runtime.sendMessage({ type: 'SS_SINGLE_UPDATE', data: { ...window._SS_single } }); } catch(e) {}
+    window.postMessage({ type: 'SS_SINGLE_UPDATE', data: { ...window._SS_single } }, '*');
   }
 
   console.log('[SS] scraping', u);
@@ -136,7 +136,5 @@
   window._SS_single.running = false;
   console.log('[SS] done:', u, 'products:', prods.length, 'variants:', vars);
 
-  try {
-    chrome.runtime.sendMessage({ type: 'SHOP_SCRAPE_DONE', username: u, products: prods.length, variants: vars });
-  } catch(e) {}
+  window.postMessage({ type: 'SHOP_SCRAPE_DONE', username: u, products: prods.length, variants: vars }, '*');
 })();

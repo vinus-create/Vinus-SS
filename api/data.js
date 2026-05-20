@@ -99,6 +99,14 @@ export default async function handler(req, res) {
       return res.status(200).json(data);
     }
 
+    // Which shops have products saved for today — used by extension to skip completed shops on resume
+    if (type === 'scraped-today') {
+      const today = new Date().toISOString().split('T')[0];
+      const data = await query(`products?scraped_date=eq.${today}&select=username&limit=5000`);
+      const shops = [...new Set((Array.isArray(data) ? data : []).map(p => p.username))];
+      return res.status(200).json({ shops });
+    }
+
     // Shop profile — live fetch from Shopee (replaces /api/shop-profile)
     if (type === 'shop-profile') {
       const { username } = req.query;
