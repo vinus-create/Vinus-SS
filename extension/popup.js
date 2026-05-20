@@ -73,14 +73,16 @@ function updateRunUI(rd) {
   document.getElementById('statusDot').className =
     'status-dot ' + (rd.running ? 'running' : 'done');
 
+  const _tot = rd.shopTotal || rd.shopList?.length || 13;
   document.getElementById('shopName').textContent =
     rd.running ? (rd.shop || '初始化...') :
-    (rd.shops?.length >= 13 ? '✅ 今日完成' :
-    (rd.shops?.length > 0   ? `已完成 ${rd.shops.length}/13` : '待机'));
+    (rd.shops?.length >= _tot ? '✅ 今日完成' :
+    (rd.shops?.length > 0    ? `已完成 ${rd.shops.length}/${_tot}` : '待机'));
 
-  document.getElementById('shopCounter').textContent = `${rd.shopIdx||0} / ${rd.shopTotal||13}`;
+  const total = rd.shopTotal || rd.shopList?.length || 13;
+  document.getElementById('shopCounter').textContent = `${rd.shopIdx||0} / ${total}`;
 
-  const pct = rd.shopTotal > 0 ? Math.round((rd.shopIdx / rd.shopTotal) * 100) : 0;
+  const pct = _tot > 0 ? Math.round((rd.shopIdx / _tot) * 100) : 0;
   document.getElementById('progressBar').style.width = pct + '%';
   document.getElementById('statProducts').textContent = rd.products || 0;
   document.getElementById('statVariants').textContent = rd.variants || 0;
@@ -119,7 +121,8 @@ function renderRunShops(doneShops, currentShop, running) {
   const doneMap = {};
   doneShops.forEach(s => { doneMap[s.shop] = s; });
 
-  document.getElementById('shopsList').innerHTML = SHOPS_ALL.map(u => {
+  const shopList = rd.shopList?.length ? rd.shopList : SHOPS_ALL;
+  document.getElementById('shopsList').innerHTML = shopList.map(u => {
     const d = doneMap[u];
     const isCurrent = running && u === currentShop;
     const icon  = d ? (d.errors > 0 && !d.variants ? '❌' : '✅') : (isCurrent ? '🔄' : '⏳');
@@ -247,6 +250,8 @@ function onShopScrapeDone(username) {
   const prog = document.getElementById(`prog-${username}`);
   if (btn)  { btn.disabled = false; btn.textContent = '✓ 已采集'; btn.style.background = '#10b981'; }
   if (prog) { prog.style.display = 'none'; }
+  // 重新加载卡片列表，让新店也显示真实 stats（scrape 完成后数据库已有数据）
+  setTimeout(() => loadShopCards(), 1500);
 }
 
 function onSingleUpdate(d) {
@@ -279,7 +284,30 @@ async function addAndScrape() {
     if (!d.ok || !d.shopid) throw new Error(d.error || 'Shop not found');
     setStatus(`✅ ${d.name} — ${d.item_count} products，开始采集...`, 'ok');
     input.value = '';
-    await loadShopCards();
+
+    // 立即插入占位卡片（新店还没有数据库记录，loadShopCards 不会显示它）
+    const container = document.getElementById('shopCards');
+    if (!document.getElementById(`card-${val}`)) {
+      const ph = document.createElement('div');
+      ph.className = 'shop-card';
+      ph.id = `card-${val}`;
+      ph.innerHTML = `
+        <div class="shop-card-name">${val}</div>
+        <div class="shop-card-stats">${(d.item_count||0).toLocaleString()} products · <span>0</span> sold</div>
+        <div class="shop-card-btns">
+          <button class="btn-scrape-now" data-scrape="${val}" data-shopid="${d.shopid}" disabled>采集中...</button>
+          <button class="btn-view-shop" data-view="${val}">↗</button>
+        </div>
+        <div class="scraping-progress" id="prog-${val}" style="display:block">
+          <div class="scraping-prog-bar"><div class="scraping-prog-fill" id="progfill-${val}" style="width:5%"></div></div>
+          <div class="scraping-prog-label" id="proglabel-${val}">🔄 搜索中...</div>
+        </div>`;
+      // 移除"暂无数据"占位
+      const idle = container.querySelector('.idle-msg');
+      if (idle) idle.remove();
+      container.prepend(ph);
+    }
+
     await scrapeShopNow(val, d.shopid);
   } catch(e) {
     setStatus(`❌ ${e.message}`, 'err');

@@ -17,7 +17,8 @@ const MAX_ENRICH   = 50;     // max enrich per shop per run
 const SHOP_REST    = 180000; // 3 min rest between shops
 const BATCH        = 60;
 
-const SHOPS = [
+// 硬编码兜底列表（数据库拉取失败时使用）
+let SHOPS = [
   { username: 'buddysnack',           shopid: 3693884 },
   { username: 'winstartech',          shopid: 65231794 },
   { username: '1stopbatteries',       shopid: 436346628 },
@@ -32,6 +33,15 @@ const SHOPS = [
   { username: 'nextgenhardware.os',   shopid: 1088905843 },
   { username: 'ham_radios.my',        shopid: 1231953709 },
 ];
+// 从数据库动态加载，自动包含通过扩展添加的新店
+try {
+  const _sr = await fetch(`${VERCEL}/api/data?type=shops`);
+  const _sd = await _sr.json();
+  if (Array.isArray(_sd) && _sd.length > 0) {
+    const dyn = _sd.filter(s => s.username && s.shopid).map(s => ({ username: s.username, shopid: s.shopid }));
+    if (dyn.length >= SHOPS.length) { SHOPS = dyn; console.log('[RD] 动态店铺列表：', dyn.length, '个'); }
+  }
+} catch(e) { console.log('[RD] 使用硬编码店铺列表'); }
 
 // ── Helpers ──────────────────────────────────────────────────
 const sleep = ms => new Promise(r => setTimeout(r, ms + Math.floor(Math.random() * 500)));
@@ -146,7 +156,7 @@ window._RD = {
   running: true, phase: '', shop: '', shopIdx: 0, shopTotal: SHOPS.length,
   searchPage: 0, itemI: 0, itemN: 0,
   products: 0, variants: 0, errors: 0,
-  shops: []
+  shops: [], shopList: SHOPS.map(s => s.username)
 };
 const W = window._RD;
 const log = (...a) => console.log('[RD]', ...a);
