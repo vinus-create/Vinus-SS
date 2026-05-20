@@ -15,6 +15,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   document.getElementById('tabRun')       .addEventListener('click', () => switchTab('run'));
   document.getElementById('tabShops')     .addEventListener('click', () => switchTab('shops'));
   document.getElementById('btnRun')       .addEventListener('click', runDaily);
+  document.getElementById('btnStop')      .addEventListener('click', stopDaily);
   document.getElementById('btnDashboard') .addEventListener('click', () => { chrome.tabs.create({ url: VERCEL }); window.close(); });
   document.getElementById('btnAdd')       .addEventListener('click', addAndScrape);
   document.getElementById('btnOpenShopee').addEventListener('click', () => { chrome.tabs.create({ url: 'https://shopee.com.my' }); window.close(); });
@@ -28,14 +29,13 @@ document.addEventListener('DOMContentLoaded', async () => {
     if (viewBtn)   chrome.tabs.create({ url: `https://shopee.com.my/${viewBtn.dataset.view}` });
   });
 
-  // Detect active tab
-  const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
-  const onShopee = tab?.url?.includes('shopee.com.my');
-  shopeeTabId = onShopee ? tab.id : null;
+  // Find any open Shopee tab (not just the currently active one)
+  const shopeeTabs = await chrome.tabs.query({ url: 'https://shopee.com.my/*' });
+  shopeeTabId = shopeeTabs[0]?.id || null;
 
-  document.getElementById('notShopee').style.display = onShopee ? 'none'  : 'block';
-  document.getElementById('mainUI')   .style.display = onShopee ? 'block' : 'none';
-  if (!onShopee) return;
+  document.getElementById('notShopee').style.display = shopeeTabId ? 'none'  : 'block';
+  document.getElementById('mainUI')   .style.display = shopeeTabId ? 'block' : 'none';
+  if (!shopeeTabId) return;
 
   // Get live state
   chrome.runtime.sendMessage({ type: 'GET_STATE' }, resp => {
@@ -97,9 +97,11 @@ function updateRunUI(rd) {
 
   if (rd.shops?.length > 0) renderRunShops(rd.shops, rd.shop, rd.running);
 
-  const btn = document.getElementById('btnRun');
+  const btn  = document.getElementById('btnRun');
+  const stop = document.getElementById('btnStop');
   btn.disabled    = !!rd.running;
   btn.textContent = rd.running ? '运行中...' : '▶ 全量运行';
+  stop.style.display = rd.running ? 'block' : 'none';
 }
 
 function renderRunShops(doneShops, currentShop, running) {
@@ -121,7 +123,7 @@ function renderRunShops(doneShops, currentShop, running) {
 
 async function loadRunLog() {
   try {
-    const today = new Date().toISOString().split('T')[0];
+    const today = new Date().toLocaleDateString('en-CA');
     const log = await fetch(`${VERCEL}/api/data?type=log`).then(r => r.json());
     if (!Array.isArray(log) || currentRD) return;
     const done   = log.filter(l => l.status === 'success' && l.scraped_at?.startsWith(today));
@@ -142,7 +144,7 @@ async function loadShopCards() {
   const container = document.getElementById('shopCards');
   container.innerHTML = '<div class="idle-msg" style="grid-column:1/-1">加载中...</div>';
   try {
-    const today = new Date().toISOString().split('T')[0];
+    const today = new Date().toLocaleDateString('en-CA');
     const [statsArr, logArr] = await Promise.all([
       fetch(`${VERCEL}/api/data?type=shops`).then(r => r.json()).catch(() => []),
       fetch(`${VERCEL}/api/data?type=log`)  .then(r => r.json()).catch(() => [])
@@ -256,16 +258,45 @@ async function runDaily() {
   btn.textContent = '注入中...';
 
   try {
+    // Clear any stuck previous run first
     await chrome.scripting.executeScript({
       target: { tabId: shopeeTabId },
-      files:  ['run-daily.js']   // inject bundled file directly — bypasses CSP
+      func: () => {
+        if (window._rdRelay)   { clearInterval(window._rdRelay);   window._rdRelay = null; }
+        if (window._rdWatcher) { clearInterval(window._rdWatcher); window._rdWatcher = null; }
+        window._RD = null;
+      }
     });
-    setTimeout(() => { btn.textContent = '运行中...'; }, 1500);
+    const results = await chrome.scripting.executeScript({
+      target: { tabId: shopeeTabId },
+      files:  ['run-daily.js']
+    });
+    // Check if script threw on injection
+    if (results?.[0]?.error) throw new Error(results[0].error.message || 'Injection failed');
+    btn.textContent = '运行中...';
   } catch(e) {
     btn.disabled    = false;
     btn.textContent = '▶ 全量运行';
     console.error('runDaily inject error:', e);
+    alert(`注入失败: ${e.message}`);
   }
+}
+
+// ── Stop daily run ────────────────────────────────────────────
+async function stopDaily() {
+  if (!shopeeTabId) return;
+  await chrome.scripting.executeScript({
+    target: { tabId: shopeeTabId },
+    func: () => {
+      if (window._rdRelay)   { clearInterval(window._rdRelay);   window._rdRelay = null; }
+      if (window._rdWatcher) { clearInterval(window._rdWatcher); window._rdWatcher = null; }
+      if (window._RD) window._RD.running = false;
+      document.title = '⏹ RD stopped';
+    }
+  }).catch(() => {});
+  document.getElementById('btnRun').disabled    = false;
+  document.getElementById('btnRun').textContent = '▶ 全量运行';
+  document.getElementById('btnStop').style.display = 'none';
 }
 
 // ── CAPTCHA banner ────────────────────────────────────────────

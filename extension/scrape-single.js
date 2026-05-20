@@ -6,7 +6,7 @@
   if (!u || !sid || !V) return;
   if (window._SS_single?.running) return;
 
-  const today = new Date().toISOString().split('T')[0];
+  const today = new Date().toLocaleDateString('en-CA');
   const sleep = ms => new Promise(r => setTimeout(r, ms + ~~(Math.random() * 500)));
   const hdr = {
     credentials: 'include',

@@ -167,7 +167,7 @@ window._rdWatcher = setInterval(() => {
 }, 20000);
 
 // ── Main ──────────────────────────────────────────────────────
-const today = new Date().toISOString().split('T')[0];
+const today = new Date().toLocaleDateString('en-CA');
 log(`🚀 run-daily 开始 — ${today} | ${SHOPS.length} 个店`);
 let grandProducts = 0, grandVariants = 0, grandErrors = 0;
 
