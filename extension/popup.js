@@ -52,6 +52,7 @@ chrome.runtime.onMessage.addListener(msg => {
   if (msg.type === 'RD_UPDATE')        { currentRD = msg.data; updateRunUI(msg.data); }
   if (msg.type === 'CAPTCHA_DETECTED') { showCaptcha(true); }
   if (msg.type === 'SHOP_SCRAPE_DONE') { onShopScrapeDone(msg.username); }
+  if (msg.type === 'SS_SINGLE_UPDATE') { onSingleUpdate(msg.data); }
 });
 
 // ── Tab switching ─────────────────────────────────────────────
@@ -186,7 +187,10 @@ async function loadShopCards() {
           <button class="btn-scrape-now" data-scrape="${u}" data-shopid="${shop.shopid}" style="${scrapeStyle}">${scrapeLabel}</button>
           <button class="btn-view-shop"  data-view="${u}">↗</button>
         </div>
-        <div class="scraping-badge" id="badge-${u}">🔄 采集中...</div>
+        <div class="scraping-progress" id="prog-${u}" style="display:none">
+          <div class="scraping-prog-bar"><div class="scraping-prog-fill" id="progfill-${u}"></div></div>
+          <div class="scraping-prog-label" id="proglabel-${u}">🔄 搜索中...</div>
+        </div>
       </div>`;
     }).join('');
 
@@ -198,7 +202,7 @@ async function loadShopCards() {
 async function scrapeShopNow(username, shopid) {
   if (!shopeeTabId)      { alert('请先打开 shopee.com.my！'); return; }
   if (currentRD?.running){ alert('全量运行中，请等待完成后再单独采集'); return; }
-  if (scrapingShop)      { alert(`正在采集 ${scrapingShop}，请稍候`); return; }
+  if (scrapingShop)      { return; } // silently ignore — card already shows progress
   const tabInfo2 = await chrome.tabs.get(shopeeTabId).catch(() => null);
   const tabUrl2  = tabInfo2?.url || '';
   if (tabUrl2.includes('tracking_id') || tabUrl2.includes('is_logged_in=') || !tabUrl2.startsWith('https://shopee.com.my')) {
@@ -207,10 +211,10 @@ async function scrapeShopNow(username, shopid) {
   }
 
   scrapingShop = username;
-  const btn   = document.querySelector(`[data-scrape="${username}"]`);
-  const badge = document.getElementById(`badge-${username}`);
-  if (btn)   { btn.disabled = true; btn.textContent = '采集中...'; }
-  if (badge) { badge.classList.add('show'); }
+  const btn  = document.querySelector(`[data-scrape="${username}"]`);
+  const prog = document.getElementById(`prog-${username}`);
+  if (btn)  { btn.disabled = true; btn.textContent = '采集中...'; }
+  if (prog) { prog.style.display = 'block'; }
 
   try {
     // scrape-single runs in ISOLATED world — avoids Shopee's fetch interceptor causing page redirects
@@ -231,18 +235,34 @@ async function scrapeShopNow(username, shopid) {
     });
   } catch(e) {
     scrapingShop = null;
-    if (btn)   { btn.disabled = false; btn.textContent = '↻ Scrape Now'; }
-    if (badge) { badge.classList.remove('show'); }
+    if (btn)  { btn.disabled = false; btn.textContent = '↻ Scrape Now'; }
+    if (prog) { prog.style.display = 'none'; }
     console.error('Inject error:', e);
   }
 }
 
 function onShopScrapeDone(username) {
   scrapingShop = null;
-  const btn   = document.querySelector(`[data-scrape="${username}"]`);
-  const badge = document.getElementById(`badge-${username}`);
-  if (btn)   { btn.disabled = false; btn.textContent = '✓ 已采集'; btn.style.background = '#10b981'; }
-  if (badge) { badge.classList.remove('show'); }
+  const btn  = document.querySelector(`[data-scrape="${username}"]`);
+  const prog = document.getElementById(`prog-${username}`);
+  if (btn)  { btn.disabled = false; btn.textContent = '✓ 已采集'; btn.style.background = '#10b981'; }
+  if (prog) { prog.style.display = 'none'; }
+}
+
+function onSingleUpdate(d) {
+  if (!d?.shop) return;
+  const prog  = document.getElementById(`prog-${d.shop}`);
+  const fill  = document.getElementById(`progfill-${d.shop}`);
+  const label = document.getElementById(`proglabel-${d.shop}`);
+  if (!prog) return;
+  prog.style.display = 'block';
+  const pct = d.phase === 'enrich'
+    ? Math.min(100, 50 + Math.round((d.variants / Math.max(d.products, 1)) * 50))
+    : Math.min(50, (d.products > 0 ? 40 : 10));
+  if (fill)  fill.style.width = pct + '%';
+  if (label) label.textContent = d.phase === 'enrich'
+    ? `⚡ Enrich | ${d.products}p ${d.variants}v`
+    : `🔍 搜索中 | ${d.products}p`;
 }
 
 async function addAndScrape() {
