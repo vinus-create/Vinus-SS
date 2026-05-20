@@ -282,30 +282,24 @@ async function addAndScrape() {
   try {
     const d = await fetch(`${VERCEL}/api/data?type=shop-profile&username=${encodeURIComponent(val)}`).then(r => r.json());
     if (!d.ok || !d.shopid) throw new Error(d.error || 'Shop not found');
-    setStatus(`✅ ${d.name} — ${d.item_count} products，开始采集...`, 'ok');
+    setStatus(`✅ ${d.name} — ${d.item_count} products，注册中...`, 'ok');
     input.value = '';
 
-    // 立即插入占位卡片（新店还没有数据库记录，loadShopCards 不会显示它）
-    const container = document.getElementById('shopCards');
-    if (!document.getElementById(`card-${val}`)) {
-      const ph = document.createElement('div');
-      ph.className = 'shop-card';
-      ph.id = `card-${val}`;
-      ph.innerHTML = `
-        <div class="shop-card-name">${val}</div>
-        <div class="shop-card-stats">${(d.item_count||0).toLocaleString()} products · <span>0</span> sold</div>
-        <div class="shop-card-btns">
-          <button class="btn-scrape-now" data-scrape="${val}" data-shopid="${d.shopid}" disabled>采集中...</button>
-          <button class="btn-view-shop" data-view="${val}">↗</button>
-        </div>
-        <div class="scraping-progress" id="prog-${val}" style="display:block">
-          <div class="scraping-prog-bar"><div class="scraping-prog-fill" id="progfill-${val}" style="width:5%"></div></div>
-          <div class="scraping-prog-label" id="proglabel-${val}">🔄 搜索中...</div>
-        </div>`;
-      // 移除"暂无数据"占位
-      const idle = container.querySelector('.idle-msg');
-      if (idle) idle.remove();
-      container.prepend(ph);
+    // 立即写入 shops 表，这样 loadShopCards 就能显示它（即使还没有产品）
+    await fetch(`${VERCEL}/api/save`, {
+      method: 'POST', headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({ type: 'shops?on_conflict=username', data: [{ username: val, shopid: d.shopid, name: d.name, item_count: d.item_count || 0 }] })
+    }).catch(() => {});
+
+    // 重新加载卡片列表（shops 表已有记录，新店会出现）
+    await loadShopCards();
+
+    setStatus(`✅ ${d.name} — ${d.item_count} products，开始采集...`, 'ok');
+
+    // 如果有其他 scrape 在跑，给出提示而不是静默忽略
+    if (scrapingShop) {
+      setStatus(`⚠️ 正在采集 ${scrapingShop}，请等待完成后再单独采集 ${val}`, 'err');
+      return;
     }
 
     await scrapeShopNow(val, d.shopid);

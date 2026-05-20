@@ -22,8 +22,27 @@ export default async function handler(req, res) {
   const { type, shopid, catid, limit = 200 } = req.query;
   try {
     if (type === 'shops') {
-      const data = await query('shop_stats?order=total_sold.desc');
-      return res.status(200).json(data);
+      // Merge shops table (all registered shops) with shop_stats (aggregated product data)
+      // This ensures new shops appear even before their first scrape
+      const [allShops, stats] = await Promise.all([
+        query('shops?select=shopid,username,name,item_count&order=shopid'),
+        query('shop_stats?select=shopid,total_products,total_sold,avg_price_rm,max_discount,avg_product_rating,last_scraped&order=total_sold.desc')
+      ]);
+      const sm = {};
+      (Array.isArray(stats) ? stats : []).forEach(s => { sm[s.shopid] = s; });
+      const merged = (Array.isArray(allShops) ? allShops : []).map(s => ({
+        shopid: s.shopid,
+        username: s.username,
+        shop_name: s.name,
+        item_count: s.item_count || 0,
+        total_products: sm[s.shopid]?.total_products || 0,
+        total_sold: sm[s.shopid]?.total_sold || 0,
+        avg_price_rm: sm[s.shopid]?.avg_price_rm || 0,
+        max_discount: sm[s.shopid]?.max_discount || 0,
+        avg_product_rating: sm[s.shopid]?.avg_product_rating || 0,
+        last_scraped: sm[s.shopid]?.last_scraped || null
+      })).sort((a, b) => (b.total_sold || 0) - (a.total_sold || 0));
+      return res.status(200).json(merged);
     }
 
     // All shops including auto-discovered (from market_rankings view)
