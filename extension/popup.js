@@ -195,43 +195,15 @@ async function scrapeShopNow(username, shopid) {
   if (badge) { badge.classList.add('show'); }
 
   try {
-    // Inject single-shop scraper inline (avoids CSP issues)
+    // Set params, then inject scrape-single.js (no inline scripts — avoids CSP violations)
     await chrome.scripting.executeScript({
       target: { tabId: shopeeTabId },
-      func: (u, sid, vercel) => {
-        if (window._SS_single?.running) return;
-        window._SS_single = { running: true, shop: u, products: 0, variants: 0 };
-
-        const el = document.createElement('script');
-        el.textContent = `(async()=>{
-const V='${vercel}',u='${u}',sid=${sid},today=new Date().toISOString().split('T')[0];
-const sleep=ms=>new Promise(r=>setTimeout(r,ms+~~(Math.random()*500)));
-const hdr={credentials:'include',headers:{'x-api-source':'pc','x-shopee-language':'en','Accept':'application/json'}};
-window._SS_single={running:true,shop:u,phase:'search',products:0,variants:0,errors:0};
-console.log('[SS] scraping',u);
-
-// Phase 1: search
-const seen=new Set(),map={};
-for(const by of['sales','ctime','price']){let off=0;while(true){try{const r=await fetch('https://shopee.com.my/api/v4/search/search_items?by='+by+'&limit=60&match_id='+sid+'&newest='+off+'&order=desc&page_type=shop&scenario=PAGE_OTHERS&version=2',hdr);if(!r.ok)break;const d=await r.json();const b=(d.items||[]).map(i=>i.item_basic).filter(Boolean);if(!b.length)break;b.forEach(p=>{if(!seen.has(p.itemid)){seen.add(p.itemid);map[p.itemid]=p;}});if(b.length<60)break;off+=60;}catch(e){break;}await sleep(800);}await sleep(1200);}
-const prods=Object.values(map);
-if(prods.length){const rows=prods.map(p=>({shopid:sid,itemid:p.itemid,username:u,name:p.name,price_min:p.price_min||0,price_max:p.price_max||p.price_min||0,price_min_before_discount:p.price_min_before_discount||p.price_min||0,raw_discount:p.raw_discount||0,historical_sold:p.historical_sold||0,sold:p.sold||0,liked_count:p.liked_count||0,stock:p.stock||0,rating_star:p.item_rating?.rating_star||0,rating_count:p.item_rating?.rating_count?.reduce((a,b)=>a+b,0)||0,brand:p.brand||'',catid:p.catid||0,image:p.image||'',ctime:p.ctime||0,scraped_date:today,scraped_at:new Date().toISOString()}));for(let i=0;i<rows.length;i+=50){await fetch(V+'/api/save',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({type:'products?on_conflict=shopid,itemid,scraped_date',data:rows.slice(i,i+50)})});}}
-window._SS_single.products=prods.length;
-
-// Phase 2+3: enrich
-window._SS_single.phase='enrich';
-await sleep(2000);
-const ar=await fetch(V+'/api/data?type=active-sellers&shopid='+sid).then(r=>r.json()).catch(()=>({active:[]}));
-const active=ar.active||[];
-const buf=[];let vars=0;
-for(let i=0;i<active.length;i++){const p=active[i];await sleep(3500);try{const d=await fetch('https://shopee.com.my/api/v4/item/get?itemid='+p.itemid+'&shopid='+sid,hdr).then(r=>r.json());if(!d.data)continue;const item=d.data,vt=(item.tier_variations||[]).map(v=>v.name).join(' / ')||'single';if(item.models?.length>0){item.models.forEach(m=>buf.push({shopid:sid,itemid:p.itemid,model_id:m.modelid||0,username:u,product_name:p.name,variant_name:m.name||'Default',variant_sku:m.model_sku||'',variation_type:vt,price:(m.price||0)/100000,stock:m.stock||0,sold:m.sold||0,scraped_date:today,scraped_at:new Date().toISOString()}));}else{buf.push({shopid:sid,itemid:p.itemid,model_id:0,username:u,product_name:p.name,variant_name:'Default',variant_sku:'',variation_type:'single',price:(p.price_min||0)/100000,stock:item.stock_info?.summary_info?.total_available_stock??p.stock??0,sold:item.sold||0,scraped_date:today,scraped_at:new Date().toISOString()});}if(buf.length>=60){const sv=await fetch(V+'/api/save-variants',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({variants:buf.splice(0,60)})}).then(r=>r.json()).catch(()=>({saved:0}));vars+=sv.saved||0;window._SS_single.variants=vars;}}catch(e){}}
-if(buf.length){const sv=await fetch(V+'/api/save-variants',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({variants:buf})}).then(r=>r.json()).catch(()=>({saved:0}));vars+=sv.saved||0;}
-window._SS_single.variants=vars;window._SS_single.running=false;
-console.log('[SS] done:',u,'products:',prods.length,'variants:',vars);
-try{chrome.runtime.sendMessage({type:'SHOP_SCRAPE_DONE',username:u,products:prods.length,variants:vars});}catch(e){}
-})();`;
-        document.head.appendChild(el);
-      },
+      func: (u, sid, vercel) => { window._SS_params = { username: u, shopid: sid, vercel }; },
       args: [username, shopid, VERCEL]
+    });
+    await chrome.scripting.executeScript({
+      target: { tabId: shopeeTabId },
+      files: ['scrape-single.js']
     });
   } catch(e) {
     scrapingShop = null;

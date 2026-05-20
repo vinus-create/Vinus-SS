@@ -34,7 +34,7 @@
   ],
   "web_accessible_resources": [
     {
-      "resources": ["run-daily.js"],
+      "resources": ["run-daily.js", "scrape-single.js"],
       "matches": ["https://shopee.com.my/*"]
     }
   ]
