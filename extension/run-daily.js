@@ -148,6 +148,12 @@ const logShop = async (shop, totalItems, status, durationMs, errorMsg) => {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ type: 'scrape_log', data: [row] })
     });
+    // 记录已写过 log，避免重复
+    if (status === 'success') {
+      const LS_LOGGED = `SS_logged_${today}`;
+      const lst = JSON.parse(localStorage.getItem(LS_LOGGED) || '[]');
+      if (!lst.includes(shop.username)) { lst.push(shop.username); localStorage.setItem(LS_LOGGED, JSON.stringify(lst)); }
+    }
   } catch(e) { log(`  ⚠️ logShop failed: ${e.message}`); }
 };
 
@@ -209,11 +215,31 @@ let grandProducts = 0, grandVariants = 0, grandErrors = 0;
 const LS_KEY = `SS_done_${today}`;
 const _doneList = JSON.parse(localStorage.getItem(LS_KEY) || '[]');
 const scrapedToday = new Set(_doneList);
+const scrapedTodayCounts = {}; // username → product count
 try {
   const r = await fetch(`${VERCEL}/api/data?type=scraped-today`);
   const d = await r.json();
-  (d.shops || []).forEach(u => { scrapedToday.add(u); if (!_doneList.includes(u)) _doneList.push(u); });
+  (d.shops || []).forEach(u => {
+    scrapedToday.add(u);
+    if (!_doneList.includes(u)) _doneList.push(u);
+    if (d.counts?.[u]) scrapedTodayCounts[u] = d.counts[u];
+  });
   localStorage.setItem(LS_KEY, JSON.stringify(_doneList));
+  // 对今日已采集但还没写过 log 的店，补写 success 记录（兼容旧版没有 logShop 时跑的采集）
+  const LS_LOGGED = `SS_logged_${today}`;
+  const _loggedList = JSON.parse(localStorage.getItem(LS_LOGGED) || '[]');
+  const loggedSet = new Set(_loggedList);
+  const toLog = (d.shops || []).filter(u => !loggedSet.has(u));
+  if (toLog.length) {
+    log(`📝 补写 ${toLog.length} 个店的 scrape log...`);
+    for (const u of toLog) {
+      const shop = SHOPS.find(s => s.username === u);
+      if (!shop) continue;
+      await logShop(shop, scrapedTodayCounts[u] || 0, 'success', 0, null);
+      _loggedList.push(u);
+    }
+    localStorage.setItem(LS_LOGGED, JSON.stringify(_loggedList));
+  }
 } catch(e) {}
 if (scrapedToday.size) log(`⏭️ 今日已完成，跳过: ${[...scrapedToday].join(', ')}`);
 
@@ -225,7 +251,7 @@ for (let si = 0; si < SHOPS.length; si++) {
   if (scrapedToday.has(shop.username)) {
     log(`  ⏭️ ${shop.username} 今日已采集，跳过`);
     W.shopIdx = si + 1;
-    W.shops.push({ shop: shop.username, products: 0, variants: 0, skipped: true });
+    W.shops.push({ shop: shop.username, products: scrapedTodayCounts[shop.username] || 0, variants: 0, skipped: true });
     continue;
   }
 
