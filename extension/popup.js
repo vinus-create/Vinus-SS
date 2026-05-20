@@ -9,6 +9,15 @@ let currentRD    = null;
 let shopeeTabId  = null;
 let scrapingShop = null;
 
+function showErr(msg) {
+  const el = document.getElementById('inlineErr');
+  if (!el) return;
+  el.textContent = msg;
+  el.style.display = 'block';
+  clearTimeout(showErr._t);
+  showErr._t = setTimeout(() => { el.style.display = 'none'; }, 6000);
+}
+
 // ── Init ──────────────────────────────────────────────────────
 document.addEventListener('DOMContentLoaded', async () => {
   // Wire up static buttons
@@ -203,13 +212,13 @@ async function loadShopCards() {
 }
 
 async function scrapeShopNow(username, shopid) {
-  if (!shopeeTabId)      { alert('请先打开 shopee.com.my！'); return; }
-  if (currentRD?.running){ alert('全量运行中，请等待完成后再单独采集'); return; }
+  if (!shopeeTabId)      { showErr('请先打开 shopee.com.my！'); return; }
+  if (currentRD?.running){ showErr('全量运行中，请等待完成后再单独采集'); return; }
   if (scrapingShop)      { return; } // silently ignore — card already shows progress
   const tabInfo2 = await chrome.tabs.get(shopeeTabId).catch(() => null);
   const tabUrl2  = tabInfo2?.url || '';
   if (tabUrl2.includes('tracking_id') || tabUrl2.includes('is_logged_in=') || !tabUrl2.startsWith('https://shopee.com.my')) {
-    alert('⚠️ Shopee 页面异常（账号被封或重定向）\n请换账号重新打开 shopee.com.my 后再采集');
+    showErr('⚠️ Shopee 页面异常（账号被封或重定向）请换账号重新打开 shopee.com.my 后再采集');
     return;
   }
 
@@ -321,7 +330,7 @@ async function runDaily() {
   const tabInfo = await chrome.tabs.get(shopeeTabId).catch(() => null);
   const tabUrl = tabInfo?.url || '';
   if (tabUrl.includes('tracking_id') || tabUrl.includes('is_logged_in=') || !tabUrl.startsWith('https://shopee.com.my')) {
-    alert('⚠️ Shopee 页面异常（可能是账号被封或重定向）\n\n请：\n1. 关闭当前 Shopee tab\n2. 换账号登录\n3. 重新打开 shopee.com.my\n4. 确认首页正常后再运行');
+    showErr('⚠️ Shopee 页面异常（账号被封或重定向）请关闭 tab，换账号重新打开 shopee.com.my 后再运行');
     return;
   }
 
@@ -331,7 +340,7 @@ async function runDaily() {
     func: () => window._SS_content_ready === true
   }).catch(() => [{ result: false }]);
   if (!check?.[0]?.result) {
-    alert('请先按 F5 刷新 Shopee 标签页，再点运行！\n（扩展更新后需刷新一次）');
+    showErr('请先按 F5 刷新 Shopee 标签页，再点运行！（扩展更新后需刷新一次）');
     return;
   }
 
@@ -362,7 +371,7 @@ async function runDaily() {
     btn.disabled    = false;
     btn.textContent = '▶ 全量运行';
     console.error('runDaily inject error:', e);
-    alert(`注入失败: ${e.message}`);
+    showErr(`注入失败: ${e.message}`);
   }
 }
 
