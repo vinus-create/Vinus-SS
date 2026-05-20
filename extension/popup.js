@@ -213,17 +213,21 @@ async function scrapeShopNow(username, shopid) {
   if (badge) { badge.classList.add('show'); }
 
   try {
-    // Set params, then inject scrape-single.js in MAIN world so fetch uses shopee.com.my origin
+    // scrape-single runs in ISOLATED world — avoids Shopee's fetch interceptor causing page redirects
+    // Pass params via DOM attribute (shared between worlds)
     await chrome.scripting.executeScript({
       target: { tabId: shopeeTabId },
       world:  'MAIN',
-      func: (u, sid, vercel) => { window._SS_params = { username: u, shopid: sid, vercel }; },
+      func: (u, sid, vercel) => {
+        document.documentElement.setAttribute('data-ss-u', u);
+        document.documentElement.setAttribute('data-ss-sid', sid);
+        document.documentElement.setAttribute('data-ss-v', vercel);
+      },
       args: [username, shopid, VERCEL]
     });
     await chrome.scripting.executeScript({
       target: { tabId: shopeeTabId },
-      world:  'MAIN',
-      files: ['scrape-single.js']
+      files: ['scrape-single.js']  // default: ISOLATED world
     });
   } catch(e) {
     scrapingShop = null;

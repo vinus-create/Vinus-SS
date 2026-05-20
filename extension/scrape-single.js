@@ -1,8 +1,12 @@
-// Single-shop scraper — injected via executeScript({ files: ['scrape-single.js'] })
-// Reads params from window._SS_params = { username, shopid, vercel }
+// Single-shop scraper — runs in ISOLATED world to avoid Shopee's fetch interceptor
+// Reads params from DOM attributes set by popup.js (shared across worlds)
 
 (async () => {
-  const { username: u, shopid: sid, vercel: V } = window._SS_params || {};
+  const el  = document.documentElement;
+  const u   = el.getAttribute('data-ss-u');
+  const sid = parseInt(el.getAttribute('data-ss-sid'));
+  const V   = el.getAttribute('data-ss-v');
+  el.removeAttribute('data-ss-u'); el.removeAttribute('data-ss-sid'); el.removeAttribute('data-ss-v');
   if (!u || !sid || !V) return;
   if (window._SS_single?.running) return;
 
