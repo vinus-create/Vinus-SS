@@ -265,6 +265,16 @@ async function addAndScrape() {
 async function runDaily() {
   if (!shopeeTabId) { chrome.tabs.create({ url: 'https://shopee.com.my' }); window.close(); return; }
 
+  // Check if content script is new version (has _SS_content_ready flag)
+  const check = await chrome.scripting.executeScript({
+    target: { tabId: shopeeTabId },
+    func: () => window._SS_content_ready === true
+  }).catch(() => [{ result: false }]);
+  if (!check?.[0]?.result) {
+    alert('请先按 F5 刷新 Shopee 标签页，再点运行！\n（扩展更新后需刷新一次）');
+    return;
+  }
+
   const btn = document.getElementById('btnRun');
   btn.disabled    = true;
   btn.textContent = '注入中...';
