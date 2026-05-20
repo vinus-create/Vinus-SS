@@ -128,6 +128,19 @@ const saveVariants = async (variants) => {
   return j.saved || variants.length;
 };
 
+// 写 scrape_log — 让 Dashboard Scrape Log 页显示 Extension 运行记录
+const logShop = async (shop, totalItems, status, durationMs, errorMsg) => {
+  try {
+    const row = { username: shop.username, shopid: shop.shopid, total_items: totalItems, status, duration_ms: durationMs };
+    if (errorMsg) row.error_msg = String(errorMsg).substring(0, 200);
+    await fetch(`${VERCEL}/api/save`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ type: 'scrape_log', data: [row] })
+    });
+  } catch(e) { log(`  ⚠️ logShop failed: ${e.message}`); }
+};
+
 // ── Progress state ────────────────────────────────────────────
 window._RD = {
   running: true, phase: '', shop: '', shopIdx: 0, shopTotal: SHOPS.length,
@@ -209,6 +222,7 @@ for (let si = 0; si < SHOPS.length; si++) {
   W.shop = shop.username;
   W.shopIdx = si + 1;
   W.phase = 'search';
+  const shopStarted = Date.now();
   log(`\n${'─'.repeat(50)}`);
   log(`📡 [${si+1}/${SHOPS.length}] ${shop.username}`);
 
@@ -270,6 +284,7 @@ for (let si = 0; si < SHOPS.length; si++) {
     log(`  ❌ Phase 1 失败: ${e.message}`);
     W.shops.push({ shop: shop.username, products: 0, active: 0, variants: 0, error: e.message });
     grandErrors++;
+    await logShop(shop, 0, 'error', Date.now() - shopStarted, e.message);
     await sleep(5000);
     continue;
   }
@@ -297,6 +312,7 @@ for (let si = 0; si < SHOPS.length; si++) {
   if (!active.length) {
     log(`  ⏭️ 无活跃产品，跳过 enrich`);
     W.shops.push({ shop: shop.username, products: products.length, active: 0, variants: 0 });
+    await logShop(shop, products.length, 'success', Date.now() - shopStarted, null);
     await sleep(3000);
     continue;
   }
@@ -367,6 +383,7 @@ for (let si = 0; si < SHOPS.length; si++) {
 
   log(`  ✅ ${shop.username}: ${products.length} 产品 | ${active.length} enrich | ${shopVars} variants | ${shopErrs} err`);
   W.shops.push({ shop: shop.username, products: products.length, active: active.length, variants: shopVars, errors: shopErrs });
+  await logShop(shop, products.length, 'success', Date.now() - shopStarted, null);
   if (!W.running) break;
   if (si < SHOPS.length - 1) {
     log(`  ⏸️ 店间休息 3 分钟...`);
