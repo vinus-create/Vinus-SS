@@ -199,6 +199,12 @@ async function scrapeShopNow(username, shopid) {
   if (!shopeeTabId)      { alert('请先打开 shopee.com.my！'); return; }
   if (currentRD?.running){ alert('全量运行中，请等待完成后再单独采集'); return; }
   if (scrapingShop)      { alert(`正在采集 ${scrapingShop}，请稍候`); return; }
+  const tabInfo2 = await chrome.tabs.get(shopeeTabId).catch(() => null);
+  const tabUrl2  = tabInfo2?.url || '';
+  if (tabUrl2.includes('tracking_id') || tabUrl2.includes('is_logged_in=') || !tabUrl2.startsWith('https://shopee.com.my')) {
+    alert('⚠️ Shopee 页面异常（账号被封或重定向）\n请换账号重新打开 shopee.com.my 后再采集');
+    return;
+  }
 
   scrapingShop = username;
   const btn   = document.querySelector(`[data-scrape="${username}"]`);
@@ -264,6 +270,14 @@ async function addAndScrape() {
 // ── Run daily (full) ──────────────────────────────────────────
 async function runDaily() {
   if (!shopeeTabId) { chrome.tabs.create({ url: 'https://shopee.com.my' }); window.close(); return; }
+
+  // Check tab URL is a normal Shopee page (not error/redirect/banned)
+  const tabInfo = await chrome.tabs.get(shopeeTabId).catch(() => null);
+  const tabUrl = tabInfo?.url || '';
+  if (tabUrl.includes('tracking_id') || tabUrl.includes('is_logged_in=') || !tabUrl.startsWith('https://shopee.com.my')) {
+    alert('⚠️ Shopee 页面异常（可能是账号被封或重定向）\n\n请：\n1. 关闭当前 Shopee tab\n2. 换账号登录\n3. 重新打开 shopee.com.my\n4. 确认首页正常后再运行');
+    return;
+  }
 
   // Check if content script is new version (has _SS_content_ready flag)
   const check = await chrome.scripting.executeScript({
