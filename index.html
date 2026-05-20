@@ -948,85 +948,25 @@ tr:hover td{background:rgba(249,115,22,.04)}
         <span style="font-family:'DM Mono',monospace;font-size:10px;color:var(--muted)" id="trackedShopCount">Loading...</span>
       </div>
       <div class="card-body">
-        <!-- Add new shop -->
-        <div style="display:flex;gap:8px;align-items:center;margin-bottom:16px;flex-wrap:wrap">
-          <input id="addShopInput" type="text" placeholder="Shop username or shopee.com.my/username URL"
-            style="flex:1;min-width:200px;background:var(--s3);border:1px solid var(--border2);color:var(--text);padding:9px 14px;border-radius:7px;font-size:13px;font-family:'Inter',sans-serif;outline:none"
-            onkeydown="if(event.key==='Enter')addShop()">
-          <button onclick="addShop()" id="addShopBtn"
-            style="padding:9px 18px;background:var(--acc2);color:#fff;border:none;border-radius:7px;font-size:12px;font-weight:700;cursor:pointer;white-space:nowrap">
-            + Add & Scrape
-          </button>
+        <div style="background:var(--s2);border:1px solid var(--border2);border-radius:8px;padding:10px 14px;font-size:12px;color:var(--muted);margin-bottom:14px">
+          💡 要添加或采集店铺，请使用 <strong style="color:var(--text)">ShopeeScope Chrome Extension</strong>（店铺管理 tab）。服务器端采集已被 Shopee 封锁。
         </div>
-        <div id="addShopStatus" style="font-size:11px;color:var(--muted);font-family:'DM Mono',monospace;margin-bottom:12px;display:none"></div>
         <!-- Shop list -->
         <div id="trackedShopList" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:8px"></div>
       </div>
     </div>
 
-    <!-- ONE-CLICK DAILY RUNNER -->
-    <div class="card" style="margin-bottom:16px;border:2px solid var(--acc)">
-      <div class="card-hdr" style="background:linear-gradient(135deg,#fff7ed,#ffedd5)">
-        <span class="card-title">🚀 一键运行 Daily Scraper</span>
-        <span style="font-family:'DM Mono',monospace;font-size:10px;color:var(--muted)">拖书签到书签栏，在 Shopee 页面一键启动</span>
-      </div>
-      <div class="card-body">
-        <p style="font-size:13px;color:var(--muted);margin-bottom:16px">每天在 shopee.com.my 页面点一下书签，自动爬取全部 13 个店（产品 + Variants）</p>
-
-        <!-- Bookmarklet drag area -->
-        <div style="display:flex;align-items:center;gap:16px;flex-wrap:wrap;margin-bottom:20px">
-          <a id="runDailyBookmark" href="javascript:void(0)"
-            style="display:inline-flex;align-items:center;gap:8px;padding:12px 24px;background:var(--acc);color:#fff;border-radius:10px;font-weight:700;font-size:14px;text-decoration:none;box-shadow:0 4px 12px rgba(249,115,22,.3);cursor:grab;user-select:none"
-            title="拖我到书签栏！">
-            📅 ShopeeScope Daily
-          </a>
-          <div style="font-size:12px;color:var(--muted);line-height:1.6">
-            👆 <strong>把这个按钮拖到浏览器书签栏</strong><br>
-            之后每天：打开 shopee.com.my → 点书签 → 开始运行
-          </div>
-        </div>
-
-        <!-- Progress display -->
-        <div id="rdStatus" style="display:none;background:var(--s2);border-radius:8px;padding:12px 16px;font-family:'DM Mono',monospace;font-size:11px">
-          <div style="display:flex;justify-content:space-between;margin-bottom:8px">
-            <span style="font-weight:700;color:var(--text)" id="rdShop">—</span>
-            <span id="rdRunning" style="color:var(--acc2)">运行中...</span>
-          </div>
-          <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:8px">
-            <div style="text-align:center"><div style="font-size:18px;font-weight:700;color:var(--acc)" id="rdProducts">0</div><div style="color:var(--muted);font-size:10px">产品</div></div>
-            <div style="text-align:center"><div style="font-size:18px;font-weight:700;color:var(--acc3)" id="rdVariants">0</div><div style="color:var(--muted);font-size:10px">Variants</div></div>
-            <div style="text-align:center"><div style="font-size:18px;font-weight:700;color:var(--danger)" id="rdErrors">0</div><div style="color:var(--muted);font-size:10px">错误</div></div>
-          </div>
-          <div style="color:var(--muted);font-size:10px" id="rdPhase">—</div>
-        </div>
-
-        <!-- Monitor button -->
-        <button onclick="monitorRD()" style="margin-top:12px;padding:7px 14px;background:var(--s2);border:1px solid var(--border2);border-radius:7px;font-size:11px;cursor:pointer;font-family:'DM Mono',monospace">
-          🔄 查进度
-        </button>
-
-        <div style="margin-top:16px;padding:12px;background:var(--s2);border-radius:8px;font-size:11px;color:var(--muted);line-height:1.7">
-          <strong>使用说明：</strong><br>
-          1. 把橙色书签拖到浏览器书签栏<br>
-          2. 每天打开 <code style="background:var(--s3);padding:1px 4px;border-radius:3px">shopee.com.my</code>（需登录）<br>
-          3. 点书签 → 脚本自动运行，约 60-90 分钟<br>
-          4. 遇到 CAPTCHA 会响铃提醒 → 手动解 → 自动继续<br>
-          5. 完成后标题显示 ✅ RD done
-        </div>
-      </div>
-    </div>
-
     <div class="card" style="margin-bottom:16px"><div class="card-body">
-      <h2 style="font-size:20px;font-weight:800;margin-bottom:6px">Full Setup Guide</h2>
-      <p style="color:var(--muted);font-size:12px">Supabase + Vercel + Bookmarklet — one-click scraping, no server needed</p>
+      <h2 style="font-size:20px;font-weight:800;margin-bottom:6px">Setup Guide</h2>
+      <p style="color:var(--muted);font-size:12px">Supabase + Vercel + Chrome Extension — automatic daily scraping</p>
     </div></div>
 
     <div class="flow">
       <div class="fstep"><div class="fnum">1</div><div class="ftit">Supabase</div><div class="fdesc">Create project, run SQL schema, copy URL + service key</div></div>
-      <div class="fstep"><div class="fnum">2</div><div class="ftit">GitHub</div><div class="fdesc">Push shopee-scope folder, connect repo to Vercel</div></div>
+      <div class="fstep"><div class="fnum">2</div><div class="ftit">GitHub</div><div class="fdesc">Push project folder, connect repo to Vercel</div></div>
       <div class="fstep"><div class="fnum">3</div><div class="ftit">Vercel</div><div class="fdesc">Add env vars, deploy — get your live dashboard URL</div></div>
-      <div class="fstep"><div class="fnum">4</div><div class="ftit">Scrape</div><div class="fdesc">Install bookmarklet → open shopee.com.my → one click</div></div>
-      <div class="fstep"><div class="fnum">5</div><div class="ftit">Analyse</div><div class="fdesc">Open dashboard on phone, select shop, get insights</div></div>
+      <div class="fstep"><div class="fnum">4</div><div class="ftit">Extension</div><div class="fdesc">Load ShopeeScope Chrome Extension → open shopee.com.my → run</div></div>
+      <div class="fstep"><div class="fnum">5</div><div class="ftit">Analyse</div><div class="fdesc">Open dashboard on any device, select shop, get insights</div></div>
     </div>
 
     <div class="g3">
@@ -1048,66 +988,32 @@ tr:hover td{background:rgba(249,115,22,.04)}
         </ul>
       </div></div>
 
-      <div class="card"><div class="card-hdr"><span class="card-title">3. Scrape</span></div><div class="card-body">
+      <div class="card"><div class="card-hdr"><span class="card-title">3. Chrome Extension</span></div><div class="card-body">
         <ul class="ilist">
-          <li class="iitem"><div class="iico">🔖</div><div><div class="itxt">Drag the <strong>📊 ShopeeScope Scraper</strong> bookmarklet (below) to Chrome bookmarks bar</div></div></li>
+          <li class="iitem"><div class="iico">🧩</div><div><div class="itxt">Chrome → <code style="color:var(--acc2)">chrome://extensions</code> → Developer mode ON → Load unpacked → select <strong>extension/</strong> folder</div></div></li>
           <li class="iitem"><div class="iico">🌐</div><div><div class="itxt">Open <code style="color:var(--acc2)">shopee.com.my</code> — log in</div></div></li>
-          <li class="iitem"><div class="iico">👆</div><div><div class="itxt">Click the bookmarklet — all 13 shops scrape automatically (~15 min)</div></div></li>
-          <li class="iitem"><div class="iico">✅</div><div><div class="itxt">Overlay turns green → refresh dashboard → done!</div></div></li>
+          <li class="iitem"><div class="iico">▶️</div><div><div class="itxt">Click the ShopeeScope icon → <strong>▶ 全量运行</strong> — all shops scrape automatically (~60–90 min)</div></div></li>
+          <li class="iitem"><div class="iico">✅</div><div><div class="itxt">Progress shown in popup — refresh dashboard when done</div></div></li>
         </ul>
       </div></div>
     </div>
 
-    <!-- One-Click Bookmarklet Card -->
-    <div class="card" style="border:2px solid #22c55e;margin-bottom:16px">
-      <div class="card-hdr" style="background:linear-gradient(135deg,#f0fdf4,#dcfce7)">
-        <span class="card-title">🔖 One-Click Bookmarklet Scraper</span>
-        <span style="font-size:11px;background:#22c55e;color:#fff;padding:2px 8px;border-radius:4px;font-weight:700;margin-left:8px">RECOMMENDED</span>
-      </div>
-      <div class="card-body">
-        <p style="font-size:12px;color:var(--muted);margin-bottom:14px">
-          Shopee blocks all servers (Vercel, Cloudflare, Supabase) from scraping — only your browser session works.
-          Drag this button to your bookmarks bar. Visit <strong>shopee.com.my</strong> → click it → all 13 shops scrape automatically. <strong>No code pasting needed.</strong>
-        </p>
-
-        <!-- Drag target -->
-        <div style="text-align:center;padding:20px;background:#f0fdf4;border:2px dashed #86efac;border-radius:10px;margin-bottom:16px">
-          <div style="font-size:11px;color:#15803d;font-weight:700;margin-bottom:12px;letter-spacing:.5px">⬇️ DRAG THIS TO YOUR CHROME BOOKMARKS BAR ⬇️</div>
-          <a id="ss-bookmarklet" href="#"
-             draggable="true"
-             style="display:inline-block;background:#f97316;color:#fff;padding:11px 28px;border-radius:8px;font-weight:700;font-size:15px;text-decoration:none;cursor:grab;box-shadow:0 4px 16px rgba(249,115,22,.35);border:none">
-            📊 ShopeeScope Scraper
-          </a>
-          <div style="font-size:10px;color:#6b7280;margin-top:10px">Or right-click → <strong>Bookmark link</strong></div>
-        </div>
-
-        <!-- Steps -->
-        <ol style="font-size:12px;color:var(--muted);padding-left:20px;line-height:2.3;margin-bottom:12px">
-          <li>Drag the orange button above to your <strong>Chrome bookmarks bar</strong> (View → Always Show Bookmarks Bar)</li>
-          <li>Open <a href="https://shopee.com.my" target="_blank" style="color:var(--acc)">shopee.com.my</a> — make sure you're <strong>logged in</strong></li>
-          <li>Click <strong>📊 ShopeeScope Scraper</strong> in your bookmarks bar</li>
-          <li>A progress overlay appears at top-right — scraping all 13 shops (~15 min)</li>
-          <li>Overlay turns <span style="color:#22c55e;font-weight:700">✅ green</span> when done → refresh this dashboard</li>
-        </ol>
-
-        <div style="background:#fef3c7;border:1px solid #fbbf24;border-radius:8px;padding:10px 12px;font-size:11px;color:#92400e">
-          💡 <strong>Why browser only?</strong> Shopee uses geo-IP + bot detection that blocks all datacenters. Your browser passes because it uses your real Shopee session cookies automatically.
-          If it fails (403), just log out and back into Shopee.
-        </div>
-      </div>
-    </div>
-
     <div class="card"><div class="card-hdr"><span class="card-title">File Structure</span></div><div class="card-body">
       <pre style="font-family:'DM Mono',monospace;font-size:11px;color:var(--muted);line-height:1.8">
-shopee-scope/
+Vinus-SS/
 ├── <span style="color:var(--acc2)">index.html</span>              ← This dashboard (served by Vercel)
-├── <span style="color:var(--acc2)">scraper.js</span>              ← Bookmarklet source (reference only)
 ├── <span style="color:var(--acc2)">supabase_schema.sql</span>     ← Run once in Supabase SQL Editor
-├── <span style="color:var(--acc2)">vercel.json</span>             ← Vercel routing config
+├── <span style="color:var(--acc2)">vercel.json</span>             ← Vercel routing + cron config
 ├── api/
-│   ├── <span style="color:var(--acc3)">save.js</span>             ← POST: receive scrape → save to Supabase
-│   └── <span style="color:var(--acc3)">data.js</span>             ← GET: dashboard reads data
-└── <span style="color:var(--muted)">README.md</span></pre>
+│   ├── <span style="color:var(--acc3)">save.js</span>             ← POST: save products to Supabase
+│   ├── <span style="color:var(--acc3)">save-variants.js</span>    ← POST: save product variants
+│   ├── <span style="color:var(--acc3)">data.js</span>             ← GET: dashboard reads data
+│   └── <span style="color:var(--acc3)">cron-scrape.js</span>      ← Daily cron (8am MYT, server-side)
+└── extension/
+    ├── <span style="color:var(--acc3)">manifest.json</span>       ← Chrome Extension config
+    ├── <span style="color:var(--acc3)">popup.js/html</span>       ← Extension popup UI
+    ├── <span style="color:var(--acc3)">run-daily.js</span>        ← Full scraper (all shops)
+    └── <span style="color:var(--acc3)">scrape-single.js</span>    ← Single-shop scraper</pre>
     </div></div>
   </div>
 
@@ -1284,7 +1190,6 @@ async function renderTrackedShops() {
       <div style="font-size:13px;font-weight:700;margin-bottom:4px">${s.username}</div>
       <div style="font-size:10px;color:var(--muted);font-family:'DM Mono',monospace;margin-bottom:8px">${(s.total_products||s.item_count||0).toLocaleString()} products · ${(s.total_sold||0).toLocaleString()} sold</div>
       <div style="display:flex;gap:6px">
-        <button onclick="scrapeNow('${s.username}')" style="flex:1;padding:5px 0;background:var(--acc);color:#fff;border:none;border-radius:5px;font-size:11px;font-weight:700;cursor:pointer">↻ Scrape Now</button>
         <a href="https://shopee.com.my/${s.username}" target="_blank" style="flex:1;padding:5px 0;background:var(--s3);color:var(--muted);border:1px solid var(--border2);border-radius:5px;font-size:11px;font-weight:700;cursor:pointer;text-align:center;text-decoration:none">↗ View Shop</a>
       </div>
     </div>`).join('');
@@ -3553,85 +3458,5 @@ function renderDiscoverResults(shopids) {
 }
 </script>
 
-<script>
-// ── run-daily bookmarklet + monitor ─────────────────────────────────────────
-(function(){
-  var bm = document.getElementById('runDailyBookmark');
-  if(bm) bm.href = "javascript:(function(){if(!location.hostname.includes('shopee.com.my')){alert('⚠️ 请先打开 shopee.com.my！');return;}var s=document.createElement('script');s.src='https://vinus-ss.vercel.app/run-daily.js?t='+Date.now();document.head.appendChild(s);console.log('[ShopeeScope] run-daily.js 已注入');})()";
-})();
-
-function monitorRD() {
-  // 尝试从同一 Chrome 窗口的 Shopee 标签页读取 window._RD
-  // 因为跨标签不能直接访问，改为轮询 Vercel API 查最新数据
-  var box = document.getElementById('rdStatus');
-  var shopEl = document.getElementById('rdShop');
-  var prodEl = document.getElementById('rdProducts');
-  var varEl  = document.getElementById('rdVariants');
-  var errEl  = document.getElementById('rdErrors');
-  var phEl   = document.getElementById('rdPhase');
-  var runEl  = document.getElementById('rdRunning');
-  box.style.display = 'block';
-  var today = new Date().toISOString().split('T')[0];
-  Promise.all([
-    fetch('/api/get-velocity?type=product&limit=1').then(r=>r.json()).catch(()=>[]),
-    fetch('/api/data?type=log').then(r=>r.json()).catch(()=>[])
-  ]).then(function(results) {
-    var log = Array.isArray(results[1]) ? results[1] : [];
-    var todayLogs = log.filter(function(l){ return l.scraped_at && l.scraped_at.startsWith(today); });
-    var done = todayLogs.filter(function(l){ return l.status === 'success'; });
-    var failed = todayLogs.filter(function(l){ return l.status === 'error'; });
-    var totalProd = done.reduce(function(a,l){ return a+(l.total_items||0); }, 0);
-    shopEl.textContent = done.length + '/13 店完成' + (failed.length ? '，' + failed.length + ' 失败' : '');
-    prodEl.textContent = totalProd;
-    varEl.textContent  = '—';
-    errEl.textContent  = failed.length;
-    phEl.textContent   = done.length === 13 ? '✅ 今日全部完成！' : (done.length > 0 ? '最近: ' + done[done.length-1].username : '尚未开始');
-    runEl.textContent  = done.length === 13 ? '完成 ✅' : (done.length > 0 ? '运行中...' : '未开始');
-    runEl.style.color  = done.length === 13 ? 'var(--acc2)' : 'var(--acc)';
-  });
-}
-
-// ── Old bookmarklet href setter ──────────────────────────────────────────────
-(function(){
-  var code = '(async()=>{' +
-    'if(!location.hostname.includes(\'shopee.com.my\')){alert(\'⚠️ Please open shopee.com.my first!\');return;}' +
-    'var V=\'https://vinus-ss.vercel.app\';' +
-    'var SHOPS=[\'buddysnack\',\'winstartech\',\'1stopbatteries\',\'icare4allshop\',\'energizerbatteryhub\',\'gadgetspecialist\',\'gou.ori\',\'tenbucksfood\',\'dsconcept_store\',\'sxmixempire\',\'r_in_g\',\'nextgenhardware.os\',\'ham_radios.my\'];' +
-    'var sleep=function(ms){return new Promise(function(r){setTimeout(r,ms+~~(Math.random()*400));});};' +
-    'var api=async function(p){var r=await fetch(\'https://shopee.com.my\'+p,{credentials:\'include\',headers:{\'x-api-source\':\'pc\',\'x-shopee-language\':\'en\',\'Accept\':\'application/json\',\'Referer\':\'https://shopee.com.my/\'}});if(!r.ok)throw new Error(r.status+\':\'+p);return r.json();};' +
-    'async function allP(sid){var seen=new Set(),map={};for(var by of[\'sales\',\'ctime\',\'price\']){var off=0;while(1){var d=await api(\'/api/v4/search/search_items?by=\'+by+\'&limit=60&match_id=\'+sid+\'&newest=\'+off+\'&order=desc&page_type=shop&scenario=PAGE_OTHERS&version=2\');var b=(d.items||[]).map(function(i){return i.item_basic;}).filter(Boolean);if(!b.length)break;b.forEach(function(p){if(!seen.has(p.itemid)){seen.add(p.itemid);map[p.itemid]=p;}});if(b.length<60)break;off+=60;await sleep(800);}await sleep(1500);}return Object.values(map);}' +
-    'var el=document.createElement(\'div\');' +
-    'el.style.cssText=\'position:fixed;top:16px;right:16px;z-index:999999;background:#1e293b;color:#f8fafc;padding:14px 18px;border-radius:12px;font-family:sans-serif;font-size:13px;min-width:270px;max-width:340px;box-shadow:0 8px 32px rgba(0,0,0,.5);border:1px solid #334155\';' +
-    'var h=document.createElement(\'div\');h.style.cssText=\'font-weight:700;margin-bottom:8px;font-size:14px\';h.textContent=\'🔄 ShopeeScope Scraper\';' +
-    'var m=document.createElement(\'div\');m.style.cssText=\'font-size:12px;color:#cbd5e1;line-height:1.5\';m.textContent=\'Starting...\';' +
-    'el.appendChild(h);el.appendChild(m);document.body.appendChild(el);' +
-    'var msg=function(t){m.textContent=t;console.log(\'[ShopeeScope]\',t);};' +
-    'var res=[];' +
-    'for(var i=0;i<SHOPS.length;i++){' +
-      'var u=SHOPS[i];' +
-      'try{' +
-        'msg(\'[\'+(i+1)+\'/13] \'+u+\': getting shop...\');' +
-        'var sr=await api(\'/api/v4/shop/get_shop_detail?username=\'+u);' +
-        'if(!sr.data)throw new Error(\'not found\');' +
-        'var s=sr.data;' +
-        'msg(\'[\'+(i+1)+\'/13] \'+u+\': scraping \'+s.item_count+\' products...\');' +
-        'var items=await allP(s.shopid);' +
-        'msg(\'[\'+(i+1)+\'/13] \'+u+\': saving \'+items.length+\'...\');' +
-        'var rv=await(await fetch(V+\'/api/save\',{method:\'POST\',headers:{\'Content-Type\':\'application/json\'},body:JSON.stringify({shop:s,products:items,username:u})})).json();' +
-        'res.push({u:u,ok:1,n:rv.saved||0});' +
-        'msg(\'✅ \'+u+\': \'+rv.saved+\' saved\');' +
-        'if(i<12)await sleep(8000);' +
-      '}catch(e){res.push({u:u,ok:0});msg(\'❌ \'+u+\': \'+e.message);await sleep(2000);}' +
-    '}' +
-    'var ok=res.filter(function(r){return r.ok;}).length;' +
-    'el.style.border=\'1px solid \'+(ok===13?\'#22c55e\':\'#f97316\');' +
-    'h.textContent=(ok===13?\'✅\':\'⚠️\')+\' Done: \'+ok+\'/13 shops scraped!\';' +
-    'm.textContent=\'Refresh your dashboard! Click to close.\';' +
-    'el.style.cursor=\'pointer\';el.onclick=function(){el.remove();};' +
-  '})()';
-  var bm = document.getElementById('ss-bookmarklet');
-  if(bm) bm.href = 'javascript:' + code;
-})();
-</script>
 </body>
 </html>
