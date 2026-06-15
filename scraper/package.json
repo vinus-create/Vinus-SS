@@ -1,11 +1,12 @@
 {
   "name": "shopeescope-scraper",
   "version": "1.0.0",
-  "description": "Playwright-based Shopee scraper for GitHub Actions",
-  "main": "scrape.js",
+  "description": "Unattended Playwright Shopee scraper with local slider-CAPTCHA solver",
+  "main": "daily.js",
   "dependencies": {
+    "@playwright/test": "^1.44.0",
+    "jimp": "^0.22.12",
     "playwright-extra": "^4.3.6",
-    "puppeteer-extra-plugin-stealth": "^2.11.2",
-    "@playwright/test": "^1.44.0"
+    "puppeteer-extra-plugin-stealth": "^2.11.2"
   }
 }
