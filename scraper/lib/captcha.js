@@ -122,6 +122,24 @@ async function detectWidget(page) {
   return null;
 }
 
+// Shopee's verify page often shows "Loading Issue — Try Again" with no puzzle.
+// Clicking the retry button frequently makes the real slider load. Returns true
+// if it clicked something.
+async function clickRetry(page) {
+  const texts = ['Try Again', 'Try again', 'Refresh', 'Reload', 'Muat semula', '重试', '重新'];
+  for (const frame of [page.mainFrame(), ...page.frames()]) {
+    for (const t of texts) {
+      const loc = frame.getByText(t, { exact: false }).first();
+      if (await loc.count().catch(() => 0)) {
+        await loc.click({ timeout: 3000 }).catch(() => {});
+        log(`clicked "${t}"`);
+        return true;
+      }
+    }
+  }
+  return false;
+}
+
 // ── human-like drag ────────────────────────────────────────────────────────────
 async function humanDrag(page, fromX, fromY, dx) {
   const total = DRAG_MIN_MS + Math.random() * (DRAG_MAX_MS - DRAG_MIN_MS);
@@ -167,7 +185,11 @@ async function solveCaptcha(page, opts = {}) {
   if (DEBUG) ensureDebugDir();
 
   for (let a = 0; a < attempts; a++) {
-    const w = await detectWidget(page).catch(() => null);
+    let w = await detectWidget(page).catch(() => null);
+    if (!w) {
+      // widget may have failed to load ("Loading Issue / Try Again") — nudge it
+      if (await clickRetry(page)) { await sleep(2800); w = await detectWidget(page).catch(() => null); }
+    }
     if (!w) return a === 0 ? { solved: false, reason: 'no-widget', attempts: a } : { solved: true, attempts: a };
 
     let bgImg, pieceImg = null;

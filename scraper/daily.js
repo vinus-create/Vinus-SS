@@ -20,7 +20,9 @@
 const path = require('path');
 const fs = require('fs');
 const readline = require('readline');
-const { chromium } = require('playwright');
+const { chromium } = require('playwright-extra');
+const stealth = require('puppeteer-extra-plugin-stealth')();
+chromium.use(stealth); // mask automation fingerprints so Shopee serves normal pages
 const { notify } = require('./lib/notify');
 const { solveCaptcha } = require('./lib/captcha');
 
@@ -246,16 +248,19 @@ const clearCooldown = () => { try { fs.existsSync(COOLDOWN_FILE) && fs.unlinkSyn
 
 // ── browser launch (dedicated profile) ───────────────────────────────────────
 async function launch(visible) {
+  // Real Chrome + stealth, no --no-sandbox (that flag shows a banner and is a bot tell),
+  // and NO user-agent override (let Chrome send its true, current UA + matching client
+  // hints — a stale UA is an instant give-away). viewport:null uses the real window size.
   const ctx = await chromium.launchPersistentContext(PROFILE_DIR, {
     channel: 'chrome',
     headless: false,
-    args: ['--no-sandbox', '--disable-blink-features=AutomationControlled', ...(visible ? [] : ['--start-minimized'])],
-    userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
-    viewport: { width: 1280, height: 800 },
+    args: ['--disable-blink-features=AutomationControlled', '--disable-features=IsolateOrigins,site-per-process',
+           ...(visible ? [] : ['--start-minimized'])],
+    viewport: null,
     locale: 'en-MY',
     timezoneId: 'Asia/Kuala_Lumpur',
+    ignoreDefaultArgs: ['--enable-automation'], // drop the "Chrome is being controlled" flag
   });
-  await ctx.addInitScript(() => Object.defineProperty(navigator, 'webdriver', { get: () => undefined }));
   return ctx;
 }
 

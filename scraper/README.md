@@ -97,6 +97,24 @@ handled by the low request rate + real logged-in Chrome profile, not the solver.
 > Note: automated CAPTCHA solving is against Shopee's ToS; low volume on your own
 > logged-in session + residential IP keeps account risk low — you accept that risk.
 
+## Troubleshooting: stuck on a "verify / Loading Issue" page
+
+If the browser lands on `shopee.com.my/verify/captcha?...scene=crawler_item` showing
+**"Loading Issue → Try Again"** (no puzzle), Shopee flagged the browser as a bot *before*
+serving a solvable widget — a solver can't help until that's fixed. The scraper now runs
+with the **stealth plugin**, no `--no-sandbox`, no stale user-agent, and auto-clicks
+"Try Again". If you still hit it:
+
+1. **Start from a clean profile + log in fresh** (a brand-new empty profile with no
+   history looks suspicious): delete the folder in `SCRAPER_PROFILE_DIR`
+   (`D:\ShopeeScope\chrome-scraper-profile`), then run `node daily.js --login` again and
+   actually log into your Shopee account.
+2. **Go slower** — lower `MAX_SHOPS_PER_RUN` (e.g. 2) and raise `DELAY_ITEM_MS`.
+3. Being **logged in** matters a lot — a trusted account is flagged far less than a guest.
+4. If it's *still* hard-blocked, the realistic options are a paid Shopee-specialised
+   solver (SadCaptcha) or driving your everyday Chrome via remote-debugging (warmed-up,
+   already-trusted profile). Ask and we can add either.
+
 ## When it needs you (rare)
 
 Only when the Shopee session expires (you'll get a "not logged in" ping). Fix:
