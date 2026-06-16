@@ -259,7 +259,9 @@ async function launch(visible) {
     viewport: null,
     locale: 'en-MY',
     timezoneId: 'Asia/Kuala_Lumpur',
-    ignoreDefaultArgs: ['--enable-automation'], // drop the "Chrome is being controlled" flag
+    // Drop the "controlled by automation" flag AND --no-sandbox (the stealth plugin
+    // injects --no-sandbox, which shows a banner + is a bot tell — strip it here).
+    ignoreDefaultArgs: ['--enable-automation', '--no-sandbox'],
   });
   return ctx;
 }
