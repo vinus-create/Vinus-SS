@@ -53,6 +53,8 @@ const opt = (name, def) => {
 };
 
 const VERCEL          = process.env.VERCEL_URL || 'https://vinus-ss.vercel.app';
+const MODE            = (process.env.SCRAPER_MODE || 'cdp').toLowerCase(); // 'cdp' = attach to real Chrome, 'launch' = spawn one
+const CDP_URL         = process.env.SCRAPER_CDP_URL || 'http://127.0.0.1:9222';
 const PROFILE_DIR     = process.env.SCRAPER_PROFILE_DIR || 'D:\\ShopeeScope\\chrome-scraper-profile';
 const MAX_SHOPS       = parseInt(opt('max-shops', process.env.MAX_SHOPS_PER_RUN || '4'), 10);
 const ENRICH_TOP      = parseInt(process.env.ENRICH_TOP_N || '40', 10);
@@ -266,6 +268,30 @@ async function launch(visible) {
   return ctx;
 }
 
+// Acquire a page to drive. In 'cdp' mode we ATTACH to the user's real, normally-started
+// Chrome (started by start-chrome-debug.ps1 with --remote-debugging-port) — to Shopee
+// this is just the user browsing, which sidesteps the crawler detection a fresh
+// Playwright browser triggers. dispose() must NOT close the user's Chrome in CDP mode.
+async function acquirePage(visible) {
+  if (MODE === 'cdp') {
+    let browser;
+    try { browser = await chromium.connectOverCDP(CDP_URL); }
+    catch (e) {
+      await notify(`🔴 ShopeeScope: can't reach your Chrome at ${CDP_URL}. Start it with start-chrome-debug and keep it open.`);
+      log('connectOverCDP failed:', e.message);
+      return null;
+    }
+    const ctx = browser.contexts()[0] || await browser.newContext();
+    const existing = ctx.pages().find(p => /^https?:/i.test(p.url()));
+    const page = existing || await ctx.newPage();
+    const createdPage = !existing;
+    return { page, dispose: async () => { try { if (createdPage) await page.close().catch(() => {}); } catch (e) {} } };
+  }
+  const ctx = await launch(visible);
+  const page = ctx.pages()[0] || await ctx.newPage();
+  return { page, dispose: async () => { await ctx.close().catch(() => {}); } };
+}
+
 function isBlockedUrl(url) {
   return url.includes('/verify/') || url.includes('captcha') || url.includes('/login');
 }
@@ -285,6 +311,17 @@ async function attemptSolve(page, shop) {
 
 // ── login mode ───────────────────────────────────────────────────────────────
 async function runLogin() {
+  if (MODE === 'cdp') {
+    // The debug Chrome is your real, persistent browser — just open the login tab in it.
+    let browser;
+    try { browser = await chromium.connectOverCDP(CDP_URL); }
+    catch (e) { log(`❌ Can't reach Chrome at ${CDP_URL}. Start it first with start-chrome-debug.`); return; }
+    const ctx = browser.contexts()[0] || await browser.newContext();
+    const page = await ctx.newPage();
+    await page.goto('https://shopee.com.my/buyer/login', { waitUntil: 'domcontentloaded' }).catch(() => {});
+    log('🔑 A login tab is open in your debug Chrome. Log into Shopee there — the session stays saved in that browser. Nothing else to do here.');
+    return; // leave the browser + tab open for the user
+  }
   log(`🔑 Login mode — opening Chrome with profile: ${PROFILE_DIR}`);
   const ctx = await launch(true);
   const page = ctx.pages()[0] || await ctx.newPage();
@@ -304,15 +341,9 @@ async function runScrape() {
   if (cd && !flag('force')) { log(`❄️ In CAPTCHA cooldown (${cd} min left) — skipping this slot.`); return 0; }
 
   const forcedShop = opt('shop', null);
-  let ctx;
-  try {
-    ctx = await launch(false);
-  } catch (e) {
-    await notify(`🔴 ShopeeScope: browser launch failed — ${e.message}`);
-    log('launch failed:', e.message);
-    return 1;
-  }
-  const page = ctx.pages()[0] || await ctx.newPage();
+  const acq = await acquirePage(false);
+  if (!acq) return 1; // acquirePage already notified
+  const { page, dispose } = acq;
 
   try {
     await page.goto('https://shopee.com.my/', { waitUntil: 'domcontentloaded', timeout: 45000 });
@@ -437,15 +468,16 @@ async function runScrape() {
     await notify(`🔴 ShopeeScope: run error — ${e.message}`);
     return 1;
   } finally {
-    await ctx.close().catch(() => {});
+    await dispose();
   }
 }
 
 // ── solve-now mode (manual test: open visible, surface a widget, try one solve) ─
 async function runSolveNow() {
-  log('🧩 solve-now — opening visible Chrome to test the CAPTCHA solver');
-  const ctx = await launch(true);
-  const page = ctx.pages()[0] || await ctx.newPage();
+  log('🧩 solve-now — testing the CAPTCHA solver');
+  const acq = await acquirePage(true);
+  if (!acq) return;
+  const { page, dispose } = acq;
   try {
     await page.goto('https://shopee.com.my/', { waitUntil: 'domcontentloaded', timeout: 45000 }).catch(() => {});
     await sleep(2500);
@@ -453,9 +485,9 @@ async function runSolveNow() {
     const shop = (Array.isArray(shops) ? shops : []).find(s => s.shopid);
     const r = await attemptSolve(page, shop ? { shopid: shop.shopid } : null);
     log(`result: ${JSON.stringify(r)}`);
-    log('Leaving the window open 20s so you can inspect — set CAPTCHA_DEBUG=1 to dump screenshots.');
-    await sleep(20000);
-  } finally { await ctx.close().catch(() => {}); }
+    log('Inspect the window; set CAPTCHA_DEBUG=1 to dump screenshots.');
+    await sleep(15000);
+  } finally { await dispose(); }
 }
 
 // ── entry ────────────────────────────────────────────────────────────────────

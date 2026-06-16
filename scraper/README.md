@@ -6,10 +6,14 @@ no CAPTCHA babysitting.
 
 ## How it works
 
-- **`daily.js`** — Playwright scraper. Launches a **dedicated Chrome profile**
-  (`SCRAPER_PROFILE_DIR`, *not* your normal Chrome, so nothing collides and your
-  browsing is untouched), logs into Shopee once, then on each run scrapes up to
-  `MAX_SHOPS_PER_RUN` shops that aren't done yet today and exits.
+- **`daily.js`** — the scraper. In the default **`cdp` mode** it **attaches to a real
+  Chrome** you start with `start-chrome-debug.ps1` (a normal Chrome on a debug port,
+  using a dedicated profile so it runs alongside your everyday Chrome). Because that
+  Chrome is started *normally* — not by Playwright — Shopee sees genuine browsing and
+  doesn't throw the `crawler_item` block a fresh automated browser gets. Each run scrapes
+  up to `MAX_SHOPS_PER_RUN` shops that aren't done yet today and exits.
+  *(`launch` mode — spawning a fresh Playwright Chrome — exists as a fallback but gets
+  flagged by Shopee; use `cdp`.)*
 - **Resume** — it asks the dashboard which shops are already done today
   (`/api/data?type=scraped-today`) and skips them. So hourly slots add up to a full
   day's coverage without re-doing work.
@@ -26,21 +30,23 @@ no CAPTCHA babysitting.
 
 ## One-time setup
 
+Easiest: **double-click `SETUP-FIRST-TIME.bat`** and follow the prompts. Or manually:
+
 ```powershell
-# 1. (first time only) make sure Playwright can drive your installed Chrome
-npx playwright install chrome
+# 1. start the scraper Chrome (normal Chrome, debug port, dedicated profile)
+powershell -ExecutionPolicy Bypass -File start-chrome-debug.ps1
+#    -> log into Shopee ONCE in the window that opens
 
-# 2. log into Shopee once in the dedicated profile (opens a real window)
-node daily.js --login        # log in, then press ENTER in the terminal
-
-# 3. test a small run (2 shops), confirm it works
+# 2. test a small run (2 shops) — it attaches to that Chrome
 node daily.js --once --max-shops=2
 
-# 4. install the hourly scheduled task
+# 3. install the schedule (hourly scrape + auto-start the scraper Chrome at logon)
 powershell -ExecutionPolicy Bypass -File install-task.ps1
 ```
 
-Then it just runs. To force a full sweep right now: `powershell -File run-all.ps1`.
+Keep the scraper Chrome window open (minimize it). After step 3 it also relaunches
+automatically each time you log into Windows. Force a full sweep now:
+`powershell -File run-all.ps1`.
 
 ## Configure (`scraper/.env`)
 
@@ -99,29 +105,25 @@ handled by the low request rate + real logged-in Chrome profile, not the solver.
 
 ## Troubleshooting: stuck on a "verify / Loading Issue" page
 
-If the browser lands on `shopee.com.my/verify/captcha?...scene=crawler_item` showing
-**"Loading Issue → Try Again"** (no puzzle), Shopee flagged the browser as a bot *before*
-serving a solvable widget — a solver can't help until that's fixed. The scraper now runs
-with the **stealth plugin**, no `--no-sandbox`, no stale user-agent, and auto-clicks
-"Try Again". If you still hit it:
+`...scene=crawler_item` + **"Loading Issue → Try Again"** means Shopee flagged the browser
+as a bot *before* serving a solvable puzzle. This is exactly why we use **`cdp` mode**
+(attach to your real, normally-started Chrome) instead of a Playwright-launched one. If
+you still hit it:
 
-1. **Start from a clean profile + log in fresh** (a brand-new empty profile with no
-   history looks suspicious): delete the folder in `SCRAPER_PROFILE_DIR`
-   (`D:\ShopeeScope\chrome-scraper-profile`), then run `node daily.js --login` again and
-   actually log into your Shopee account.
-2. **Go slower** — lower `MAX_SHOPS_PER_RUN` (e.g. 2) and raise `DELAY_ITEM_MS`.
-3. Being **logged in** matters a lot — a trusted account is flagged far less than a guest.
-4. If it's *still* hard-blocked, the realistic options are a paid Shopee-specialised
-   solver (SadCaptcha) or driving your everyday Chrome via remote-debugging (warmed-up,
-   already-trusted profile). Ask and we can add either.
+1. **Make sure you're in `cdp` mode** (`.env`: `SCRAPER_MODE=cdp`) and that the scraper
+   Chrome was started by `start-chrome-debug.ps1` (a normal Chrome) — *not* a Playwright
+   window. Confirm with `node daily.js --once --max-shops=2` while that Chrome is open.
+2. **Be logged in** in that scraper Chrome and **browse a little** first (open a few
+   product pages) so the profile looks lived-in.
+3. **Go slower** — lower `MAX_SHOPS_PER_RUN` (e.g. 2) and raise `DELAY_ITEM_MS`.
+4. If it's *still* hard-blocked even via your real Chrome, the remaining option is a paid
+   Shopee-specialised solver (SadCaptcha). Ask and we can wire it in.
 
 ## When it needs you (rare)
 
-Only when the Shopee session expires (you'll get a "not logged in" ping). Fix:
-
-```powershell
-node daily.js --login
-```
+Only when the Shopee session in the scraper Chrome expires (you'll get a "not logged in"
+or "can't reach Chrome" ping). Fix: make sure the scraper Chrome is running
+(`start-chrome-debug.ps1`) and log into Shopee in it again.
 
 ## Manage the task
 

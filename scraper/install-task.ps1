@@ -38,6 +38,19 @@ $Principal = New-ScheduledTaskPrincipal -UserId "$env:USERDOMAIN\$env:USERNAME" 
 Register-ScheduledTask -TaskName $TaskName -Action $Action -Trigger $Trigger `
     -Settings $Settings -Principal $Principal -Force | Out-Null
 
+# --- Also auto-start the "scraper Chrome" at logon so daily.js always has a browser
+# to attach to (CDP mode). It's a normal Chrome on a debug port with a dedicated profile.
+$ChromeTask = 'ShopeeScope Debug Chrome'
+$ChromeLauncher = Join-Path $Dir 'start-chrome-debug.ps1'
+$ChromeAction = New-ScheduledTaskAction -Execute 'powershell.exe' `
+    -Argument "-NoProfile -WindowStyle Hidden -ExecutionPolicy Bypass -File `"$ChromeLauncher`""
+$ChromeTrigger = New-ScheduledTaskTrigger -AtLogOn
+$ChromeSettings = New-ScheduledTaskSettingsSet -StartWhenAvailable -MultipleInstances IgnoreNew `
+    -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries
+Register-ScheduledTask -TaskName $ChromeTask -Action $ChromeAction -Trigger $ChromeTrigger `
+    -Settings $ChromeSettings -Principal $Principal -Force | Out-Null
+Write-Host "✅ Registered '$ChromeTask' (starts your scraper Chrome at logon)" -ForegroundColor Green
+
 Write-Host "✅ Registered scheduled task: '$TaskName'" -ForegroundColor Green
 Write-Host "   Hourly from 08:00, wakes from sleep, catches up missed runs." -ForegroundColor Gray
 Write-Host ""
