@@ -146,7 +146,13 @@ async function fetchProducts(page, shopid) {
         if (r.status === 403 || r.status === 429) { if (++rl >= 2) { status = 'ratelimit'; break; } await sleep(90000); continue; }
         let j;
         try { j = await r.json(); } catch (e) { status = 'captcha'; break; } // non-JSON ⇒ block/interstitial
-        if (j.error && j.error !== 0) { status = 'apierr'; break; }
+        if (j.error && j.error !== 0) {
+          // 90309999 = Shopee anti-bot/rate-limit. It's recoverable: back off and retry the
+          // same page (this is what the extension does). After a few strikes, give up so the
+          // caller cools down and the next hourly slot resumes.
+          if (j.error === 90309999) { if (++rl >= 3) { status = 'ratelimit'; break; } await sleep(60000); continue; }
+          status = 'apierr'; break;
+        }
         const batch = (j.items || []).map(i => i.item_basic).filter(Boolean);
         if (!batch.length) break;
         let added = 0;
@@ -179,6 +185,7 @@ async function fetchVariants(page, shop, items) {
       if (r.status === 403 || r.status === 429) { status = 'ratelimit'; break; }
       let j;
       try { j = await r.json(); } catch (e) { status = 'captcha'; break; }
+      if (j.error === 90309999) { status = 'ratelimit'; break; } // anti-bot — stop, caller cools down
       if (j.error && j.error !== 0) continue;
       const it = j.data;
       if (!it) continue;
@@ -398,6 +405,17 @@ async function runScrape() {
     for (const shop of batch) {
       const started = Date.now();
       log(`\n📡 ${shop.username} (${shop.shopid})`);
+
+      // Warm-up: actually LOAD the shop page first so Shopee's Akamai sensor runs and
+      // validates the _abck cookie — calling the search API "cold" gets challenged.
+      try {
+        await page.goto(`https://shopee.com.my/shop/${shop.shopid}`, { waitUntil: 'domcontentloaded', timeout: 30000 });
+        await sleep(4000);
+      } catch (e) { log(`  warmup nav: ${e.message}`); }
+      if (isBlockedUrl(page.url())) {
+        if (SOLVER_ON && solvesUsed < SOLVES_PER_RUN) { solvesUsed++; await attemptSolve(page, shop); }
+        if (isBlockedUrl(page.url())) { log(`  ⚠️ warmup blocked (${page.url().slice(0,60)}) — stopping`); captchaHit = true; break; }
+      }
 
       // Phase 1 — product list
       let pr = await fetchProducts(page, shop.shopid);
