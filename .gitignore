@@ -5,3 +5,5 @@ node_modules/
 scraper/.env
 scraper/node_modules/
 scraper/scrape.log
+scraper/.captcha-cooldown
+scraper/captcha-debug/
