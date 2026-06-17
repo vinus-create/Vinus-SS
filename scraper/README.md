@@ -103,6 +103,28 @@ handled by the low request rate + real logged-in Chrome profile, not the solver.
 > Note: automated CAPTCHA solving is against Shopee's ToS; low volume on your own
 > logged-in session + residential IP keeps account risk low — you accept that risk.
 
+## Option B: Scrapling stealth scraper (`daily_scrapling.py`)
+
+An alternative engine using **Scrapling's `StealthySession`** (patchright — a
+CDP-undetectable stealth Chromium), with a **persistent profile** you log into once.
+Stronger anti-fingerprinting than the vanilla CDP attach; same lean scope, resume, and
+90309999 back-off. Runs from a separate **Python 3.12 venv** at `D:\ShopeeScope\scraper-venv`.
+
+```powershell
+$vpy = "D:\ShopeeScope\scraper-venv\Scripts\python.exe"
+& $vpy daily_scrapling.py --login            # log into Shopee once (visible window)
+& $vpy daily_scrapling.py --list             # dry: show pending shops (no browser)
+& $vpy daily_scrapling.py --once --max-shops=1   # test scrape through the stealth browser
+```
+
+Or double-click **`SCRAPLING-SETUP.bat`** (login + 1-shop test). Config in `.env`:
+`SCRAPLING_PROFILE_DIR`, `SCRAPLING_HEADLESS` (false = visible, more reliable).
+
+> Reality check: Scrapling is a stealthier *engine*, but it does **not** beat Shopee's
+> **IP-level** rate-limit (`90309999`) — that needs a rested IP + a logged-in session,
+> same as every approach. Use it if the Chrome/CDP path keeps getting fingerprint-flagged.
+> Install notes (Python 3.12 venv, VC++ redist) are in the project memory.
+
 ## Troubleshooting: stuck on a "verify / Loading Issue" page
 
 `...scene=crawler_item` + **"Loading Issue → Try Again"** means Shopee flagged the browser
