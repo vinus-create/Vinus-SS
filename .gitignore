@@ -7,3 +7,5 @@ scraper/node_modules/
 scraper/scrape.log
 scraper/.captcha-cooldown
 scraper/captcha-debug/
+scraper/__pycache__/
+scraper/*.pyc
