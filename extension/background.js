@@ -17,7 +17,7 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
       type: 'basic',
       iconUrl: 'icons/icon48.png',
       title: '⚠️ ShopeeScope — CAPTCHA!',
-      message: `${msg.shop || ''} 遇到 CAPTCHA，请解完后继续`
+      message: `${msg.shop || ''} 遇到 CAPTCHA — 解开滑块即可，会自动继续（不用停止/重跑）`
     });
     if (sender.tab) {
       chrome.action.setBadgeText({ text: '⚠', tabId: sender.tab.id });

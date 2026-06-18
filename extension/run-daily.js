@@ -198,19 +198,28 @@ window._rdWatcher = setInterval(() => {
   }
 }, 15000);
 
-// CAPTCHA 检测到 → 停止 run，通知 popup 显示警告
-function checkCaptcha() {
-  const onCaptcha = location.href.includes('captcha') || location.href.includes('/verify/');
-  if (!onCaptcha) return;
-  W.running = false;
-  document.title = '⚠️ CAPTCHA — 已停止';
-  window.postMessage({ type: 'CAPTCHA_DETECTED', shop: W.shop }, '*');
-  log('🛑 CAPTCHA 检测到 — 停止。换账号登录后重新运行会自动跳过已完成的店。');
-  throw new Error('CAPTCHA_STOP');
-}
+// CAPTCHA 检测到 → 暂停并等待解决（手动滑或自动解），解开后【自动继续】同一个 run。
+// 不再停止整个 run，所以采集（含变体 enrich）会从中断处接着跑，无需停止/重跑。
+const onCaptchaNow = () => location.href.includes('captcha') || location.href.includes('/verify');
 
-async function waitCaptcha(reason) {
-  checkCaptcha(); // 实际上只在 URL 含 captcha/verify 时才触发
+async function waitForCaptchaClear(maxMs = 900000) {
+  if (!onCaptchaNow()) return true;
+  W.paused = true;
+  W.phase = 'captcha';
+  window.postMessage({ type: 'CAPTCHA_DETECTED', shop: W.shop }, '*');
+  document.title = '⚠️ CAPTCHA — 解开滑块后自动继续';
+  log('⏸️ CAPTCHA 检测到 — 解开滑块后会【自动继续】，无需停止/重跑');
+  const start = Date.now();
+  while (onCaptchaNow()) {
+    if (!W.running) return false;                 // 用户手动按了停止
+    if (Date.now() - start > maxMs) { log('⌛ 等待 CAPTCHA 超时，停止'); return false; }
+    await new Promise(r => setTimeout(r, 3000));   // 每 3s 检查一次是否已解开
+  }
+  W.paused = false;
+  log('✅ CAPTCHA 已解决 — 继续采集');
+  window.postMessage({ type: 'RD_UPDATE', data: { ...W } }, '*');
+  await sleep(2500); // 让页面稳定后再继续请求
+  return true;
 }
 
 // ── Main ──────────────────────────────────────────────────────
@@ -283,8 +292,8 @@ for (let si = 0; si < SHOPS.length; si++) {
         let d;
         try { d = await shopeeSearch(shop.shopid, sortBy, offset); }
         catch(e) {
-          if (e.message === 'CAPTCHA_STOP') { throw e; } // 向上冒泡退出 shop 循环
-          if (e.message.includes('429') || e.message.includes('403')) {
+          if (onCaptchaNow()) { if (await waitForCaptchaClear()) { pageCount--; continue; } else { W.running = false; break; } }
+          if (e.message.includes('429') || e.message.includes('403') || e.message.includes('90309999')) {
             rateRetries++;
             if (rateRetries >= 3) { log(`  ⚠️ search [${sortBy}] 限流超3次，跳过此排序`); break; }
             log(`  ⚠️ search 限流 (${rateRetries}/3) — 冷却90s...`);
@@ -295,7 +304,7 @@ for (let si = 0; si < SHOPS.length; si++) {
           throw e;
         }
         rateRetries = 0; // reset on success
-        if (location.href.includes('captcha') || location.href.includes('/verify/')) { await waitCaptcha('搜索后检测到CAPTCHA'); }
+        if (onCaptchaNow()) { if (!(await waitForCaptchaClear())) { W.running = false; break; } pageCount--; continue; }
         const batch = (d.items || []).map(i => i.item_basic).filter(Boolean);
         if (!batch.length) break;
         let newCount = 0;
@@ -366,6 +375,8 @@ for (let si = 0; si < SHOPS.length; si++) {
   W.itemI = 0;
 
   for (let i = 0; i < active.length; i++) {
+    if (!W.running) break;
+    if (onCaptchaNow()) { if (!(await waitForCaptchaClear())) break; } // 解开滑块后接着 enrich
     const p = active[i];
     W.itemI = i + 1;
     try {
@@ -405,7 +416,7 @@ for (let si = 0; si < SHOPS.length; si++) {
       }
 
     } catch(e) {
-      if (e.message === 'CAPTCHA_STOP') break;
+      if (onCaptchaNow()) { if (await waitForCaptchaClear()) { i--; continue; } else break; } // 解开后重试本商品
       shopErrs++; grandErrors++;
       if (e.message.includes('90309999') || e.message.includes('429') || e.message.includes('403')) {
         log(`  ⚠️ 限流 [${i+1}/${active.length}] — 冷却90s...`);
