@@ -299,24 +299,21 @@ for (let si = 0; si < SHOPS.length; si++) {
   if (!W.running) break; // 停止信号（CAPTCHA/用户手动停止）
   const shop = SHOPS[si];
 
-  // 跳过今日已成功采集的店
-  if (scrapedToday.has(shop.username)) {
-    log(`  ⏭️ ${shop.username} 今日已采集，跳过`);
-    W.shopIdx = si + 1;
-    W.shops.push({ shop: shop.username, products: scrapedTodayCounts[shop.username] || 0, variants: 0, skipped: true });
-    continue;
-  }
+  // 产品今日已采？→ 只跳过【产品搜索】，仍然继续补 variants（之前遇 CAPTCHA 停了没采到变体）
+  const productsDone = scrapedToday.has(shop.username);
 
   W.shop = shop.username;
   W.shopIdx = si + 1;
-  W.phase = 'search';
+  W.phase = productsDone ? 'enrich' : 'search';
   const shopStarted = Date.now();
   log(`\n${'─'.repeat(50)}`);
-  log(`📡 [${si+1}/${SHOPS.length}] ${shop.username}`);
+  log(`📡 [${si+1}/${SHOPS.length}] ${shop.username}${productsDone ? '（产品已采，补 variants）' : ''}`);
 
-  // ── Phase 1: 爬产品列表 ──────────────────────────────────
+  // ── Phase 1: 爬产品列表（今日已采则跳过搜索，直接去补 variants）──────────
   let products = [];
-  try {
+  if (productsDone) {
+    log(`  ⏭️ 跳过产品搜索（今日已采 ${scrapedTodayCounts[shop.username] || 0} 个），直接补 variants`);
+  } else try {
     const seenIds = new Set();
     const prodsMap = {};
 

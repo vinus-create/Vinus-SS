@@ -137,7 +137,7 @@ function renderRunShops(doneShops, currentShop, running) {
   const doneMap = {};
   doneShops.forEach(s => { doneMap[s.shop] = s; });
 
-  const shopList = rd.shopList?.length ? rd.shopList : SHOPS_ALL;
+  const shopList = currentRD?.shopList?.length ? currentRD.shopList : SHOPS_ALL;
   document.getElementById('shopsList').innerHTML = shopList.map(u => {
     const d = doneMap[u];
     const isCurrent = running && u === currentShop;
