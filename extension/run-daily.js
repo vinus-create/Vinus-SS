@@ -237,8 +237,14 @@ async function waitForCaptchaClear(maxMs = 900000) {
       window.postMessage({ type: 'SS_SOLVE_CAPTCHA', rects }, '*'); // → content.js → background(chrome.debugger)
     } else if (!htmlLogged) {
       htmlLogged = true;
-      const w = document.querySelector('[class*="geetest"],[class*="captcha"],[class*="verify"]');
-      log('🧩 未识别滑块元素（请手动滑）。调试HTML:', (w ? w.outerHTML : '').slice(0, 300));
+      // 没识别到滑块 → 打印候选元素 + HTML，方便我对照真实 DOM 修选择器
+      const cand = [...document.querySelectorAll('canvas,img,button,div')]
+        .filter(e => { const r = e.getBoundingClientRect(); return r.width > 30 && r.height > 10 && r.top > 40 && r.top < 720; })
+        .slice(0, 25)
+        .map(e => `${e.tagName}.${(e.className || '').toString().trim().replace(/\s+/g, '.')}[${Math.round(e.getBoundingClientRect().width)}x${Math.round(e.getBoundingClientRect().height)}]`);
+      log('🧩 未识别滑块元素 — 候选:', cand.join(' | '));
+      const w = document.querySelector('[class*="geetest"],[class*="captcha"],[class*="verify"],[class*="vcode"],[class*="slide"]');
+      log('🧩 调试HTML:', (w ? w.outerHTML : document.body.innerHTML).slice(0, 1200));
     }
   };
   requestSolve();
