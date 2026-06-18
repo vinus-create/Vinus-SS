@@ -3,7 +3,7 @@
   "name": "ShopeeScope",
   "version": "1.0.0",
   "description": "Shopee competitor intelligence — one-click daily scraper & live progress",
-  "permissions": ["activeTab", "scripting", "storage", "notifications", "tabs"],
+  "permissions": ["activeTab", "scripting", "storage", "notifications", "tabs", "debugger"],
   "host_permissions": [
     "https://shopee.com.my/*",
     "https://vinus-ss.vercel.app/*"

@@ -167,6 +167,10 @@ body {
 <div id="captchaAlert" class="captcha-alert">⚠️ CAPTCHA — 切到 Shopee 标签页解开滑块即可，会【自动继续】，不用停止/重跑</div>
 <!-- INLINE ERROR (replaces alert() popups) -->
 <div id="inlineErr" style="display:none;background:#fef2f2;border-left:3px solid #ef4444;padding:7px 14px;font-size:11px;color:#991b1b;font-weight:600"></div>
+<!-- AUTO-SOLVE TOGGLE -->
+<label style="display:flex;align-items:center;gap:6px;padding:6px 14px;font-size:11px;color:#475569;cursor:pointer">
+  <input type="checkbox" id="autoSolveChk" checked> 🧩 自动解 CAPTCHA（会短暂出现"调试"提示条；关掉则手动滑）
+</label>
 
 <!-- NOT ON SHOPEE -->
 <div id="notShopee" class="not-shopee" style="display:none">

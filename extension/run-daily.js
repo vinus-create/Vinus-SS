@@ -202,18 +202,54 @@ window._rdWatcher = setInterval(() => {
 // 不再停止整个 run，所以采集（含变体 enrich）会从中断处接着跑，无需停止/重跑。
 const onCaptchaNow = () => location.href.includes('captcha') || location.href.includes('/verify');
 
+// 找到 GeeTest 滑块的位置（视口 CSS 像素），交给 background 用 chrome.debugger 真实拖动
+function getSliderRects() {
+  const pick = (sels) => {
+    for (const s of sels) {
+      const el = document.querySelector(s);
+      if (el) {
+        const r = el.getBoundingClientRect();
+        if (r && r.width > 10 && r.height > 5) return { x: r.x, y: r.y, width: r.width, height: r.height };
+      }
+    }
+    return null;
+  };
+  const bg = pick(['.geetest_canvas_bg', '.geetest_bg', 'canvas.geetest_canvas_bg', '[class*="captcha"] canvas', '[class*="puzzle"] canvas', '.captcha-bg']);
+  const handle = pick(['.geetest_slider_button', '.geetest_btn', '.secsdk-captcha-drag-icon', '[class*="slider"] [class*="btn"]', '[class*="drag"][class*="btn"]', '[class*="drag"]']);
+  const slice = pick(['.geetest_canvas_slice', '.geetest_slice', 'canvas.geetest_canvas_slice', '[class*="slice"] canvas', '[class*="piece"] canvas']);
+  if (!bg || !handle) return null;
+  return { bg, handle, slice };
+}
+
 async function waitForCaptchaClear(maxMs = 900000) {
   if (!onCaptchaNow()) return true;
   W.paused = true;
   W.phase = 'captcha';
   window.postMessage({ type: 'CAPTCHA_DETECTED', shop: W.shop }, '*');
-  document.title = '⚠️ CAPTCHA — 解开滑块后自动继续';
-  log('⏸️ CAPTCHA 检测到 — 解开滑块后会【自动继续】，无需停止/重跑');
+  document.title = '⚠️ CAPTCHA — 自动解中／解不开就手动滑，会自动继续';
+  log('⏸️ CAPTCHA — 尝试自动解；解不开就手动滑一下，会【自动继续】');
+
+  let htmlLogged = false;
+  const requestSolve = () => {
+    if (!onCaptchaNow()) return;
+    const rects = getSliderRects();
+    if (rects) {
+      window.postMessage({ type: 'SS_SOLVE_CAPTCHA', rects }, '*'); // → content.js → background(chrome.debugger)
+    } else if (!htmlLogged) {
+      htmlLogged = true;
+      const w = document.querySelector('[class*="geetest"],[class*="captcha"],[class*="verify"]');
+      log('🧩 未识别滑块元素（请手动滑）。调试HTML:', (w ? w.outerHTML : '').slice(0, 300));
+    }
+  };
+  requestSolve();
+
   const start = Date.now();
+  let lastSolve = Date.now();
   while (onCaptchaNow()) {
-    if (!W.running) return false;                 // 用户手动按了停止
+    if (!W.running) return false;                       // 用户手动按了停止
     if (Date.now() - start > maxMs) { log('⌛ 等待 CAPTCHA 超时，停止'); return false; }
-    await new Promise(r => setTimeout(r, 3000));   // 每 3s 检查一次是否已解开
+    if (Date.now() - lastSolve > 12000) { requestSolve(); lastSolve = Date.now(); } // 每 12s 重试自动解
+    await new Promise(r => setTimeout(r, 3000));        // 每 3s 检查一次是否已解开
   }
   W.paused = false;
   log('✅ CAPTCHA 已解决 — 继续采集');

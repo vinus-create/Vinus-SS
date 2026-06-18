@@ -1,15 +1,42 @@
-// Background service worker — relay messages between content script and popup
+// Background service worker — relay messages + auto-solve CAPTCHA via chrome.debugger
+importScripts('captcha-solver.js');
 
 let latestRD = null;
 let latestCaptcha = false;
+
+// Per-tab auto-solve state: cap attempts per captcha, one solve at a time
+const _solveState = {};
+const MAX_SOLVES = 3;
+
+async function handleSolveRequest(tabId, rects) {
+  if (!tabId) return;
+  const st = _solveState[tabId] || (_solveState[tabId] = { busy: false, attempts: 0 });
+  if (st.busy || st.attempts >= MAX_SOLVES) return;
+  let autoSolve = true;
+  try { autoSolve = (await chrome.storage.local.get('autoSolve')).autoSolve !== false; } catch (e) {}
+  if (!autoSolve) return; // user turned it off → leave it for manual solve
+  st.busy = true; st.attempts++;
+  try {
+    console.log(`[solver] attempt ${st.attempts}/${MAX_SOLVES} on tab ${tabId}`);
+    const r = await ssSolveSlider(tabId, rects);
+    console.log('[solver] result:', JSON.stringify(r));
+  } catch (e) { console.warn('[solver] handler error:', e && e.message); }
+  finally { st.busy = false; }
+}
 
 chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
   if (msg.type === 'RD_UPDATE') {
     latestRD = msg.data;
     latestCaptcha = false;
-    // Update badge
     const tab = sender.tab;
-    if (tab) updateBadge(tab.id, msg.data);
+    if (tab) {
+      updateBadge(tab.id, msg.data);
+      // run resumed (no longer on captcha) → reset the per-captcha solve counter
+      if (msg.data && !msg.data.paused && _solveState[tab.id]) _solveState[tab.id].attempts = 0;
+    }
+  }
+  if (msg.type === 'SS_SOLVE_CAPTCHA') {
+    if (sender.tab) handleSolveRequest(sender.tab.id, msg.rects);
   }
   if (msg.type === 'CAPTCHA_DETECTED') {
     latestCaptcha = true;

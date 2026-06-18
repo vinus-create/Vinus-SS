@@ -30,6 +30,13 @@ document.addEventListener('DOMContentLoaded', async () => {
   document.getElementById('btnOpenShopee').addEventListener('click', () => { chrome.tabs.create({ url: 'https://shopee.com.my' }); window.close(); });
   document.getElementById('addShopInput') .addEventListener('keydown', e => { if (e.key === 'Enter') addAndScrape(); });
 
+  // Auto-solve CAPTCHA toggle (persisted; default ON)
+  const _chk = document.getElementById('autoSolveChk');
+  if (_chk) {
+    chrome.storage.local.get('autoSolve').then(({ autoSolve }) => { _chk.checked = autoSolve !== false; }).catch(() => {});
+    _chk.addEventListener('change', () => chrome.storage.local.set({ autoSolve: _chk.checked }));
+  }
+
   // Event delegation for dynamically generated shop cards
   document.getElementById('shopCards').addEventListener('click', e => {
     const scrapeBtn = e.target.closest('[data-scrape]');
