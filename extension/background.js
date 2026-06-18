@@ -61,8 +61,11 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
   }
   if (msg.type === 'GET_STATE') {
     sendResponse({ rd: latestRD, captcha: latestCaptcha });
+    return true; // only GET_STATE expects a response — keep the channel open just for it
   }
-  return true;
+  // all other messages are fire-and-forget; returning false avoids the
+  // "message channel closed before a response was received" spam.
+  return false;
 });
 
 function updateBadge(tabId, rd) {
