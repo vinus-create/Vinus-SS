@@ -569,7 +569,7 @@ async function _icScrapeShopVariants(tabId, shop, products, maxEnrich) {
           if (m.has_stock) {
             svLast.stock = null;
             const dom = await _icVariantStockByClick(tabId, rec.tierVariations, m);
-            stock = (svLast.stock != null) ? svLast.stock : (dom != null ? dom : 1); // API stock > DOM read > "in stock"
+            stock = (svLast.stock != null) ? svLast.stock : (dom != null ? dom : null); // API > DOM; else UNKNOWN (null, not a fake 1 that wrecks velocity)
           }
           stockLog.push(`${m.name}=${stock}`);
           buf.push({
