@@ -1421,7 +1421,9 @@ function tab(name) {
   currentTab = name;
   renderTabBar();
   document.querySelectorAll('.sec').forEach(s => s.classList.remove('on'));
-  document.getElementById('sec-'+name).classList.add('on');
+  const sec = document.getElementById('sec-'+name);
+  if (!sec) return; // unknown tab id (e.g. hand-edited localStorage) — degrade instead of throwing
+  sec.classList.add('on');
   if (name==='log')         loadLog();
   if (name==='market'      && !MKT.loaded)  loadMarket();
   if (name==='variants'    && ST.activeShopid) loadVariants();
@@ -2416,7 +2418,8 @@ function renderVelocityTable(sorted) {
 }
 
 function switchVelocityView(period, el) {
-  document.querySelectorAll('.vel-period-btn').forEach(b=>b.classList.remove('on'));
+  // only the period row, not the Products mode bar / source toggle (they share .vel-period-btn for styling)
+  document.querySelectorAll('.vel-period-btn:not(.prod-mode-btn):not(.vel-src-btn)').forEach(b=>b.classList.remove('on'));
   if (el) el.classList.add('on');
   VEL.period = period;
   const picker = document.getElementById('vel-custom-picker');
@@ -3403,8 +3406,8 @@ async function jumpToShop(shopid, username) {
     sel.appendChild(opt);
   }
   sel.value = shopid;
-  tab('products');
-  await loadShopData();
+  await loadShopData();   // set ST.activeShopid first…
+  tab('products');        // …so prodMode loads velocity/PH for the NEW shop, not the old one
 }
 
 // ========================================================
