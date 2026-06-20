@@ -397,25 +397,21 @@ async function _icSaveProductSold(shop, soldMap, today, validIds) {
 // then read the real "X pieces available" the page shows for that variant. Returns the number,
 // 0 if sold out, or null if it couldn't read it. This is BigSeller's approach — the only way
 // Shopee exposes a true per-variant stock count to a non-owner.
-async function _icVariantStockByClick(tabId, tierVariations, model) {
-  const labels = (model.tier_index || []).map((idx, t) => {
-    const opts = (tierVariations[t] && tierVariations[t].options) || [];
-    return opts[idx] || '';
-  }).filter(Boolean);
-  if (!labels.length) return null;
-  const clickExpr = `(function(labels){
+// Click a variant option button by its label text. Returns true if clicked.
+async function _icClickOption(tabId, label) {
+  if (!label) return false;
+  const r = await _icEval(tabId, `(function(txt){
     function norm(s){return (s||'').replace(/\\s+/g,' ').trim();}
-    function clickByText(txt){
-      var t=norm(txt); if(!t) return false;
-      var els=[].slice.call(document.querySelectorAll('button,[class*="product-variation"],[class*="variation"] button,[role="button"]'));
-      var el=els.find(function(e){return norm(e.textContent)===t && e.offsetParent!==null;});
-      if(!el)el=els.find(function(e){var n=norm(e.textContent);return n.indexOf(t)>-1 && n.length<=t.length+24 && e.offsetParent!==null;});
-      if(el){el.click();return true;}return false;
-    }
-    return labels.map(clickByText);
-  })(${JSON.stringify(labels)})`;
-  await _icEval(tabId, clickExpr);
-  await _icSleep(1100); // wait for select_variation_pc + the "X available" DOM update
+    var t=norm(txt); if(!t) return false;
+    var els=[].slice.call(document.querySelectorAll('button,[class*="product-variation"],[class*="variation"] button,[role="button"]'));
+    var el=els.find(function(e){return norm(e.textContent)===t && e.offsetParent!==null;});
+    if(!el)el=els.find(function(e){var n=norm(e.textContent);return n.indexOf(t)>-1 && n.length<=t.length+24 && e.offsetParent!==null;});
+    if(el){el.click();return true;}return false;
+  })(${JSON.stringify(label)})`);
+  return !!(r && r.result && r.result.value);
+}
+// Read the "X available" the page shows for the currently-selected variant.
+async function _icReadAvail(tabId) {
   const r = await _icEval(tabId, "(function(){var t=document.body.innerText||'';var m=t.match(/([\\d,]+)\\s*(?:pieces?\\s*)?(?:available|in stock)/i);return m?m[1].replace(/,/g,''):(/out of stock|sold out/i.test(t)?'0':'');})()");
   const v = r && r.result && r.result.value;
   return (v === '' || v == null) ? null : parseInt(v, 10);
@@ -561,16 +557,10 @@ async function _icScrapeShopVariants(tabId, shop, products, maxEnrich) {
 
       const rec = apiModels[id];
       if (rec && rec.models.length) {
-        const tierName = (rec.tierVariations || []).map((t) => t.name).filter(Boolean).join(' / ') || 'single';
+        const tv = rec.tierVariations || [];
+        const tierName = tv.map((t) => t.name).filter(Boolean).join(' / ') || 'single';
         const stockLog = [];
-        for (const m of rec.models.slice(0, 14)) { // cap clicks/product
-          // Click in-stock variants → select_variation_pc gives the real stock; sold-out = 0 (no click).
-          let stock = 0;
-          if (m.has_stock) {
-            svLast.stock = null;
-            const dom = await _icVariantStockByClick(tabId, rec.tierVariations, m);
-            stock = (svLast.stock != null) ? svLast.stock : (dom != null ? dom : null); // API > DOM; else UNKNOWN (null, not a fake 1 that wrecks velocity)
-          }
+        const push = (m, stock) => {
           stockLog.push(`${m.name}=${stock}`);
           buf.push({
             shopid: shop.shopid, itemid: id, model_id: m.modelid || 0, username: shop.username,
@@ -578,8 +568,36 @@ async function _icScrapeShopVariants(tabId, shop, products, maxEnrich) {
             variation_type: tierName, price: _icNum(m.price) / 100000, stock, sold: _icNum(m.sold),
             image: m.image || '', scraped_date: today, scraped_at: new Date().toISOString(),
           });
+        };
+        // stock for the currently-selected combo: intercepted API (svLast) > DOM "X available" > null
+        const readStock = async () => {
+          await _icSleep(1000);
+          const dom = await _icReadAvail(tabId);
+          return (svLast.stock != null) ? svLast.stock : (dom != null ? dom : null);
+        };
+        if (tv.length >= 2) {
+          // 2-tier: select the TOP option once, then cycle the BOTTOM options (re-clicking the
+          // already-selected top toggles it OFF). Then next top, cycle bottom again.
+          const t0 = tv[0].options || [], t1 = tv[1].options || [];
+          const byIdx = {}; rec.models.forEach((m) => { byIdx[(m.tier_index || []).join(',')] = m; });
+          let clicks = 0;
+          for (let a = 0; a < t0.length && clicks < 20; a++) {
+            await _icClickOption(tabId, t0[a]); await _icSleep(450);
+            for (let b = 0; b < t1.length && clicks < 20; b++) {
+              const m = byIdx[`${a},${b}`]; if (!m) continue; // combo may not exist
+              let stock = 0;
+              if (m.has_stock) { svLast.stock = null; await _icClickOption(tabId, t1[b]); stock = await readStock(); }
+              push(m, stock); clicks++;
+            }
+          }
+        } else {
+          for (const m of rec.models.slice(0, 14)) { // single tier: click each, read
+            let stock = 0;
+            if (m.has_stock) { svLast.stock = null; await _icClickOption(tabId, m.name); stock = await readStock(); }
+            push(m, stock);
+          }
         }
-        if (i === 0) _icLog('  CLICK-STOCK:', stockLog.slice(0, 8).join(', '));
+        if (i === 0) _icLog('  CLICK-STOCK:', stockLog.slice(0, 10).join(', '));
         captured++;
       }
 
