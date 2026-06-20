@@ -384,14 +384,20 @@ tr:hover td{background:rgba(249,115,22,.04)}
   </div>
 
   <!-- ======= BEST SELLERS ======= -->
-  <div class="sec" id="sec-bestsellers">
+  <div class="sec" id="sec-products">
+    <div class="prod-mode-bar" style="display:flex;gap:8px;margin-bottom:14px;flex-wrap:wrap">
+      <button class="prod-mode-btn vel-period-btn on" data-mode="top"  onclick="prodMode('top')">🏆 Top Sellers</button>
+      <button class="prod-mode-btn vel-period-btn"    data-mode="fast" onclick="prodMode('fast')">📈 Fastest Moving</button>
+      <button class="prod-mode-btn vel-period-btn"    data-mode="new"  onclick="prodMode('new')">🆕 New &amp; Hot</button>
+    </div>
+    <div id="prod-table">
     <div class="card" style="position:relative">
       <div class="card-hdr">
         <span class="card-title">🏆 Best Selling Products</span>
         <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
           <div class="sort-btns">
-            <span class="sort-btn on" onclick="sortTbl('historical_sold',this)">Sales</span>
-            <span class="sort-btn" onclick="sortTbl('newhot',this)" title="近45天上架且销量高 — 新品爆款">🆕 新品热卖</span>
+            <span class="sort-btn on" data-sort="historical_sold" onclick="sortTbl('historical_sold',this)">Sales</span>
+            <span class="sort-btn" data-sort="newhot" onclick="sortTbl('newhot',this)" title="近45天上架且销量高 — 新品爆款">🆕 新品热卖</span>
             <span class="sort-btn" onclick="sortTbl('price_min',this)">Price</span>
             <span class="sort-btn" onclick="sortTbl('rating_star',this)">Rating</span>
             <span class="sort-btn" onclick="sortTbl('liked_count',this)">Likes</span>
@@ -434,6 +440,8 @@ tr:hover td{background:rgba(249,115,22,.04)}
         </div>
       </div>
     </div>
+    </div><!-- /prod-table -->
+    <div id="prod-velocity" style="display:none"></div>
   </div>
 
   <!-- ======= VARIANTS ======= -->
@@ -651,8 +659,8 @@ tr:hover td{background:rgba(249,115,22,.04)}
     </div>
   </div>
 
-  <!-- ======= VELOCITY ======= -->
-  <div class="sec" id="sec-velocity">
+  <!-- ======= VELOCITY (relocated into Products tab via prodMode) ======= -->
+  <div id="velocity-pane" style="display:none">
     <div id="vel-notice" class="vel-notice" style="display:none">
       <span style="font-size:16px">⏳</span>
       <span id="vel-notice-text"></span>
@@ -1256,12 +1264,11 @@ window.onload = async () => {
 // ========================================================
 // TABS — editable names, draggable order, hideable
 // ========================================================
-const TAB_VERSION = 2; // bump when curating defaults — invalidates old saved tab layout
+const TAB_VERSION = 3; // bump when curating defaults — invalidates old saved tab layout
 const TAB_DEFAULTS = [
   // daily-driver core, in workflow order
   {id:'overview',   label:'📊 Overview'},
-  {id:'velocity',   label:'📈 Velocity'},
-  {id:'bestsellers',label:'🏆 Best Sellers'},
+  {id:'products',   label:'🛒 Products'}, // Top Sellers · Fastest Moving · New & Hot (was Best Sellers + Velocity)
   {id:'variants',   label:'🧬 Variants'},
   {id:'pricing',    label:'💰 Pricing'},
   {id:'market',     label:'🌐 Market'},
@@ -1419,9 +1426,8 @@ function tab(name) {
   if (name==='market'      && !MKT.loaded)  loadMarket();
   if (name==='variants'    && ST.activeShopid) loadVariants();
   if (name==='reviews'     && ST.activeShopid && !RV.loaded)  loadReviews();
-  if (name==='velocity'    && ST.activeShopid && !VEL.loaded) loadVelocity();
   if (name==='compare'     && !CMP.loaded) loadCompare();
-  if (name==='bestsellers' && ST.activeShopid && !PH.loaded)  loadPriceHistory();
+  if (name==='products')   prodMode(PROD_MODE); // restores the active mode + lazy-loads its data
   if (name==='framework')  renderTrackedShops();
 }
 
@@ -1504,9 +1510,8 @@ async function loadShopData() {
     if (activeTab?.dataset?.id) {
       const id = activeTab.dataset.id;
       if (id === 'variants')    loadVariants();
-      if (id === 'velocity')    loadVelocity();
       if (id === 'reviews')     { RV.loaded = false; loadReviews(); }
-      if (id === 'bestsellers') { PH.loaded = false; loadPriceHistory(); }
+      if (id === 'products')    { PH.loaded = false; prodMode(PROD_MODE); }
     }
     prog(false);
     setStatus(`✓ ${products.length} products · ${variants.length||0} variants — ${ST.shopMeta.username||''}`);
@@ -2038,7 +2043,7 @@ function resetCols() {
 }
 
 function sortTbl(field, el) {
-  if (el) { document.querySelectorAll('#sec-bestsellers .sort-btn').forEach(b=>b.classList.remove('on')); el.classList.add('on'); }
+  if (el) { document.querySelectorAll('#sec-products .sort-btn').forEach(b=>b.classList.remove('on')); el.classList.add('on'); }
   // Attach velocity + computed fields for sorting
   const enriched = ST.products.map(p => {
     const vel = (ST.velByItemId||{})[p.itemid] || {};
@@ -2067,6 +2072,28 @@ function sortTbl(field, el) {
     (b[field]||0) - (a[field]||0)
   );
   renderTable(sorted);
+}
+
+// Products tab modes: top = best-seller table, new = new&hot table, fast = velocity view.
+// 'fast' relocates the velocity DOM (#velocity-pane) into the tab once, then reuses it.
+let PROD_MODE = 'top';
+function prodMode(mode) {
+  PROD_MODE = mode;
+  document.querySelectorAll('.prod-mode-btn').forEach(b => b.classList.toggle('on', b.dataset.mode === mode));
+  const tbl = document.getElementById('prod-table'),
+        pv  = document.getElementById('prod-velocity'),
+        pane = document.getElementById('velocity-pane');
+  if (mode === 'fast') {
+    if (pane && pane.parentElement !== pv) pv.appendChild(pane); // move it in on first use
+    if (pane) pane.style.display = '';
+    tbl.style.display = 'none'; pv.style.display = '';
+    if (ST.activeShopid && !VEL.loaded) loadVelocity();
+  } else {
+    tbl.style.display = ''; pv.style.display = 'none';
+    if (ST.activeShopid && !PH.loaded) loadPriceHistory();
+    const f = mode === 'new' ? 'newhot' : 'historical_sold';
+    sortTbl(f, document.querySelector(`#prod-table .sort-btn[data-sort="${f}"]`));
+  }
 }
 
 // ========================================================
@@ -3376,7 +3403,7 @@ async function jumpToShop(shopid, username) {
     sel.appendChild(opt);
   }
   sel.value = shopid;
-  tab('bestsellers');
+  tab('products');
   await loadShopData();
 }
 
