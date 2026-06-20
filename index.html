@@ -391,6 +391,7 @@ tr:hover td{background:rgba(249,115,22,.04)}
         <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
           <div class="sort-btns">
             <span class="sort-btn on" onclick="sortTbl('historical_sold',this)">Sales</span>
+            <span class="sort-btn" onclick="sortTbl('newhot',this)" title="近45天上架且销量高 — 新品爆款">🆕 新品热卖</span>
             <span class="sort-btn" onclick="sortTbl('price_min',this)">Price</span>
             <span class="sort-btn" onclick="sortTbl('rating_star',this)">Rating</span>
             <span class="sort-btn" onclick="sortTbl('liked_count',this)">Likes</span>
@@ -1944,9 +1945,11 @@ function renderTable(products) {
         <span class="var-inline-stock">${v.stock??'?'} stk</span>
       </div>`).join('')}</div>` : '';
 
+    const isNew = p.ctime && (Date.now()/1000 - p.ctime) < 30*86400;
+    const newBadge = isNew ? `<span style="background:#10b981;color:#fff;font-size:9px;font-weight:700;padding:1px 5px;border-radius:4px;margin-right:4px">🆕新</span>` : '';
     const nameCell = productUrl
-      ? `<a href="${productUrl}" target="_blank" rel="noopener" class="pname">${p.name}</a>`
-      : `<div class="pname">${p.name}</div>`;
+      ? `<a href="${productUrl}" target="_blank" rel="noopener" class="pname">${newBadge}${p.name}</a>`
+      : `<div class="pname">${newBadge}${p.name}</div>`;
 
     // Velocity data aggregated by itemid
     const vel = (ST.velByItemId||{})[p.itemid] || {};
@@ -2051,6 +2054,11 @@ function sortTbl(field, el) {
       sold30d_rm:(vel.sold_30d||0) * (p.price_min||0) / 1e5,
     };
   });
+  if (field === 'newhot') { // listed in last 45 days, ranked by sales = new bestsellers
+    const cut = Date.now()/1000 - 45*86400;
+    renderTable(enriched.filter(p => (p.ctime||0) > cut).sort((a,b) => (b.historical_sold||0)-(a.historical_sold||0)));
+    return;
+  }
   const sorted = [...enriched].sort((a,b) =>
     field==='name' ? a.name.localeCompare(b.name) :
     field==='scraped_at' ? new Date(b.scraped_at||0) - new Date(a.scraped_at||0) :
