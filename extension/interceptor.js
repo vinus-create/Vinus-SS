@@ -40,7 +40,7 @@ function _icReport(d) {
   if (d.phase === 'start') { st.shops[d.shop] = { label: '采集中...', done: false }; st.cur = d.shop; }
   else if (d.phase === 'capture') { if (st.shops[d.shop]) st.shops[d.shop].label = `${d.products} 产品`; }
   else if (d.phase === 'variants') { if (st.shops[d.shop]) st.shops[d.shop].label = `变体 ${d.i}/${d.n}`; st.cur = `${d.shop}（变体）`; }
-  else if (d.phase === 'captcha') { st.cur = '⏸️ 验证码 — 请在标签页手动解'; }
+  else if (d.phase === 'captcha') { st.cur = '⏸️ 验证码 — 自动解中 / 手动解亦可，会自动继续'; }
   else if (d.phase === 'done') {
     const err = !!(d.blocked || (d.err && d.err !== 0) || !d.products);
     st.shops[d.shop] = { label: `${d.products || 0}产品 ${d.variants || 0}变体`, done: true, err };
@@ -423,7 +423,7 @@ async function _icVariantStockByClick(tabId, tierVariations, model) {
 
 // Verify page appeared → pause and poll until the user solves it by hand, then continue.
 async function _icWaitVerifyCleared(tabId, maxMs = 600000) {
-  _icLog('  ⏸️ 验证码 — 请在该标签页手动解开，会自动继续...');
+  _icLog('  ⏸️ 验证码 — SadCaptcha 自动解 / 手动解亦可，会自动继续...');
   _icReport({ phase: 'captcha' });
   const start = Date.now();
   while (Date.now() - start < maxMs) {
