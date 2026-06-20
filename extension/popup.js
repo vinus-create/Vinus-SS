@@ -23,11 +23,17 @@ document.addEventListener('DOMContentLoaded', async () => {
   // Wire up static buttons
   document.getElementById('tabRun')       .addEventListener('click', () => switchTab('run'));
   document.getElementById('tabShops')     .addEventListener('click', () => switchTab('shops'));
-  document.getElementById('btnRun')       .addEventListener('click', runDaily);
-  document.getElementById('btnStop')      .addEventListener('click', stopDaily);
   document.getElementById('btnDashboard') .addEventListener('click', () => { chrome.tabs.create({ url: VERCEL }); window.close(); });
   document.getElementById('btnAdd')       .addEventListener('click', addAndScrape);
   document.getElementById('btnOpenShopee').addEventListener('click', () => { chrome.tabs.create({ url: 'https://shopee.com.my' }); window.close(); });
+  const _btnIc = document.getElementById('btnIntercept');
+  if (_btnIc) _btnIc.addEventListener('click', runInterceptTest);
+  const _btnIcAll = document.getElementById('btnInterceptAll');
+  if (_btnIcAll) _btnIcAll.addEventListener('click', runInterceptAll);
+  const _btnIcPause = document.getElementById('btnIcPause');
+  if (_btnIcPause) _btnIcPause.addEventListener('click', () => chrome.runtime.sendMessage({ type: 'SS_PAUSE_INTERCEPT', paused: !(_icLast && _icLast.paused) }));
+  const _btnIcStop = document.getElementById('btnIcStop');
+  if (_btnIcStop) _btnIcStop.addEventListener('click', () => chrome.runtime.sendMessage({ type: 'SS_STOP_INTERCEPT' }));
   document.getElementById('addShopInput') .addEventListener('keydown', e => { if (e.key === 'Enter') addAndScrape(); });
 
   // Auto-solve CAPTCHA toggle (persisted; default ON)
@@ -55,7 +61,8 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   // Get live state
   chrome.runtime.sendMessage({ type: 'GET_STATE' }, resp => {
-    if (resp?.rd)      updateRunUI(resp.rd);
+    if (resp?.ic && resp.ic.startTs) onInterceptUpdate(resp.ic); // interception run state (survives popup close)
+    else if (resp?.rd) updateRunUI(resp.rd);
     if (resp?.captcha) showCaptcha(true);
   });
 
@@ -69,7 +76,63 @@ chrome.runtime.onMessage.addListener(msg => {
   if (msg.type === 'CAPTCHA_DETECTED') { showCaptcha(true); }
   if (msg.type === 'SHOP_SCRAPE_DONE') { onShopScrapeDone(msg.username); }
   if (msg.type === 'SS_SINGLE_UPDATE') { onSingleUpdate(msg.data); }
+  if (msg.type === 'IC_UPDATE')        { onInterceptUpdate(msg.state); }
 });
+
+// ── Interception test (CDP Network capture) ───────────────────
+let _icTimer = null, _icLast = null;
+function _icRenderTime(st) {
+  const el = document.getElementById('icTime'); if (!el) return;
+  if (!st || !st.startTs) { el.textContent = ''; return; }
+  const t = (ts) => new Date(ts).toLocaleTimeString('zh-CN', { hour12: false });
+  const f = (ms) => { const s = Math.max(0, Math.floor(ms / 1000)); return `${Math.floor(s / 60)}分${s % 60}秒`; };
+  el.textContent = st.endTs
+    ? `开始 ${t(st.startTs)} · 结束 ${t(st.endTs)} · 用时 ${f(st.endTs - st.startTs)}`
+    : `开始 ${t(st.startTs)} · 已运行 ${f(Date.now() - st.startTs)}`;
+}
+function onInterceptUpdate(st) {
+  if (!st) return;
+  _icLast = st;
+  const setTxt = (id, v) => { const e = document.getElementById(id); if (e) e.textContent = v; };
+  const done = Object.values(st.shops || {}).filter((s) => s.done).length;
+  const running = !!(st.startTs && !st.endTs);
+  setTxt('shopName', st.endTs ? '✅ 完成' : (st.paused ? '⏸️ 已暂停' : (running ? `🟢 ${st.cur || '运行中'}` : (st.cur || '待机'))));
+  const ctrl = document.getElementById('icCtrlRow'); if (ctrl) ctrl.style.display = running ? 'flex' : 'none';
+  ['btnInterceptAll', 'btnIntercept'].forEach((id) => { const e = document.getElementById(id); if (e) e.disabled = running; });
+  const pb = document.getElementById('btnIcPause'); if (pb) pb.textContent = st.paused ? '▶ 继续' : '⏸ 暂停';
+  setTxt('shopCounter', `${done} / ${st.total || '?'}`);
+  setTxt('statProducts', st.prod || 0);
+  setTxt('statVariants', st.vars || 0);
+  setTxt('statErrors', (st.errors || []).length);
+  const bar = document.getElementById('progressBar'); if (bar) bar.style.width = st.total ? `${Math.round(done / st.total * 100)}%` : '0%';
+  const list = document.getElementById('shopsList');
+  if (list) {
+    const rows = Object.entries(st.shops || {}).map(([n, s]) =>
+      `<div style="display:flex;justify-content:space-between;padding:5px 12px;border-bottom:1px solid #f1f5f9;font-size:12px"><span>${s.done ? (s.err ? '⚠️' : '✅') : '⏳'} ${n}</span><span style="color:${s.err ? '#b91c1c' : '#64748b'}">${s.label || ''}</span></div>`).join('');
+    if (rows) list.innerHTML = rows;
+  }
+  const errEl = document.getElementById('icErrors');
+  if (errEl) { errEl.style.display = (st.errors || []).length ? 'block' : 'none'; errEl.innerHTML = (st.errors || []).map((e) => `• ${e}`).join('<br>'); }
+  _icRenderTime(st);
+  if (st.startTs && !st.endTs) { if (!_icTimer) _icTimer = setInterval(() => _icRenderTime(_icLast), 1000); }
+  else if (_icTimer) { clearInterval(_icTimer); _icTimer = null; }
+}
+
+async function runInterceptTest() {
+  if (!shopeeTabId) { chrome.tabs.create({ url: 'https://shopee.com.my' }); window.close(); return; }
+  const el = document.getElementById('icStatus');
+  if (el) { el.style.display = 'block'; el.textContent = '🛰 启动拦截测试（会出现“正在调试”提示条）...'; }
+  // Test: 1 shop, products + up to 20 products' variant stock.
+  chrome.runtime.sendMessage({ type: 'SS_RUN_INTERCEPT', maxShops: 1, maxEnrich: 20 });
+}
+
+async function runInterceptAll() {
+  if (!shopeeTabId) { chrome.tabs.create({ url: 'https://shopee.com.my' }); window.close(); return; }
+  const el = document.getElementById('icStatus');
+  if (el) { el.style.display = 'block'; el.textContent = '🛰 全店采集中（产品 + 有销量/新品的变体库存）— 遇验证码请手动解，会自动继续...'; }
+  // ALL shops (all:true): products + variant stock for every product with sales + new (maxEnrich high).
+  chrome.runtime.sendMessage({ type: 'SS_RUN_INTERCEPT', maxShops: 99, maxEnrich: 9999, all: true });
+}
 
 // ── Tab switching ─────────────────────────────────────────────
 function switchTab(name) {
@@ -128,9 +191,8 @@ function updateRunUI(rd) {
 
   const btn  = document.getElementById('btnRun');
   const stop = document.getElementById('btnStop');
-  btn.disabled    = !!rd.running;
-  btn.textContent = rd.running ? '运行中...' : '▶ 全量运行';
-  stop.style.display = rd.running ? 'block' : 'none';
+  if (btn) { btn.disabled = !!rd.running; btn.textContent = rd.running ? '运行中...' : '▶ 全量运行'; }
+  if (stop) stop.style.display = rd.running ? 'block' : 'none';
 }
 
 function renderRunShops(doneShops, currentShop, running) {

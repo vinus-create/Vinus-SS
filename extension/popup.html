@@ -198,21 +198,30 @@ body {
       <div class="progress-bar-wrap"><div class="progress-bar" id="progressBar"></div></div>
       <div class="stats-row">
         <div class="stat-box products"><div class="stat-val" id="statProducts">0</div><div class="stat-lbl">产品</div></div>
-        <div class="stat-box variants"><div class="stat-val" id="statVariants">0</div><div class="stat-lbl">Variants</div></div>
+        <div class="stat-box variants"><div class="stat-val" id="statVariants">0</div><div class="stat-lbl">变体</div></div>
         <div class="stat-box errors"><div class="stat-val" id="statErrors">0</div><div class="stat-lbl">错误</div></div>
       </div>
+      <div id="icTime" style="font-size:11px;color:#64748b;text-align:center;padding:4px 0 0"></div>
     </div>
     <div class="shops-section">
       <div class="shops-title">各店进度</div>
       <div class="shops-scroll" id="shopsList">
-        <div class="idle-msg"><strong>待机中</strong>点「▶ 运行」开始今日全量采集</div>
+        <div class="idle-msg"><strong>待机中</strong>点「🛰 全店采集」开始</div>
       </div>
     </div>
+    <div id="icErrors" style="display:none;font-size:11px;color:#b91c1c;background:#fef2f2;border-radius:6px;margin:6px 14px;padding:6px 10px;line-height:1.5"></div>
     <div class="btn-row">
-      <button class="btn btn-run" id="btnRun">▶ 全量运行</button>
-      <button class="btn btn-secondary" id="btnStop" style="display:none">⏹ 停止</button>
+      <button class="btn btn-run" id="btnInterceptAll" title="全部店铺：产品+价格+销量，以及【每个有销量产品+新品】的每个变体库存。遇验证码请在标签页手动解，会自动继续。">🛰 全店采集（产品 + 变体库存）</button>
       <button class="btn btn-secondary" id="btnDashboard">📊 Dashboard</button>
     </div>
+    <div class="btn-row" style="margin-top:6px" id="icRunBtns">
+      <button class="btn btn-secondary" id="btnIntercept" style="flex:1" title="先测 1 个店（验证流程顺了再点全店采集）">🛰 测试1店</button>
+    </div>
+    <div class="btn-row" id="icCtrlRow" style="display:none;margin-top:6px">
+      <button class="btn btn-secondary" id="btnIcPause" style="flex:1">⏸ 暂停</button>
+      <button class="btn btn-secondary" id="btnIcStop" style="flex:1;color:#b91c1c">⏹ 停止</button>
+    </div>
+    <div id="icStatus" style="display:none;font-size:11px;color:#475569;padding:4px 14px 0"></div>
   </div>
 
   <!-- SHOPS PANEL -->

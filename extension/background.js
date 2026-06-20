@@ -1,5 +1,7 @@
 // Background service worker — relay messages + auto-solve CAPTCHA via chrome.debugger
+//   + CDP Network-interception scraper (interceptor.js)
 importScripts('captcha-solver.js');
+importScripts('interceptor.js');
 
 let latestRD = null;
 let latestCaptcha = false;
@@ -38,6 +40,14 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
   if (msg.type === 'SS_SOLVE_CAPTCHA') {
     if (sender.tab) handleSolveRequest(sender.tab.id, msg.rects);
   }
+  if (msg.type === 'SS_RUN_INTERCEPT') {
+    // From the popup (no sender.tab) → runIntercept finds the Shopee tab itself.
+    // _icReport() posts IC_UPDATE straight to the popup; no relay needed here.
+    runIntercept({ maxShops: msg.maxShops || 1, maxEnrich: msg.maxEnrich, all: msg.all, tabId: sender.tab && sender.tab.id })
+      .catch((e) => console.warn('[intercept] launch error:', e && e.message));
+  }
+  if (msg.type === 'SS_STOP_INTERCEPT') { try { icStop(); } catch (e) {} }
+  if (msg.type === 'SS_PAUSE_INTERCEPT') { try { icPause(!!msg.paused); } catch (e) {} }
   if (msg.type === 'CAPTCHA_DETECTED') {
     latestCaptcha = true;
     chrome.notifications.create('captcha', {
@@ -60,7 +70,7 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
     }
   }
   if (msg.type === 'GET_STATE') {
-    sendResponse({ rd: latestRD, captcha: latestCaptcha });
+    sendResponse({ rd: latestRD, captcha: latestCaptcha, ic: (typeof _icState !== 'undefined') ? _icState : null });
     return true; // only GET_STATE expects a response — keep the channel open just for it
   }
   // all other messages are fire-and-forget; returning false avoids the

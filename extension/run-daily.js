@@ -202,23 +202,42 @@ window._rdWatcher = setInterval(() => {
 // 不再停止整个 run，所以采集（含变体 enrich）会从中断处接着跑，无需停止/重跑。
 const onCaptchaNow = () => location.href.includes('captcha') || location.href.includes('/verify');
 
-// 找到 GeeTest 滑块的位置（视口 CSS 像素），交给 background 用 chrome.debugger 真实拖动
+// 找到 GeeTest 滑块的位置（顶层视口 CSS 像素），交给 background 用 chrome.debugger 真实拖动。
+// GeeTest 常被塞进 <iframe>，所以同时搜索主文档 + 所有【同源】iframe；命中 iframe 时
+// 把 iframe 自身的位移加回去，使返回的坐标始终相对【顶层视口】(chrome.debugger 的截图/点击用顶层坐标)。
+const SLIDER_SEL = {
+  bg:     ['.geetest_canvas_bg', '.geetest_bg', 'canvas.geetest_canvas_bg', '[class*="captcha"] canvas', '[class*="puzzle"] canvas', '.captcha-bg'],
+  handle: ['.geetest_slider_button', '.geetest_btn', '.secsdk-captcha-drag-icon', '[class*="slider"] [class*="btn"]', '[class*="drag"][class*="btn"]', '[class*="drag"]'],
+  slice:  ['.geetest_canvas_slice', '.geetest_slice', 'canvas.geetest_canvas_slice', '[class*="slice"] canvas', '[class*="piece"] canvas'],
+};
+function _ssReachableDocs() {
+  const docs = [{ doc: document, ox: 0, oy: 0 }];
+  for (const ifr of document.querySelectorAll('iframe')) {
+    let idoc = null;
+    try { idoc = ifr.contentDocument; } catch (e) { /* 跨域 — 读不到，留给诊断 */ }
+    if (idoc) { const fr = ifr.getBoundingClientRect(); docs.push({ doc: idoc, ox: fr.x, oy: fr.y }); }
+  }
+  return docs;
+}
 function getSliderRects() {
-  const pick = (sels) => {
+  const pickIn = (doc, ox, oy, sels) => {
     for (const s of sels) {
-      const el = document.querySelector(s);
+      let el = null;
+      try { el = doc.querySelector(s); } catch (e) { continue; }
       if (el) {
         const r = el.getBoundingClientRect();
-        if (r && r.width > 10 && r.height > 5) return { x: r.x, y: r.y, width: r.width, height: r.height };
+        if (r && r.width > 10 && r.height > 5) return { x: r.x + ox, y: r.y + oy, width: r.width, height: r.height };
       }
     }
     return null;
   };
-  const bg = pick(['.geetest_canvas_bg', '.geetest_bg', 'canvas.geetest_canvas_bg', '[class*="captcha"] canvas', '[class*="puzzle"] canvas', '.captcha-bg']);
-  const handle = pick(['.geetest_slider_button', '.geetest_btn', '.secsdk-captcha-drag-icon', '[class*="slider"] [class*="btn"]', '[class*="drag"][class*="btn"]', '[class*="drag"]']);
-  const slice = pick(['.geetest_canvas_slice', '.geetest_slice', 'canvas.geetest_canvas_slice', '[class*="slice"] canvas', '[class*="piece"] canvas']);
-  if (!bg || !handle) return null;
-  return { bg, handle, slice };
+  // 在同一个文档里同时找到 bg + handle 才算命中（保证三者坐标一致）
+  for (const { doc, ox, oy } of _ssReachableDocs()) {
+    const bg = pickIn(doc, ox, oy, SLIDER_SEL.bg);
+    const handle = pickIn(doc, ox, oy, SLIDER_SEL.handle);
+    if (bg && handle) return { bg, handle, slice: pickIn(doc, ox, oy, SLIDER_SEL.slice) };
+  }
+  return null;
 }
 
 async function waitForCaptchaClear(maxMs = 900000) {
@@ -237,12 +256,22 @@ async function waitForCaptchaClear(maxMs = 900000) {
       window.postMessage({ type: 'SS_SOLVE_CAPTCHA', rects }, '*'); // → content.js → background(chrome.debugger)
     } else if (!htmlLogged) {
       htmlLogged = true;
-      // 没识别到滑块 → 打印候选元素 + HTML，方便我对照真实 DOM 修选择器
-      const cand = [...document.querySelectorAll('canvas,img,button,div')]
-        .filter(e => { const r = e.getBoundingClientRect(); return r.width > 30 && r.height > 10 && r.top > 40 && r.top < 720; })
-        .slice(0, 25)
-        .map(e => `${e.tagName}.${(e.className || '').toString().trim().replace(/\s+/g, '.')}[${Math.round(e.getBoundingClientRect().width)}x${Math.round(e.getBoundingClientRect().height)}]`);
-      log('🧩 未识别滑块元素 — 候选:', cand.join(' | '));
+      // 没识别到滑块 → 打印候选元素 + iframe 结构 + HTML，方便对照真实 DOM 一次性修选择器
+      const fmt = (e) => { const r = e.getBoundingClientRect(); return `${e.tagName}.${(e.className || '').toString().trim().replace(/\s+/g, '.')}[${Math.round(r.width)}x${Math.round(r.height)}]`; };
+      const inView = (e) => { const r = e.getBoundingClientRect(); return r.width > 30 && r.height > 10 && r.top > 40 && r.top < 720; };
+      const cand = [...document.querySelectorAll('canvas,img,button,div')].filter(inView).slice(0, 25).map(fmt);
+      log('🧩 未识别滑块元素 — 顶层候选:', cand.join(' | '));
+      // iframe 枚举：GeeTest 常在 iframe 里。打印 src + （同源时）内部候选元素
+      const frames = [...document.querySelectorAll('iframe')];
+      log(`🧩 iframe 数量: ${frames.length}`);
+      frames.forEach((ifr, i) => {
+        let inner = '跨域(读不到内部)';
+        try {
+          const idoc = ifr.contentDocument;
+          if (idoc) inner = [...idoc.querySelectorAll('canvas,img,button,div')].filter(inView).slice(0, 15).map(fmt).join(' | ') || '(无候选)';
+        } catch (e) {}
+        log(`🧩 iframe[${i}] src=${ifr.src || '(无)'} ${fmt(ifr)} | 内部: ${inner}`);
+      });
       const w = document.querySelector('[class*="geetest"],[class*="captcha"],[class*="verify"],[class*="vcode"],[class*="slide"]');
       log('🧩 调试HTML:', (w ? w.outerHTML : document.body.innerHTML).slice(0, 1200));
     }
