@@ -42,6 +42,11 @@ document.addEventListener('DOMContentLoaded', async () => {
     chrome.storage.local.get('autoSolve').then(({ autoSolve }) => { _chk.checked = autoSolve !== false; }).catch(() => {});
     _chk.addEventListener('change', () => chrome.storage.local.set({ autoSolve: _chk.checked }));
   }
+  const _sadKey = document.getElementById('sadKeyInput');
+  if (_sadKey) {
+    chrome.storage.local.get('sadKey').then(({ sadKey }) => { if (sadKey) _sadKey.value = sadKey; }).catch(() => {});
+    _sadKey.addEventListener('change', () => chrome.storage.local.set({ sadKey: _sadKey.value.trim() }));
+  }
 
   // Event delegation for dynamically generated shop cards
   document.getElementById('shopCards').addEventListener('click', e => {

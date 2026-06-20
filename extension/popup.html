@@ -171,6 +171,10 @@ body {
 <label style="display:flex;align-items:center;gap:6px;padding:6px 14px;font-size:11px;color:#475569;cursor:pointer">
   <input type="checkbox" id="autoSolveChk" checked> 🧩 自动解 CAPTCHA（会短暂出现"调试"提示条；关掉则手动滑）
 </label>
+<div style="display:flex;align-items:center;gap:6px;padding:0 14px 6px;font-size:11px;color:#475569">
+  <span style="white-space:nowrap">SadCaptcha Key:</span>
+  <input id="sadKeyInput" type="password" placeholder="粘贴密钥（自动解验证码，不解则手动）" style="flex:1;font-size:11px;padding:3px 6px;border:1px solid #cbd5e1;border-radius:4px">
+</div>
 
 <!-- NOT ON SHOPEE -->
 <div id="notShopee" class="not-shopee" style="display:none">

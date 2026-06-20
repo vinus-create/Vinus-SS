@@ -6,7 +6,8 @@
   "permissions": ["activeTab", "scripting", "storage", "notifications", "tabs", "debugger"],
   "host_permissions": [
     "https://shopee.com.my/*",
-    "https://vinus-ss.vercel.app/*"
+    "https://vinus-ss.vercel.app/*",
+    "https://www.sadcaptcha.com/*"
   ],
   "action": {
     "default_popup": "popup.html",

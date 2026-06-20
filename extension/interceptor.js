@@ -421,14 +421,64 @@ async function _icVariantStockByClick(tabId, tierVariations, model) {
   return (v === '' || v == null) ? null : parseInt(v, 10);
 }
 
-// Verify page appeared → pause and poll until the user solves it by hand, then continue.
+// ── SadCaptcha auto-solver (Shopee IMAGE_DRAG: #NEW_CAPTCHA canvas + piece) ──────
+async function _icGetKey() { try { return (await chrome.storage.local.get('sadKey')).sadKey || ''; } catch (e) { return ''; } }
+function _icAbToB64(buf) { const u = new Uint8Array(buf); let s = ''; for (let i = 0; i < u.length; i += 8192) s += String.fromCharCode.apply(null, u.subarray(i, i + 8192)); return btoa(s); }
+
+async function _icTrustedDrag(tabId, x0, y0, x1, y1) {
+  const dm = (p) => chrome.debugger.sendCommand({ tabId }, 'Input.dispatchMouseEvent', p);
+  await dm({ type: 'mouseMoved', x: x0, y: y0 }); await _icSleep(80);
+  await dm({ type: 'mousePressed', x: x0, y: y0, button: 'left', buttons: 1, clickCount: 1 }); await _icSleep(70);
+  const steps = 26;
+  for (let s = 1; s <= steps; s++) { const t = s / steps; const e = t < 0.5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2; await dm({ type: 'mouseMoved', x: x0 + (x1 - x0) * e, y: y0 + (y1 - y0) * e + (Math.random() * 2 - 1), button: 'left', buttons: 1 }); await _icSleep(12 + Math.random() * 18); }
+  await dm({ type: 'mouseMoved', x: x1, y: y1, button: 'left', buttons: 1 }); await _icSleep(130);
+  await dm({ type: 'mouseReleased', x: x1, y: y1, button: 'left', buttons: 1, clickCount: 1 });
+}
+async function _icTrustedClick(tabId, x, y) {
+  const dm = (p) => chrome.debugger.sendCommand({ tabId }, 'Input.dispatchMouseEvent', p);
+  await dm({ type: 'mouseMoved', x, y }); await _icSleep(40);
+  await dm({ type: 'mousePressed', x, y, button: 'left', buttons: 1, clickCount: 1 }); await _icSleep(50);
+  await dm({ type: 'mouseReleased', x, y, button: 'left', buttons: 1, clickCount: 1 });
+}
+
+// Returns true if it attempted a solve (drag+verify). Falls back to manual if no widget/key.
+async function _icSadSolve(tabId, key) {
+  if (!key) return false;
+  const r = await _icEval(tabId, "(function(){var c=document.querySelector('#NEW_CAPTCHA canvas');if(!c)return '';var img=document.querySelector('#NEW_CAPTCHA img');var vb=document.querySelector('.rb6XLo')||document.querySelector('#NEW_CAPTCHA button');var cr=c.getBoundingClientRect();var ir=img&&img.getBoundingClientRect();var br=vb&&vb.getBoundingClientRect();var pz='';try{pz=c.toDataURL();}catch(e){}return JSON.stringify({puzzle:pz,piece:img?img.src:'',canvas:{x:cr.x,y:cr.y,w:cr.width,h:cr.height},pieceCenter:ir?{x:ir.x+ir.width/2,y:ir.y+ir.height/2}:{x:cr.x+18,y:cr.y+cr.height/2},verify:br?{x:br.x+br.width/2,y:br.y+br.height/2}:null});})()");
+  const v = r && r.result && r.result.value;
+  if (!v || typeof v !== 'string') return false;
+  let d; try { d = JSON.parse(v); } catch (e) { return false; }
+  if (!d.puzzle) { _icLog('  SadCaptcha: 没找到 #NEW_CAPTCHA canvas（可能是别的验证类型，转手动）'); return false; }
+  const strip = (u) => (u || '').replace(/^data:[^,]*,/, '');
+  const puzzleB64 = strip(d.puzzle);
+  let pieceB64 = '';
+  if ((d.piece || '').startsWith('data:')) pieceB64 = strip(d.piece);
+  else if (d.piece) { try { pieceB64 = _icAbToB64(await (await fetch(d.piece)).arrayBuffer()); } catch (e) {} }
+  let pts;
+  try {
+    const resp = await fetch(`https://www.sadcaptcha.com/api/v1/shopee-image-drag?licenseKey=${encodeURIComponent(key)}`,
+      { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ puzzleImageB64: puzzleB64, pieceImageB64: pieceB64 }) });
+    pts = (await resp.json()).proportionalPoints;
+  } catch (e) { _icLog('  SadCaptcha API 出错:', e.message); return false; }
+  if (!pts || !pts.length) { _icLog('  SadCaptcha: 无解（额度用完？）'); return false; }
+  const ax = d.canvas.x + pts[0].proportionX * d.canvas.w, ay = d.canvas.y + pts[0].proportionY * d.canvas.h;
+  _icLog(`  🧩 SadCaptcha 解题 → 拖到 (${ax | 0},${ay | 0})`);
+  await _icTrustedDrag(tabId, d.pieceCenter.x, d.pieceCenter.y, ax, ay);
+  if (d.verify) await _icTrustedClick(tabId, d.verify.x, d.verify.y);
+  await _icSleep(2500);
+  return true;
+}
+
+// Verify page appeared → SadCaptcha auto-solves (if key set), else wait for a manual solve. Either way, auto-continues.
 async function _icWaitVerifyCleared(tabId, maxMs = 600000) {
   _icLog('  ⏸️ 验证码 — SadCaptcha 自动解 / 手动解亦可，会自动继续...');
   _icReport({ phase: 'captcha' });
-  const start = Date.now();
+  const key = await _icGetKey();
+  const start = Date.now(); let lastTry = 0;
   while (Date.now() - start < maxMs) {
-    if (!/\/verify|captcha/i.test(await _icCurrentUrl(tabId))) { _icLog('  ✅ 验证已解，继续'); await _icSleep(2000); return true; }
-    await _icSleep(3000);
+    if (!/\/verify|captcha/i.test(await _icCurrentUrl(tabId))) { _icLog('  ✅ 验证已解，继续'); await _icSleep(1500); return true; }
+    if (key && Date.now() - lastTry > 6000) { lastTry = Date.now(); await _icSadSolve(tabId, key).catch((e) => _icLog('  solve err:', e.message)); }
+    await _icSleep(2500);
   }
   return false; // timed out → caller stops
 }
