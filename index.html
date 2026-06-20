@@ -1256,48 +1256,50 @@ window.onload = async () => {
 // ========================================================
 // TABS — editable names, draggable order, hideable
 // ========================================================
+const TAB_VERSION = 2; // bump when curating defaults — invalidates old saved tab layout
 const TAB_DEFAULTS = [
+  // daily-driver core, in workflow order
   {id:'overview',   label:'📊 Overview'},
+  {id:'velocity',   label:'📈 Velocity'},
   {id:'bestsellers',label:'🏆 Best Sellers'},
   {id:'variants',   label:'🧬 Variants'},
   {id:'pricing',    label:'💰 Pricing'},
-  {id:'keywords',   label:'🔑 Keywords'},
-  {id:'reviews',    label:'⭐ Reviews'},
-  {id:'velocity',   label:'📈 Velocity'},
-  {id:'compare',    label:'🔀 Compare'},
-  {id:'competitors',label:'🏪 Competitors'},
-  {id:'log',        label:'📋 Scrape Log'},
   {id:'market',     label:'🌐 Market'},
-  {id:'discover',   label:'🔍 Discover'},
-  {id:'framework',  label:'⚙️ Setup Guide'},
+  {id:'reviews',    label:'⭐ Reviews'},
+  // secondary tools — hidden by default, toggle back via “⚙ Manage tabs”
+  {id:'keywords',   label:'🔑 Keywords',    hidden:true},
+  {id:'compare',    label:'🔀 Compare',     hidden:true},
+  {id:'competitors',label:'🏪 Competitors', hidden:true}, // ⊂ Market
+  {id:'discover',   label:'🔍 Discover',    hidden:true},
+  {id:'log',        label:'📋 Scrape Log',  hidden:true},
+  {id:'framework',  label:'⚙️ Setup Guide', hidden:true},
 ];
 let TAB_STATE = [];   // {id, label, hidden}
 let currentTab = 'overview';
 
 function loadTabState() {
+  const fresh = () => TAB_DEFAULTS.map(d => ({...d, hidden: !!d.hidden}));
   try {
-    const saved = localStorage.getItem('ss_tabs');
-    if (saved) {
-      TAB_STATE = JSON.parse(saved);
-      // add any new tabs not yet in saved state
-      TAB_DEFAULTS.forEach(d => {
-        if (!TAB_STATE.find(t => t.id === d.id))
-          TAB_STATE.push({...d, hidden:false});
+    const saved = JSON.parse(localStorage.getItem('ss_tabs') || 'null');
+    if (saved && saved.v === TAB_VERSION && Array.isArray(saved.tabs)) {
+      TAB_STATE = saved.tabs;
+      TAB_DEFAULTS.forEach(d => { // add any new tabs not yet in saved state
+        if (!TAB_STATE.find(t => t.id === d.id)) TAB_STATE.push({...d, hidden: !!d.hidden});
       });
     } else {
-      TAB_STATE = TAB_DEFAULTS.map(d => ({...d, hidden:false}));
+      TAB_STATE = fresh(); // first run or curated-defaults bumped → take the clean layout
     }
   } catch(e) {
-    TAB_STATE = TAB_DEFAULTS.map(d => ({...d, hidden:false}));
+    TAB_STATE = fresh();
   }
 }
 
 function saveTabState() {
-  localStorage.setItem('ss_tabs', JSON.stringify(TAB_STATE));
+  localStorage.setItem('ss_tabs', JSON.stringify({v: TAB_VERSION, tabs: TAB_STATE}));
 }
 
 function resetTabDefaults() {
-  TAB_STATE = TAB_DEFAULTS.map(d => ({...d, hidden:false}));
+  TAB_STATE = TAB_DEFAULTS.map(d => ({...d, hidden: !!d.hidden}));
   saveTabState();
   renderTabBar();
   buildTabPanel();
