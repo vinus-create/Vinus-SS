@@ -380,9 +380,12 @@ function _icParseSold(s) {
 
 // Update product-level historical_sold from the PDP's real "X sold" (the search list hides it as 0).
 // Rows already exist from the product phase, so this partial upsert only touches historical_sold.
-async function _icSaveProductSold(shop, soldMap, today, validIds) {
-  const rows = Object.entries(soldMap).filter(([itemid, s]) => s > 0 && (!validIds || validIds.has(+itemid)))
-    .map(([itemid, s]) => ({ shopid: shop.shopid, itemid: +itemid, historical_sold: s, scraped_date: today }));
+async function _icSaveProductSold(shop, soldMap, today, validIds, apiModels) {
+  // name is required: Postgres checks NOT NULL on the tentative INSERT row BEFORE ON CONFLICT
+  // resolves, so a partial {no name} upsert throws 23502 even when the row already exists.
+  const rows = Object.entries(soldMap)
+    .filter(([itemid, s]) => s > 0 && (!validIds || validIds.has(+itemid)) && apiModels && apiModels[itemid] && apiModels[itemid].name)
+    .map(([itemid, s]) => ({ shopid: shop.shopid, itemid: +itemid, name: apiModels[itemid].name, historical_sold: s, scraped_date: today }));
   if (!rows.length) return 0;
   const r = await fetch(`${_IC_VERCEL}/api/save`, {
     method: 'POST', headers: { 'Content-Type': 'application/json' },
@@ -609,7 +612,7 @@ async function _icScrapeShopVariants(tabId, shop, products, maxEnrich) {
   if (buf.length) { try { saved += await _icSaveVariants(buf); } catch (e) { _icLog('    saveVariants err:', e.message); } }
   if (reviewsBuf.length) { try { savedR += await _icSaveReviews(reviewsBuf); } catch (e) { _icLog('    saveReviews err:', e.message); } }
   let soldN = 0;
-  try { soldN = await _icSaveProductSold(shop, pdpSold, today, validIds); } catch (e) { _icLog('    saveSold err:', e.message); }
+  try { soldN = await _icSaveProductSold(shop, pdpSold, today, validIds, apiModels); } catch (e) { _icLog('    saveSold err:', e.message); }
   _icLog(`  ✅ variants: ${captured} products | product-sold updated: ${soldN}${savedR ? ` | reviews: ${savedR}` : ''}`);
   return { variants: saved, enriched: captured, reviews: savedR, productSold: soldN, blocked };
 }
