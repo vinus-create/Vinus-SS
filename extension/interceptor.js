@@ -486,26 +486,46 @@ async function _icWaitVerifyCleared(tabId, maxMs = 600000) {
   _icLog('  ⏸️ 验证码 — SadCaptcha 自动解 / 手动解亦可，会自动继续...');
   _icReport({ phase: 'captcha' });
   const key = await _icGetKey();
-  _icLog(key ? `  SadCaptcha key 已载入（${key.length} 字）` : '  ⚠️ 未读到 SadCaptcha key — 只能手动解（popup 里粘贴 key 了吗？是否 Remove+Load unpacked？）');
+  let autoSolve = true;
+  try { autoSolve = (await chrome.storage.local.get('autoSolve')).autoSolve !== false; } catch (e) {}
+  _icLog(key && autoSolve ? `  SadCaptcha key 已载入（${key.length} 字），自动解开启`
+    : (key ? '  key 已载入，但自动解已关 → 手动解（解完自动继续）' : '  ⚠️ 未读到 SadCaptcha key — 只能手动解（popup 里粘贴 key 了吗？是否 Remove+Load unpacked？）'));
   const start = Date.now(); let lastTry = 0;
   while (Date.now() - start < maxMs) {
     if (!/\/verify|captcha/i.test(await _icCurrentUrl(tabId))) { _icLog('  ✅ 验证已解，继续'); await _icSleep(1500); return true; }
-    if (key && Date.now() - lastTry > 6000) { lastTry = Date.now(); await _icSadSolve(tabId, key).catch((e) => _icLog('  solve err:', e.message)); }
+    if (key && autoSolve && Date.now() - lastTry > 6000) { lastTry = Date.now(); await _icSadSolve(tabId, key).catch((e) => _icLog('  solve err:', e.message)); }
     await _icSleep(2500);
   }
   return false; // timed out → caller stops
 }
 
 async function _icScrapeShopVariants(tabId, shop, products, maxEnrich) {
-  // Enrich the products that matter: newest-listed (last 30d) + highest-sold (the opportunity set).
+  // Pick which products to click-enrich. Incremental "movers-only" (api/data?type=movers) keeps
+  // daily runs short by re-clicking only products that changed; cold start / endpoint down →
+  // fall back to the full set (newest-listed last 30d + every product with sales).
   const newCut = Math.floor(Date.now() / 1000) - 30 * 86400;
   const scored = products.map((p) => {
     const d = _icD(p);
     return { itemid: d.itemid || p.itemid, sold: _icNum((d.item_card_display_sold_count || {}).historical_sold_count) || _icNum(d.historical_sold), ctime: _icNum(d.ctime) };
   }).filter((t) => t.itemid);
+  const soldDesc = scored.slice().sort((a, b) => b.sold - a.sold).map((t) => t.itemid);
   const news = scored.filter((t) => t.ctime > newCut).map((t) => t.itemid);
-  const sold = scored.filter((t) => t.sold > 0).sort((a, b) => b.sold - a.sold).map((t) => t.itemid);
-  const targets = [...new Set([...news, ...sold])].slice(0, maxEnrich); // new + every product with sales
+  const soldPos = scored.filter((t) => t.sold > 0).sort((a, b) => b.sold - a.sold).map((t) => t.itemid);
+  const fallbackTargets = [...new Set([...news, ...soldPos])]; // == the old full set
+
+  let targets, mv = null;
+  try { const r = await fetch(`${_IC_VERCEL}/api/data?type=movers&shopid=${shop.shopid}`); if (r.ok) mv = await r.json(); }
+  catch (e) { _icLog('  movers fetch err → full pass:', e.message); }
+
+  if (!mv || mv.coldStart || !Array.isArray(mv.itemids)) {
+    targets = fallbackTargets.slice(0, maxEnrich); // first pass / endpoint down → previous behavior
+    _icLog(`  variants: full pass → ${targets.length} targets`);
+  } else {
+    const want = new Set(mv.itemids), scrapedToday = new Set(scored.map((t) => t.itemid));
+    targets = soldDesc.filter((id) => want.has(id) && scrapedToday.has(id)).slice(0, maxEnrich);
+    const c = mv.counts || {};
+    _icLog(`  variants: movers-only → ${targets.length}/${mv.itemids.length} (movers=${c.movers || 0} new=${c.new || 0} never=${c.neverEnriched || 0} forced=${c.forced || 0})`);
+  }
   if (!targets.length) return { variants: 0, enriched: 0, blocked: false };
 
   const today = new Date().toLocaleDateString('en-CA');

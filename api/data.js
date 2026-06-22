@@ -200,6 +200,50 @@ export default async function handler(req, res) {
       return res.status(200).json({ today, yesterday, total: Array.isArray(todayRows) ? todayRows.length : 0, active });
     }
 
+    // Movers — itemids worth re-clicking variants for (incremental daily scrape).
+    //   mover  = today's historical_sold > the previous snapshot's (strictly; a drop = Shopee hid it)
+    //   new    = ctime within 30d · neverEnriched = no product_variants rows yet
+    //   forced = historical_sold >= 1000 not enriched in last 2 days (rounding hides the delta)
+    //   coldStart = only one snapshot date so far → caller does a full pass instead
+    if (type === 'movers' && shopid) {
+      const today      = new Date().toISOString().split('T')[0];
+      const twoDaysAgo = new Date(Date.now() - 2*86400000).toISOString().split('T')[0];
+      const newCut     = Math.floor(Date.now()/1000) - 30*86400; // ctime is BIGINT seconds
+      const [todayRows, dateRows, everEnriched, recentEnriched] = await Promise.all([
+        query(`products?shopid=eq.${shopid}&scraped_date=eq.${today}&select=itemid,historical_sold,ctime&limit=5000`),
+        query(`products?shopid=eq.${shopid}&select=scraped_date&order=scraped_date.desc&limit=5000`),
+        query(`product_variants?shopid=eq.${shopid}&select=itemid&limit=20000`),
+        query(`product_variants?shopid=eq.${shopid}&scraped_date=gte.${twoDaysAgo}&select=itemid&limit=20000`)
+      ]);
+      const tRows = Array.isArray(todayRows) ? todayRows : [];
+      const dates = [...new Set((Array.isArray(dateRows) ? dateRows : []).map(d => d.scraped_date))].sort().reverse();
+      const prevDate = dates[1] || null;
+      if (dates.length <= 1 || !tRows.length || !prevDate) {
+        return res.status(200).json({ coldStart: true, today, prevDate, itemids: [], counts: {} });
+      }
+      const prevRows = await query(`products?shopid=eq.${shopid}&scraped_date=eq.${prevDate}&select=itemid,historical_sold&limit=5000`);
+      const prevMap = {};
+      (Array.isArray(prevRows) ? prevRows : []).forEach(p => { prevMap[p.itemid] = p.historical_sold || 0; });
+      const everSet = new Set();   (Array.isArray(everEnriched)   ? everEnriched   : []).forEach(p => everSet.add(p.itemid));
+      const recentSet = new Set(); (Array.isArray(recentEnriched) ? recentEnriched : []).forEach(p => recentSet.add(p.itemid));
+      let movers = 0, news = 0, never = 0, forced = 0;
+      const itemids = [];
+      for (const p of tRows) {
+        const hs = p.historical_sold || 0;
+        const prev = prevMap[p.itemid];                       // undefined = unseen in prev snapshot
+        const isMover  = (prev !== undefined) && (hs > prev); // strictly greater = real sales
+        const isNew    = (p.ctime || 0) > newCut;
+        const isNever  = !everSet.has(p.itemid);
+        const isForced = hs >= 1000 && !recentSet.has(p.itemid);
+        if (isMover || isNew || isNever || isForced) {
+          itemids.push(p.itemid);
+          if (isMover) movers++; else if (isNew) news++; else if (isNever) never++; else forced++;
+        }
+      }
+      return res.status(200).json({ coldStart: false, today, prevDate, itemids,
+        counts: { movers, new: news, neverEnriched: never, forced, todayTotal: tRows.length } });
+    }
+
     // Category intelligence — cross-shop category breakdown
     if (type === 'category-intel') {
       const data = await query('latest_products?select=catid,shopid,itemid,price_min,historical_sold,raw_discount&limit=5000');

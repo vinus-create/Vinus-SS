@@ -49,6 +49,27 @@ document.addEventListener('DOMContentLoaded', async () => {
     const _saveKey = () => chrome.storage.local.set({ sadKey: _sadKey.value.trim() });
     _sadKey.addEventListener('input', _saveKey);
     _sadKey.addEventListener('change', _saveKey);
+    // One-click validate: key + sadcaptcha.com permission + remaining credits, no captcha needed.
+    const _testBtn = document.getElementById('sadTestBtn');
+    const _testOut = document.getElementById('sadTestStatus');
+    if (_testBtn && _testOut) {
+      _testBtn.addEventListener('click', async () => {
+        const key = _sadKey.value.trim();
+        if (!key) { _testOut.textContent = '✗ 先粘贴 key'; _testOut.style.color = '#ef4444'; return; }
+        _testOut.textContent = '测试中…'; _testOut.style.color = '#94a3b8';
+        try {
+          const r = await fetch(`https://www.sadcaptcha.com/api/v1/license/credits?licenseKey=${encodeURIComponent(key)}`);
+          if (!r.ok) { _testOut.textContent = `✗ HTTP ${r.status}（key 错或被拒）`; _testOut.style.color = '#ef4444'; return; }
+          const d = await r.json();
+          const credits = d.credits ?? d.remaining ?? d.balance ?? d.count;
+          _testOut.textContent = (credits != null) ? `✓ 有效，剩余 ${credits} 次` : `✓ 有效（${JSON.stringify(d).slice(0, 40)}）`;
+          _testOut.style.color = '#16a34a';
+        } catch (e) {
+          _testOut.textContent = `✗ ${e.message}（多半 sadcaptcha.com 权限未授 → Remove + Load unpacked）`;
+          _testOut.style.color = '#ef4444';
+        }
+      });
+    }
   }
   const _perShop = document.getElementById('perShopInput');
   if (_perShop) {
