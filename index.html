@@ -703,7 +703,7 @@ tr:hover td{background:rgba(249,115,22,.04)}
         <table><thead><tr>
           <th>#</th><th>Product</th><th id="th-vel-variant" style="display:none">Variant</th><th>Price</th>
           <th id="th-custom" style="display:none">Custom</th><th id="th-1d">1d Sold</th><th id="th-3d">3d Sold</th><th id="th-7d">7d Sold</th><th id="th-14d">14d Sold</th><th id="th-30d">30d Sold</th>
-          <th id="th-vel-stock" style="display:none">Stock</th><th>Velocity</th>
+          <th id="th-vel-stock" style="display:none">Stock</th><th title="每日均速 = 上次到这次的库存变化 ÷ 间隔天数（每周采集也准）">/天</th><th>Velocity</th>
         </tr></thead><tbody id="vel-body"></tbody></table>
       </div>
     </div>
@@ -2409,6 +2409,7 @@ function renderVelocityTable(sorted) {
       ${isCustom ? `<td style="background:rgba(249,115,22,.06)">${fmtV(dc)}</td>` : ''}
       ${!isCustom ? `<td ${hl('1d')}>${fmtV(d1)}</td><td ${hl('3d')}>${fmtV(d3)}</td><td ${hl('7d')}>${fmtV(d7)}</td><td ${hl('14d')}>${fmtV(d14)}</td><td ${hl('30d')}>${fmtV(d30)}</td>` : ''}
       ${!isProd ? `<td style="font-family:'DM Mono',monospace;font-size:11px;color:var(--muted)">${v.stock??'—'}</td>` : ''}
+      <td style="font-family:'DM Mono',monospace;font-size:11px;font-weight:700;color:#c2410c" title="${v.interval_days?`间隔 ${v.interval_days} 天`:''}">${v.sold_per_day!=null?(+v.sold_per_day)+'/天':'<span style=\"color:var(--muted2);font-weight:400\">—</span>'}</td>
       <td style="min-width:90px">
         <div class="vel-bar"><div class="vel-fill" style="width:${barPct}%"></div></div>
         <span style="font-size:9px;color:var(--muted);font-family:'DM Mono',monospace">${velVal>0?velVal+' sold':'no data'}</span>
