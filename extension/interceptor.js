@@ -423,6 +423,15 @@ async function _icReadAvail(tabId) {
 // ── SadCaptcha auto-solver (Shopee IMAGE_DRAG: #NEW_CAPTCHA canvas + piece) ──────
 async function _icGetKey() { try { return (await chrome.storage.local.get('sadKey')).sadKey || ''; } catch (e) { return ''; } }
 function _icAbToB64(buf) { const u = new Uint8Array(buf); let s = ''; for (let i = 0; i < u.length; i += 8192) s += String.fromCharCode.apply(null, u.subarray(i, i + 8192)); return btoa(s); }
+// Screenshot a viewport rect via CDP — used when canvas.toDataURL() is blocked by a tainted (cross-origin) canvas.
+async function _icShotClip(tabId, rect) {
+  try {
+    await chrome.debugger.sendCommand({ tabId }, 'Page.enable');
+    const r = await chrome.debugger.sendCommand({ tabId }, 'Page.captureScreenshot',
+      { format: 'png', clip: { x: rect.x, y: rect.y, width: rect.w, height: rect.h, scale: 1 } });
+    return (r && r.data) || '';
+  } catch (e) { _icLog('  shot err:', e.message); return ''; }
+}
 
 async function _icTrustedDrag(tabId, x0, y0, x1, y1) {
   const dm = (p) => chrome.debugger.sendCommand({ tabId }, 'Input.dispatchMouseEvent', p);
@@ -443,22 +452,26 @@ async function _icTrustedClick(tabId, x, y) {
 // Returns true if it attempted a solve (drag+verify). Falls back to manual if no widget/key.
 async function _icSadSolve(tabId, key) {
   if (!key) return false;
-  const r = await _icEval(tabId, "(function(){var c=document.querySelector('#NEW_CAPTCHA canvas');if(!c)return '';var img=document.querySelector('#NEW_CAPTCHA img');var vb=document.querySelector('.rb6XLo')||document.querySelector('#NEW_CAPTCHA button');var cr=c.getBoundingClientRect();var ir=img&&img.getBoundingClientRect();var br=vb&&vb.getBoundingClientRect();var pz='';try{pz=c.toDataURL();}catch(e){}return JSON.stringify({puzzle:pz,piece:img?img.src:'',canvas:{x:cr.x,y:cr.y,w:cr.width,h:cr.height},pieceCenter:ir?{x:ir.x+ir.width/2,y:ir.y+ir.height/2}:{x:cr.x+18,y:cr.y+cr.height/2},verify:br?{x:br.x+br.width/2,y:br.y+br.height/2}:null});})()");
+  const r = await _icEval(tabId, "(function(){var c=document.querySelector('#NEW_CAPTCHA canvas');if(!c)return JSON.stringify({nocanvas:true});var img=document.querySelector('#NEW_CAPTCHA img');var vb=document.querySelector('.rb6XLo')||document.querySelector('#NEW_CAPTCHA button');var cr=c.getBoundingClientRect();var ir=img&&img.getBoundingClientRect();var br=vb&&vb.getBoundingClientRect();var pz='';try{pz=c.toDataURL();}catch(e){}return JSON.stringify({puzzle:pz,piece:img?img.src:'',canvas:{x:cr.x,y:cr.y,w:cr.width,h:cr.height},pieceCenter:ir?{x:ir.x+ir.width/2,y:ir.y+ir.height/2}:{x:cr.x+18,y:cr.y+cr.height/2},verify:br?{x:br.x+br.width/2,y:br.y+br.height/2}:null});})()");
   const v = r && r.result && r.result.value;
-  if (!v || typeof v !== 'string') return false;
+  if (!v || typeof v !== 'string') { _icLog('  SadCaptcha: 页面无返回（debugger 未连？）'); return false; }
   let d; try { d = JSON.parse(v); } catch (e) { return false; }
-  if (!d.puzzle) { _icLog('  SadCaptcha: 没找到 #NEW_CAPTCHA canvas（可能是别的验证类型，转手动）'); return false; }
+  if (d.nocanvas) { _icLog('  SadCaptcha: 没找到 #NEW_CAPTCHA canvas（可能是别的验证类型，转手动）'); return false; }
   const strip = (u) => (u || '').replace(/^data:[^,]*,/, '');
-  const puzzleB64 = strip(d.puzzle);
+  let puzzleB64 = strip(d.puzzle);
+  if (!puzzleB64) { _icLog('  SadCaptcha: canvas.toDataURL 被污染 → 改用 CDP 截图'); puzzleB64 = await _icShotClip(tabId, d.canvas); }
   let pieceB64 = '';
   if ((d.piece || '').startsWith('data:')) pieceB64 = strip(d.piece);
   else if (d.piece) { try { pieceB64 = _icAbToB64(await (await fetch(d.piece)).arrayBuffer()); } catch (e) {} }
+  _icLog(`  SadCaptcha: puzzle=${puzzleB64.length}字 piece=${pieceB64.length}字 canvas=${d.canvas.w | 0}x${d.canvas.h | 0} verify=${d.verify ? '有' : '无'}`);
+  if (!puzzleB64) { _icLog('  SadCaptcha: 拿不到拼图图像，转手动'); return false; }
   let pts;
   try {
     const resp = await fetch(`https://www.sadcaptcha.com/api/v1/shopee-image-drag?licenseKey=${encodeURIComponent(key)}`,
       { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ puzzleImageB64: puzzleB64, pieceImageB64: pieceB64 }) });
+    if (!resp.ok) { _icLog(`  SadCaptcha API HTTP ${resp.status}（key 错 / 额度用完？）`); return false; }
     pts = (await resp.json()).proportionalPoints;
-  } catch (e) { _icLog('  SadCaptcha API 出错:', e.message); return false; }
+  } catch (e) { _icLog('  SadCaptcha API 出错（多半是 sadcaptcha.com 权限未授 → 需 Remove + Load unpacked）:', e.message); return false; }
   if (!pts || !pts.length) { _icLog('  SadCaptcha: 无解（额度用完？）'); return false; }
   const ax = d.canvas.x + pts[0].proportionX * d.canvas.w, ay = d.canvas.y + pts[0].proportionY * d.canvas.h;
   _icLog(`  🧩 SadCaptcha 解题 → 拖到 (${ax | 0},${ay | 0})`);
@@ -473,6 +486,7 @@ async function _icWaitVerifyCleared(tabId, maxMs = 600000) {
   _icLog('  ⏸️ 验证码 — SadCaptcha 自动解 / 手动解亦可，会自动继续...');
   _icReport({ phase: 'captcha' });
   const key = await _icGetKey();
+  _icLog(key ? `  SadCaptcha key 已载入（${key.length} 字）` : '  ⚠️ 未读到 SadCaptcha key — 只能手动解（popup 里粘贴 key 了吗？是否 Remove+Load unpacked？）');
   const start = Date.now(); let lastTry = 0;
   while (Date.now() - start < maxMs) {
     if (!/\/verify|captcha/i.test(await _icCurrentUrl(tabId))) { _icLog('  ✅ 验证已解，继续'); await _icSleep(1500); return true; }

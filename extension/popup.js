@@ -45,7 +45,10 @@ document.addEventListener('DOMContentLoaded', async () => {
   const _sadKey = document.getElementById('sadKeyInput');
   if (_sadKey) {
     chrome.storage.local.get('sadKey').then(({ sadKey }) => { if (sadKey) _sadKey.value = sadKey; }).catch(() => {});
-    _sadKey.addEventListener('change', () => chrome.storage.local.set({ sadKey: _sadKey.value.trim() }));
+    // save on every keystroke/paste (not just blur) so the key is persisted even if you hit 运行 immediately
+    const _saveKey = () => chrome.storage.local.set({ sadKey: _sadKey.value.trim() });
+    _sadKey.addEventListener('input', _saveKey);
+    _sadKey.addEventListener('change', _saveKey);
   }
 
   // Event delegation for dynamically generated shop cards
