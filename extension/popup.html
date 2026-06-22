@@ -234,6 +234,10 @@ body {
     <div class="btn-row" style="margin-top:6px" id="icRunBtns">
       <button class="btn btn-secondary" id="btnIntercept" style="flex:1" title="先测 1 个店（验证流程顺了再点全店采集）">🛰 测试1店</button>
     </div>
+    <div class="btn-row" style="margin-top:6px">
+      <button class="btn btn-secondary" id="btnRun" style="flex:1" title="快速模式：直接调用 Shopee API（item/get 取变体），比「全店采集」快很多——不用逐个变体点击。代价：变体库存可能被 Shopee 封顶（≤10），风控/封号风险略高。在你日常已登录的 Chrome 里最稳。">▶ 全量运行（快速 API · 变体可能封顶）</button>
+      <button class="btn btn-secondary" id="btnStop" style="flex:1;display:none;color:#b91c1c">⏹ 停止</button>
+    </div>
     <div class="btn-row" id="icCtrlRow" style="display:none;margin-top:6px">
       <button class="btn btn-secondary" id="btnIcPause" style="flex:1">⏸ 暂停</button>
       <button class="btn btn-secondary" id="btnIcStop" style="flex:1;color:#b91c1c">⏹ 停止</button>

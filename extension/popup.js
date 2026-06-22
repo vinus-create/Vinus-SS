@@ -34,6 +34,10 @@ document.addEventListener('DOMContentLoaded', async () => {
   if (_btnIcPause) _btnIcPause.addEventListener('click', () => chrome.runtime.sendMessage({ type: 'SS_PAUSE_INTERCEPT', paused: !(_icLast && _icLast.paused) }));
   const _btnIcStop = document.getElementById('btnIcStop');
   if (_btnIcStop) _btnIcStop.addEventListener('click', () => chrome.runtime.sendMessage({ type: 'SS_STOP_INTERCEPT' }));
+  const _btnRun = document.getElementById('btnRun');   // ▶ 全量运行 — fast direct-API mode (run-daily.js)
+  if (_btnRun) _btnRun.addEventListener('click', runDaily);
+  const _btnStop = document.getElementById('btnStop');
+  if (_btnStop) _btnStop.addEventListener('click', stopDaily);
   document.getElementById('addShopInput') .addEventListener('keydown', e => { if (e.key === 'Enter') addAndScrape(); });
 
   // Auto-solve CAPTCHA toggle (persisted; default ON)
