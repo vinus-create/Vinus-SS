@@ -588,7 +588,7 @@ async function _icScrapeShopVariants(tabId, shop, products, maxEnrich) {
         };
         // stock for the currently-selected combo: intercepted API (svLast) > DOM "X available" > null
         const readStock = async () => {
-          await _icSleep(1000);
+          await _icSleep(700); // wait for select_variation_pc + DOM update (in-page click → low verify risk)
           const dom = await _icReadAvail(tabId);
           return (svLast.stock != null) ? svLast.stock : (dom != null ? dom : null);
         };
@@ -599,7 +599,7 @@ async function _icScrapeShopVariants(tabId, shop, products, maxEnrich) {
           const byIdx = {}; rec.models.forEach((m) => { byIdx[(m.tier_index || []).join(',')] = m; });
           let clicks = 0;
           for (let a = 0; a < t0.length && clicks < 20; a++) {
-            await _icClickOption(tabId, t0[a]); await _icSleep(450);
+            await _icClickOption(tabId, t0[a]); await _icSleep(300);
             for (let b = 0; b < t1.length && clicks < 20; b++) {
               const m = byIdx[`${a},${b}`]; if (!m) continue; // combo may not exist
               let stock = 0;
@@ -620,7 +620,7 @@ async function _icScrapeShopVariants(tabId, shop, products, maxEnrich) {
 
       _icReport({ shop: shop.username, phase: 'variants', i: i + 1, n: targets.length });
       if (buf.length >= 60) { try { saved += await _icSaveVariants(buf.splice(0, 60)); } catch (e) { _icLog('    saveVariants err:', e.message); } }
-      await _icSleep(1800); // gentle spacing between PDP visits — verify-avoidance
+      await _icSleep(1400); // spacing between PDP visits — verify-avoidance (the verify-sensitive gap; trimmed modestly)
     }
   } finally { detach(); }
   if (buf.length) { try { saved += await _icSaveVariants(buf); } catch (e) { _icLog('    saveVariants err:', e.message); } }

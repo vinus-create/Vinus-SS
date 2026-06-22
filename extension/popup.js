@@ -138,8 +138,10 @@ async function runInterceptAll() {
   if (!shopeeTabId) { chrome.tabs.create({ url: 'https://shopee.com.my' }); window.close(); return; }
   const el = document.getElementById('icStatus');
   if (el) { el.style.display = 'block'; el.textContent = '🛰 全店采集中（产品 + 有销量/新品的变体库存）— 遇验证码请手动解，会自动继续...'; }
-  // ALL shops (all:true): products + variant stock for every product with sales + new (maxEnrich high).
-  chrome.runtime.sendMessage({ type: 'SS_RUN_INTERCEPT', maxShops: 99, maxEnrich: 9999, all: true });
+  // ALL shops: products for every listing (cheap), but variant-stock only the top-N per shop
+  // (new + highest-sold = the opportunity set). N is the main speed knob — lower = faster.
+  const perShop = +(localStorage.getItem('ss_perShop') || 60);
+  chrome.runtime.sendMessage({ type: 'SS_RUN_INTERCEPT', maxShops: 99, maxEnrich: perShop, all: true });
 }
 
 // ── Tab switching ─────────────────────────────────────────────
