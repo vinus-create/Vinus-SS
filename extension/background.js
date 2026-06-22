@@ -78,6 +78,46 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
   return false;
 });
 
+// ── Weekly scheduled scrape — Wednesday 22:00 local, via chrome.alarms ──────────
+// Runs the same full-store pass as the 全店采集 button. Needs Chrome open + a logged-in
+// Shopee session at fire time; captchas auto-solve if SadCaptcha is on, else it waits/stops.
+const WEEKLY_ALARM = 'ss-weekly-scrape';
+
+function _nextWeekdayAt(weekday, hour) { // weekday: 0=Sun..6=Sat (3=Wed)
+  const now = new Date(), d = new Date(now);
+  d.setHours(hour, 0, 0, 0);
+  let add = (weekday - d.getDay() + 7) % 7;
+  if (add === 0 && d <= now) add = 7; // already past today's time → next week
+  d.setDate(d.getDate() + add);
+  return d.getTime();
+}
+
+async function ensureWeeklyAlarm() {
+  let on = true;
+  try { on = (await chrome.storage.local.get('weeklyScrape')).weeklyScrape !== false; } catch (e) {}
+  const existing = await chrome.alarms.get(WEEKLY_ALARM);
+  if (!on) { if (existing) await chrome.alarms.clear(WEEKLY_ALARM); return; }
+  if (!existing) chrome.alarms.create(WEEKLY_ALARM, { when: _nextWeekdayAt(3, 22), periodInMinutes: 7 * 24 * 60 });
+}
+chrome.runtime.onInstalled.addListener(ensureWeeklyAlarm);
+chrome.runtime.onStartup.addListener(ensureWeeklyAlarm);
+chrome.storage.onChanged.addListener((c, area) => { if (area === 'local' && c.weeklyScrape) ensureWeeklyAlarm(); });
+
+chrome.alarms.onAlarm.addListener(async (alarm) => {
+  if (alarm.name !== WEEKLY_ALARM) return;
+  let on = true;
+  try { on = (await chrome.storage.local.get('weeklyScrape')).weeklyScrape !== false; } catch (e) {}
+  if (!on) return;
+  let tabs = await chrome.tabs.query({ url: 'https://shopee.com.my/*' });
+  let tabId = tabs[0] && tabs[0].id;
+  if (!tabId) { const t = await chrome.tabs.create({ url: 'https://shopee.com.my', active: false }); tabId = t.id; await new Promise((r) => setTimeout(r, 9000)); }
+  let perShop = 120;
+  try { perShop = +(await chrome.storage.local.get('ss_perShop')).ss_perShop || 120; } catch (e) {}
+  chrome.notifications.create('weekly', { type: 'basic', iconUrl: 'icons/icon48.png',
+    title: '🗓 ShopeeScope 每周采集', message: '已开始每周全店采集（约 1–2 小时）— 遇验证码会自动/手动解' });
+  runIntercept({ maxShops: 99, maxEnrich: perShop, all: true, tabId }).catch((e) => console.warn('[weekly] error:', e && e.message));
+});
+
 function updateBadge(tabId, rd) {
   if (!rd) return;
   if (!rd.running) {

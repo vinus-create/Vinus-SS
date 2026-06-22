@@ -184,6 +184,10 @@ body {
   <input id="perShopInput" type="number" min="10" max="9999" step="10" value="60" title="每店采集库存的产品数（新品+最高销量）。越小越快：40≈1.3h，60≈2h，100≈3h" style="width:70px;font-size:11px;padding:3px 6px;border:1px solid #cbd5e1;border-radius:4px">
   <span style="color:#94a3b8">越小越快（仅变体库存；产品数据照常全采）</span>
 </div>
+<label style="display:flex;align-items:center;gap:6px;padding:0 14px 8px;font-size:11px;color:#475569;cursor:pointer">
+  <input type="checkbox" id="weeklyChk"> 🗓 每周三 22:00 自动采集
+  <span id="weeklyNext" style="color:#94a3b8">（需 Chrome 开着 + 已登录 Shopee）</span>
+</label>
 
 <!-- NOT ON SHOPEE -->
 <div id="notShopee" class="not-shopee" style="display:none">

@@ -74,7 +74,25 @@ document.addEventListener('DOMContentLoaded', async () => {
   const _perShop = document.getElementById('perShopInput');
   if (_perShop) {
     _perShop.value = localStorage.getItem('ss_perShop') || 60;
-    _perShop.addEventListener('input', () => localStorage.setItem('ss_perShop', Math.max(10, +_perShop.value || 60)));
+    chrome.storage.local.set({ ss_perShop: +_perShop.value || 60 }); // mirror for the scheduled run (SW has no localStorage)
+    _perShop.addEventListener('input', () => {
+      const v = Math.max(10, +_perShop.value || 60);
+      localStorage.setItem('ss_perShop', v);
+      chrome.storage.local.set({ ss_perShop: v });
+    });
+  }
+  // Weekly auto-scrape (Wed 22:00) — toggle + next-run display
+  const _weekly = document.getElementById('weeklyChk');
+  const _weeklyNext = document.getElementById('weeklyNext');
+  if (_weekly) {
+    const fmtNextWed = () => {
+      const now = new Date(), d = new Date(now); d.setHours(22, 0, 0, 0);
+      let add = (3 - d.getDay() + 7) % 7; if (add === 0 && d <= now) add = 7; d.setDate(d.getDate() + add);
+      return d.toLocaleString('zh-CN', { weekday: 'short', month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+    };
+    const renderNext = () => { if (_weeklyNext) _weeklyNext.textContent = _weekly.checked ? `下次 ${fmtNextWed()}（需 Chrome 开着+登录）` : '（已关闭）'; };
+    chrome.storage.local.get('weeklyScrape').then(({ weeklyScrape }) => { _weekly.checked = weeklyScrape !== false; renderNext(); }).catch(() => {});
+    _weekly.addEventListener('change', () => { chrome.storage.local.set({ weeklyScrape: _weekly.checked }); renderNext(); });
   }
 
   // Event delegation for dynamically generated shop cards
