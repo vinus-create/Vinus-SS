@@ -217,7 +217,7 @@ async function _icScrapeShopProducts(tabId, shop) {
   try {
     // Walk pages by navigating ?page=N (newest sort = stable enumeration). Each full
     // navigation makes Shopee's own front-end fire a SIGNED search_items for that page.
-    let stale = 0;
+    let stale = 0, capRetries = 0;
     for (let page = 0; page < 30 && stale < 2; page++) {
       if (typeof _icControl !== 'undefined' && _icControl.stop) break;
       const before = Object.keys(prodsMap).length;
@@ -229,8 +229,13 @@ async function _icScrapeShopProducts(tabId, shop) {
 
       const cur = await _icCurrentUrl(tabId);
       if (/\/verify|captcha/i.test(cur)) {
-        _icLog('  ⚠️ landed on verify/captcha — solve by hand, then re-run');
-        return { products: Object.values(prodsMap), respCount, lastErr: lastErr || -1, offsets: [...offsets], blocked: true };
+        // Same as the variants phase: SadCaptcha auto-solves (if on) / wait for a manual solve,
+        // then re-load THIS page and keep going — don't kill the whole run.
+        if (++capRetries > 5 || !(await _icWaitVerifyCleared(tabId))) {
+          _icLog('  ⚠️ 验证未解（超时或反复出现）— 停止本店产品采集');
+          return { products: Object.values(prodsMap), respCount, lastErr: lastErr || -1, offsets: [...offsets], blocked: true };
+        }
+        page--; continue; // 验证已解 → 重采本页（重新触发签名 search_items）
       }
       const after = Object.keys(prodsMap).length;
       if (after === before) stale++; else stale = 0;
