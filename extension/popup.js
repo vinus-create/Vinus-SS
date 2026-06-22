@@ -50,6 +50,11 @@ document.addEventListener('DOMContentLoaded', async () => {
     _sadKey.addEventListener('input', _saveKey);
     _sadKey.addEventListener('change', _saveKey);
   }
+  const _perShop = document.getElementById('perShopInput');
+  if (_perShop) {
+    _perShop.value = localStorage.getItem('ss_perShop') || 60;
+    _perShop.addEventListener('input', () => localStorage.setItem('ss_perShop', Math.max(10, +_perShop.value || 60)));
+  }
 
   // Event delegation for dynamically generated shop cards
   document.getElementById('shopCards').addEventListener('click', e => {

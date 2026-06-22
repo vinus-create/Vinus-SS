@@ -175,6 +175,11 @@ body {
   <span style="white-space:nowrap">SadCaptcha Key:</span>
   <input id="sadKeyInput" type="password" placeholder="粘贴密钥（自动解验证码，不解则手动）" style="flex:1;font-size:11px;padding:3px 6px;border:1px solid #cbd5e1;border-radius:4px">
 </div>
+<div style="display:flex;align-items:center;gap:6px;padding:0 14px 8px;font-size:11px;color:#475569">
+  <span style="white-space:nowrap">每店采变体数:</span>
+  <input id="perShopInput" type="number" min="10" max="9999" step="10" value="60" title="每店采集库存的产品数（新品+最高销量）。越小越快：40≈1.3h，60≈2h，100≈3h" style="width:70px;font-size:11px;padding:3px 6px;border:1px solid #cbd5e1;border-radius:4px">
+  <span style="color:#94a3b8">越小越快（仅变体库存；产品数据照常全采）</span>
+</div>
 
 <!-- NOT ON SHOPEE -->
 <div id="notShopee" class="not-shopee" style="display:none">
