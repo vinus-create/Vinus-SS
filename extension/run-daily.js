@@ -330,6 +330,9 @@ try {
 } catch(e) {}
 if (scrapedToday.size) log(`⏭️ 今日已完成，跳过: ${[...scrapedToday].join(', ')}`);
 
+const shopProducts = {}; // shopid -> 本次采到的产品（Pass B 取 name/price 用）
+
+// ── PASS A：先把所有店铺的产品扫一遍（便宜、稳——先拿到全部销量，再决定采哪些变体）──
 for (let si = 0; si < SHOPS.length; si++) {
   if (!W.running) break; // 停止信号（CAPTCHA/用户手动停止）
   const shop = SHOPS[si];
@@ -409,31 +412,55 @@ for (let si = 0; si < SHOPS.length; si++) {
     continue;
   }
 
-  // ── Phase 2: 获取需要 enrich 的产品 ─────────────────────
-  W.phase = 'enrich';
+  // Pass A 收尾：把本次产品留给 Pass B（取 name/price），店间轻量小憩
+  shopProducts[shop.shopid] = products;
+  W.shops.push({ shop: shop.username, products: products.length || (scrapedTodayCounts[shop.username] || 0), active: 0, variants: 0 });
+  if (si < SHOPS.length - 1 && W.running) { W.phase = 'rest-A'; await sleep(12000); }
+}
+
+log(`\n${'═'.repeat(50)}`);
+log(`✅ PASS A 完成：全部店铺产品已采（${grandProducts} 个）。开始 PASS B — 只采【销量有变化/新品/没采过】产品的变体...`);
+
+// ── PASS B：只对销量有变化的产品采变体（movers，对任意采集间隔都准）──────────────
+for (let si = 0; si < SHOPS.length; si++) {
+  if (!W.running) break;
+  const shop = SHOPS[si];
+  const shopStarted = Date.now();
+  W.shop = shop.username; W.shopIdx = si + 1; W.phase = 'enrich';
+  log(`\n🧬 [B ${si+1}/${SHOPS.length}] ${shop.username} 变体采集`);
+
+  // 产品列表：内存优先（Pass A 采到的）；今日已采/跳过的从库里取（含 name/price_min）
+  let prodList = shopProducts[shop.shopid] || [];
+  if (!prodList.length) {
+    prodList = await fetch(`${VERCEL}/api/data?type=products&shopid=${shop.shopid}&limit=2000`).then(r => r.json()).catch(() => []);
+    if (!Array.isArray(prodList)) prodList = [];
+  }
+
+  // movers 门控：只挑销量有变化 / 新品 / 还没采过变体的产品
   let active = [];
   try {
     await sleep(2000);
-    const r = await fetch(`${VERCEL}/api/data?type=active-sellers&shopid=${shop.shopid}`);
-    const d = await r.json();
-    active = d.active || [];
-    // Sort by delta desc, cap at MAX_ENRICH to avoid account bans
-    active.sort((a, b) => (b.sold_today_est || 0) - (a.sold_today_est || 0));
-    if (active.length > MAX_ENRICH) {
-      log(`  ⚡ ${active.length} active → 限制为 ${MAX_ENRICH}`);
-      active = active.slice(0, MAX_ENRICH);
+    const mv = await fetch(`${VERCEL}/api/data?type=movers&shopid=${shop.shopid}`).then(r => r.json()).catch(() => null);
+    const bySold = (a, b) => (b.historical_sold || 0) - (a.historical_sold || 0);
+    if (!mv || mv.coldStart || !Array.isArray(mv.itemids)) {
+      active = prodList.slice().sort(bySold).slice(0, MAX_ENRICH); // 首次/无基线 → 全量（按销量降序）
+      log(`  首次采集（无基线）→ ${active.length} enrich`);
+    } else {
+      const want = new Set(mv.itemids);
+      active = prodList.filter(p => want.has(p.itemid)).sort(bySold).slice(0, MAX_ENRICH);
+      const c = mv.counts || {};
+      log(`  销量有变化 → ${active.length}/${mv.itemids.length} enrich (变化=${c.movers || 0} 新品=${c.new || 0} 没采过=${c.neverEnriched || 0})`);
     }
-    log(`  Phase 2: ${products.length} 产品 → ${active.length} enrich`);
-  } catch(e) {
-    log(`  ❌ Phase 2 失败: ${e.message}`);
-  }
+  } catch(e) { log(`  ❌ movers 失败: ${e.message}`); }
 
-  // ── Phase 3: item/get Enrichment ─────────────────────────
+  // 在 Pass A 记录的条目上更新（找不到就新建）
+  let sEntry = W.shops.find(x => x.shop === shop.username);
+  if (!sEntry) { sEntry = { shop: shop.username, products: prodList.length, active: 0, variants: 0 }; W.shops.push(sEntry); }
+  sEntry.active = active.length;
+
   if (!active.length) {
-    log(`  ⏭️ 无活跃产品，跳过 enrich`);
-    W.shops.push({ shop: shop.username, products: products.length, active: 0, variants: 0 });
-    await logShop(shop, products.length, 'success', Date.now() - shopStarted, null);
-    await sleep(3000);
+    log(`  ⏭️ 无变化产品，跳过变体`);
+    await logShop(shop, prodList.length, 'success', Date.now() - shopStarted, null);
     continue;
   }
 
@@ -503,11 +530,11 @@ for (let si = 0; si < SHOPS.length; si++) {
   W.variants = grandVariants;
   W.errors = grandErrors;
 
-  log(`  ✅ ${shop.username}: ${products.length} 产品 | ${active.length} enrich | ${shopVars} variants | ${shopErrs} err`);
-  W.shops.push({ shop: shop.username, products: products.length, active: active.length, variants: shopVars, errors: shopErrs });
-  await logShop(shop, products.length, 'success', Date.now() - shopStarted, null);
+  log(`  ✅ ${shop.username}: ${prodList.length} 产品 | ${active.length} enrich | ${shopVars} variants | ${shopErrs} err`);
+  sEntry.variants = shopVars; sEntry.errors = shopErrs;
+  await logShop(shop, prodList.length, 'success', Date.now() - shopStarted, null);
   if (!W.running) break;
-  if (si < SHOPS.length - 1) {
+  if (si < SHOPS.length - 1 && active.length) {
     log(`  ⏸️ 店间休息 3 分钟...`);
     const restSec = Math.round(SHOP_REST / 1000);
     for (let t = restSec; t > 0 && W.running; t--) {
