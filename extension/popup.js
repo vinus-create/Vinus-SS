@@ -476,14 +476,17 @@ async function runDaily() {
   btn.textContent = '注入中...';
 
   try {
+    const maxEnrich = Math.max(10, +(localStorage.getItem('ss_perShop') || 60)); // same knob as 全店采集
     // Clear any stuck previous run first (must run in MAIN world to reach main-world intervals)
     await chrome.scripting.executeScript({
       target: { tabId: shopeeTabId },
       world:  'MAIN',
-      func: () => {
+      args: [maxEnrich],
+      func: (maxEnrich) => {
         if (window._rdRelay)   { clearInterval(window._rdRelay);   window._rdRelay = null; }
         if (window._rdWatcher) { clearInterval(window._rdWatcher); window._rdWatcher = null; }
         window._RD = null;
+        window._RD_CFG = { maxEnrich }; // run-daily.js reads this for MAX_ENRICH
       }
     });
     const results = await chrome.scripting.executeScript({

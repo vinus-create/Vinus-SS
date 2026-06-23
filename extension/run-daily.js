@@ -13,7 +13,7 @@ if (window._rdWatcher) { clearInterval(window._rdWatcher); window._rdWatcher = n
 const VERCEL       = 'https://vinus-ss.vercel.app';
 const DELAY_SEARCH = 2000;   // between search pages
 const DELAY_ITEM   = 5000;   // between item/get calls
-const MAX_ENRICH   = 50;     // max enrich per shop per run
+const MAX_ENRICH   = (window._RD_CFG && window._RD_CFG.maxEnrich) || 50; // popup 每店采变体数 (ss_perShop)
 const SHOP_REST    = 180000; // 3 min rest between shops
 const BATCH        = 60;
 
