@@ -93,8 +93,8 @@ function _nextWeekdayAt(weekday, hour) { // weekday: 0=Sun..6=Sat (3=Wed)
 }
 
 async function ensureWeeklyAlarm() {
-  let on = true;
-  try { on = (await chrome.storage.local.get('weeklyScrape')).weeklyScrape !== false; } catch (e) {}
+  let on = false; // opt-in: only run if explicitly enabled
+  try { on = (await chrome.storage.local.get('weeklyScrape')).weeklyScrape === true; } catch (e) {}
   const existing = await chrome.alarms.get(WEEKLY_ALARM);
   if (!on) { if (existing) await chrome.alarms.clear(WEEKLY_ALARM); return; }
   if (!existing) chrome.alarms.create(WEEKLY_ALARM, { when: _nextWeekdayAt(3, 22), periodInMinutes: 7 * 24 * 60 });
@@ -105,8 +105,8 @@ chrome.storage.onChanged.addListener((c, area) => { if (area === 'local' && c.we
 
 chrome.alarms.onAlarm.addListener(async (alarm) => {
   if (alarm.name !== WEEKLY_ALARM) return;
-  let on = true;
-  try { on = (await chrome.storage.local.get('weeklyScrape')).weeklyScrape !== false; } catch (e) {}
+  let on = false; // opt-in: only run if explicitly enabled
+  try { on = (await chrome.storage.local.get('weeklyScrape')).weeklyScrape === true; } catch (e) {}
   if (!on) return;
   let tabs = await chrome.tabs.query({ url: 'https://shopee.com.my/*' });
   let tabId = tabs[0] && tabs[0].id;

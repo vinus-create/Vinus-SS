@@ -95,7 +95,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       return d.toLocaleString('zh-CN', { weekday: 'short', month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' });
     };
     const renderNext = () => { if (_weeklyNext) _weeklyNext.textContent = _weekly.checked ? `下次 ${fmtNextWed()}（需 Chrome 开着+登录）` : '（已关闭）'; };
-    chrome.storage.local.get('weeklyScrape').then(({ weeklyScrape }) => { _weekly.checked = weeklyScrape !== false; renderNext(); }).catch(() => {});
+    chrome.storage.local.get('weeklyScrape').then(({ weeklyScrape }) => { _weekly.checked = weeklyScrape === true; renderNext(); }).catch(() => {});
     _weekly.addEventListener('change', () => { chrome.storage.local.set({ weeklyScrape: _weekly.checked }); renderNext(); });
   }
 
